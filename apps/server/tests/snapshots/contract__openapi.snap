@@ -1224,6 +1224,16 @@ expression: document
               "null"
             ]
           },
+          "expires_in_minutes": {
+            "description": "The same in minutes, for a lifetime shorter than an hour. At least 1;\n`null` means it stops expiring. Send this or `expires_in_hours`, not\nboth.",
+            "example": 30,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "max_uses": {
             "description": "How many more times it may be retrieved. `null` means unlimited.\n\nCounted against the retrievals it has already had, so lowering this\nbelow `use_count` retires the share instead of reviving it.",
             "example": 1,
@@ -6021,6 +6031,18 @@ expression: document
             "example": 24,
             "in": "query",
             "name": "expires_in_hours",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The same in minutes, for a lifetime shorter than an hour. At least 1.\nSend this or `expires_in_hours`, not both.",
+            "example": 30,
+            "in": "query",
+            "name": "expires_in_minutes",
             "required": false,
             "schema": {
               "format": "int64",

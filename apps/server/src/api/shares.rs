@@ -127,6 +127,10 @@ pub struct CreateShareParams {
     /// How long the share should last. Omit to use the instance's default.
     #[param(example = 24)]
     pub expires_in_hours: Option<u64>,
+    /// The same in minutes, for a lifetime shorter than an hour. At least 1.
+    /// Send this or `expires_in_hours`, not both.
+    #[param(example = 30)]
+    pub expires_in_minutes: Option<u64>,
     /// How many times it may be retrieved. Omit for unlimited; `1` is
     /// burn-after-reading.
     #[param(example = 3)]
@@ -375,7 +379,7 @@ pub async fn create(
     } = described(&state, &mut params)?;
 
     let now = OffsetDateTime::now_utc();
-    let expires_at = resolve_expiry(&state, params.expires_in_hours, now)?;
+    let expires_at = resolve_expiry(&state, Lifetime::of(&params)?, now)?;
     let password_hash = match share_password(&headers)? {
         Some(password) => Some(password::hash(password, state.config().auth.hashing).await?),
         None => None,
@@ -860,6 +864,13 @@ pub struct PatchShareRequest {
     #[schema(value_type = Option<u64>, example = 24)]
     pub expires_in_hours: Patch<u64>,
 
+    /// The same in minutes, for a lifetime shorter than an hour. At least 1;
+    /// `null` means it stops expiring. Send this or `expires_in_hours`, not
+    /// both.
+    #[serde(default, deserialize_with = "patched")]
+    #[schema(value_type = Option<u64>, example = 30)]
+    pub expires_in_minutes: Patch<u64>,
+
     /// How many more times it may be retrieved. `null` means unlimited.
     ///
     /// Counted against the retrievals it has already had, so lowering this
@@ -964,7 +975,15 @@ pub async fn patch(
     }
 
     let now = OffsetDateTime::now_utc();
-    let expires_at = match body.expires_in_hours {
+    // Either field, the one that was sent; both is refused rather than one
+    // silently winning.
+    let lifetime_field = match (body.expires_in_hours, body.expires_in_minutes) {
+        (Some(_), Some(_)) => return Err(both_lifetimes()),
+        (Some(hours), None) => Some(hours.map(Lifetime::hours)),
+        (None, Some(minutes)) => Some(minutes.map(Lifetime::minutes)),
+        (None, None) => None,
+    };
+    let expires_at = match lifetime_field {
         None => Change::Keep,
         // Clearing the expiry would push the share past the instance ceiling
         // through a route never meant to grant that. An instance with no
@@ -984,7 +1003,7 @@ pub async fn patch(
             }
             Change::Set(None)
         }
-        Some(Some(hours)) => Change::Set(resolve_expiry(&state, Some(hours), now)?),
+        Some(Some(lifetime)) => Change::Set(resolve_expiry(&state, Some(lifetime), now)?),
     };
 
     let use_limit = match body.max_uses {
@@ -2261,14 +2280,84 @@ fn management_token(headers: &HeaderMap) -> Option<Secret> {
         .map(Secret::from_client)
 }
 
+/// A lifetime as a request gave it: an amount in hours or in minutes.
+///
+/// Kept with its unit so an error names the field that was sent and states its
+/// bounds in that field's unit.
+#[derive(Debug, Clone, Copy)]
+struct Lifetime {
+    amount: u64,
+    unit: LifetimeUnit,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum LifetimeUnit {
+    Hours,
+    Minutes,
+}
+
+impl LifetimeUnit {
+    const fn field(self) -> &'static str {
+        match self {
+            Self::Hours => "expires_in_hours",
+            Self::Minutes => "expires_in_minutes",
+        }
+    }
+
+    const fn seconds(self) -> u64 {
+        match self {
+            Self::Hours => 3600,
+            Self::Minutes => 60,
+        }
+    }
+}
+
+impl Lifetime {
+    const fn hours(amount: u64) -> Self {
+        Self {
+            amount,
+            unit: LifetimeUnit::Hours,
+        }
+    }
+
+    const fn minutes(amount: u64) -> Self {
+        Self {
+            amount,
+            unit: LifetimeUnit::Minutes,
+        }
+    }
+
+    /// Whichever of the two a creation request sent, refusing both.
+    fn of(params: &CreateShareParams) -> Result<Option<Self>> {
+        match (params.expires_in_hours, params.expires_in_minutes) {
+            (Some(_), Some(_)) => Err(both_lifetimes()),
+            (Some(hours), None) => Ok(Some(Self::hours(hours))),
+            (None, Some(minutes)) => Ok(Some(Self::minutes(minutes))),
+            (None, None) => Ok(None),
+        }
+    }
+}
+
+fn both_lifetimes() -> Error {
+    Error::new(ErrorCode::ConflictingFields)
+        .with_detail(
+            "fields",
+            serde_json::json!(["expires_in_hours", "expires_in_minutes"]),
+        )
+        .with_message("send `expires_in_hours` or `expires_in_minutes`, not both")
+}
+
 /// Turns a requested lifetime into an instant, refusing one beyond the ceiling.
+///
+/// The ceiling is `share.max_expiry_hours`, compared in whichever unit was
+/// sent, so 720 hours and 43 200 minutes are the same limit.
 fn resolve_expiry(
     state: &AppState,
-    requested_hours: Option<u64>,
+    requested: Option<Lifetime>,
     now: OffsetDateTime,
 ) -> Result<Option<OffsetDateTime>> {
     let ceiling = state.config().share.max_expiry();
-    let Some(hours) = requested_hours else {
+    let Some(Lifetime { amount, unit }) = requested else {
         // Most shares arrive without a lifetime, so this figure decides how
         // much an instance holds. See `share.default_expiry_hours`.
         return Ok(state
@@ -2278,29 +2367,24 @@ fn resolve_expiry(
             .map(|limit| now.saturating_add(duration_of(limit))));
     };
 
-    if hours == 0 {
-        return Err(Error::out_of_range(
-            "expires_in_hours",
-            Some(1),
-            state
-                .config()
-                .share
-                .max_expiry()
-                .map(|_| state.config().share.max_expiry_hours),
-        )
-        .with_message("`expires_in_hours` must be at least 1; omit it for the instance default"));
+    let field = unit.field();
+    // The ceiling in the unit the caller used, for the error's `max`.
+    let most = ceiling.map(|limit| limit.as_secs() / unit.seconds());
+    if amount == 0 {
+        return Err(
+            Error::out_of_range(field, Some(1), most).with_message(format!(
+                "`{field}` must be at least 1; omit it for the instance default"
+            )),
+        );
     }
-    let requested = std::time::Duration::from_secs(hours.saturating_mul(3600));
+    let requested = std::time::Duration::from_secs(amount.saturating_mul(unit.seconds()));
     if ceiling.is_some_and(|limit| requested > limit) {
-        return Err(Error::out_of_range(
-            "expires_in_hours",
-            Some(1),
-            Some(state.config().share.max_expiry_hours),
-        )
-        .with_message(format!(
-            "`expires_in_hours` must be at most {}",
-            state.config().share.max_expiry_hours
-        )));
+        return Err(
+            Error::out_of_range(field, Some(1), most).with_message(format!(
+                "`{field}` must be at most {}",
+                most.unwrap_or(u64::MAX)
+            )),
+        );
     }
     Ok(Some(now.saturating_add(duration_of(requested))))
 }

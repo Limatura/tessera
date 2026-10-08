@@ -2688,6 +2688,14 @@ export interface components {
              */
             expires_in_hours?: number | null;
             /**
+             * Format: int64
+             * @description The same in minutes, for a lifetime shorter than an hour. At least 1;
+             *     `null` means it stops expiring. Send this or `expires_in_hours`, not
+             *     both.
+             * @example 30
+             */
+            expires_in_minutes?: number | null;
+            /**
              * Format: int32
              * @description How many more times it may be retrieved. `null` means unlimited.
              *
@@ -6328,6 +6336,12 @@ export interface operations {
                  * @example 24
                  */
                 expires_in_hours?: number;
+                /**
+                 * @description The same in minutes, for a lifetime shorter than an hour. At least 1.
+                 *     Send this or `expires_in_hours`, not both.
+                 * @example 30
+                 */
+                expires_in_minutes?: number;
                 /**
                  * @description How many times it may be retrieved. Omit for unlimited; `1` is
                  *     burn-after-reading.

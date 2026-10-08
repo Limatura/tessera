@@ -6151,3 +6151,87 @@ async fn a_request_body_must_be_an_object() {
         "{refused}"
     );
 }
+
+/// A lifetime shorter than an hour, in minutes, at creation and afterwards.
+#[tokio::test]
+async fn a_share_can_last_minutes() {
+    let app = TestApp::ready().await;
+    let lasts = |share: &serde_json::Value| {
+        let at = OffsetDateTime::parse(
+            share["expires_at"].as_str().expect("an expiry"),
+            &time::format_description::well_known::Rfc3339,
+        )
+        .expect("RFC 3339");
+        (at - OffsetDateTime::now_utc()).whole_minutes()
+    };
+
+    let share = upload(&app, "?expires_in_minutes=30", b"hello").await;
+    assert!((29..=30).contains(&lasts(&share)), "{share}");
+
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let token = share["management_token"]
+        .as_str()
+        .expect("a token")
+        .to_owned();
+    let patch = async |body: &'static str| {
+        app.send(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!("/api/v1/shares/{code}"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .header("x-share-management-token", &token),
+            Body::from(body),
+        )
+        .await
+    };
+    let patched = body_json(
+        expect_status(patch(r#"{"expires_in_minutes": 45}"#).await, StatusCode::OK).await,
+    )
+    .await;
+    assert!((44..=45).contains(&lasts(&patched)), "{patched}");
+
+    let both = body_json(
+        expect_status(
+            patch(r#"{"expires_in_minutes": 45, "expires_in_hours": 1}"#).await,
+            StatusCode::BAD_REQUEST,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(both["code"], "conflicting_fields");
+}
+
+/// The same bounds as hours, stated in minutes: at least one, at most the
+/// instance ceiling, and not both units at once.
+#[tokio::test]
+async fn a_lifetime_in_minutes_has_the_same_bounds() {
+    let app = TestApp::ready().await;
+    let ceiling = app.state.config().share.max_expiry_hours * 60;
+    let refuse = async |query: String| {
+        body_json(
+            expect_status(
+                app.send(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri(format!("/api/v1/shares{query}")),
+                    Body::from("hello"),
+                )
+                .await,
+                StatusCode::BAD_REQUEST,
+            )
+            .await,
+        )
+        .await
+    };
+
+    let zero = refuse("?expires_in_minutes=0".to_owned()).await;
+    assert_eq!(zero["details"]["field"], "expires_in_minutes");
+    assert_eq!(zero["details"]["min"], 1);
+
+    let over = refuse(format!("?expires_in_minutes={}", ceiling + 1)).await;
+    assert_eq!(over["details"]["max"], ceiling);
+    upload(&app, &format!("?expires_in_minutes={ceiling}"), b"hello").await;
+
+    let both = refuse("?expires_in_minutes=30&expires_in_hours=1".to_owned()).await;
+    assert_eq!(both["code"], "conflicting_fields");
+}
