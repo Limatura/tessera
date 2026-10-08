@@ -1,6 +1,21 @@
 # End-to-end 測試
 
-這個目錄是**先空出來的**——還沒裝 Playwright,也還沒有測試。要開始寫的時候照下面做。寫法參考了 [nelsonlaidev/nelsonlai.dev][ref],但這個專案是 Rust 後端＋ SQLite,有幾處不能照抄,下面會標出來。
+首頁冒煙測試在 `upload.spec.ts`,設定在 `apps/web/playwright.config.ts`。寫法參考了 [nelsonlaidev/nelsonlai.dev][ref],但這個專案是 Rust 後端＋ SQLite,有幾處不能照抄,下面會標出來。
+
+```bash
+pnpm server:dev                    # 先起後端(:8787)
+pnpm --filter web test:e2e         # Playwright 會自己起 vite dev(:3001),已經在跑就沿用
+```
+
+不想停掉手上那台後端的話,另外起一台拋棄式的,用 `TESSERA_API_ORIGIN` 把 vite 的代理指過去:
+
+```bash
+TESSERA_SERVER__PORT=8788 TESSERA_SERVER__DATA_DIR=/tmp/tessera-e2e \
+  TESSERA_DATABASE__URL=sqlite:///tmp/tessera-e2e/tessera.db target/debug/tessera-server &
+TESSERA_API_ORIGIN=http://127.0.0.1:8788 pnpm --filter web test:e2e
+```
+
+CI 的 job 寫好在 `.github/workflows/web.yml`(`e2e`),但**目前註解掉**:現在的自架 runner 沒有 Chromium 要的系統函式庫。之後改用 GitHub 的 hosted runner 時再打開,要一起改哪些寫在那段註解上方。
 
 [ref]: https://github.com/nelsonlaidev/nelsonlai.dev
 
@@ -17,50 +32,18 @@
 
 **副檔名用 `.spec.ts`**(不是 `.test.ts`),多一層保險:就算哪天 exclude 被改壞了,`.spec.ts` 也不在 vitest 的 include 裡。
 
-## 開始寫的時候
+## 現有的測試
 
-```bash
-pnpm --filter web add -D @playwright/test
-pnpm --filter web exec playwright install --with-deps chromium
-```
+`upload.spec.ts`,全部匿名:
 
-### `apps/web/playwright.config.ts`
+- 首頁在碰到程式碼分頁之前不載入 CodeMirror —— 守 `upload-panel.tsx` 的 lazy 載入,有人把 `CodeUploadForm` 改回靜態 import 就會紅
+- 偵測到語言後編輯器會載入語法包並上色 —— 守 `code-upload-form.tsx` 的語法包動態載入
+- 上傳程式碼片段 → 取件碼 → 另一個分頁取回 → 刪除
+- 上傳檔案 → 取件碼 → 另一個分頁取回 → 刪除
 
-```ts
-import { defineConfig, devices } from "@playwright/test";
+斷言用英文字串,語系由 `playwright.config.ts` 用 `PARAGLIDE_LOCALE` cookie 釘成 `en`。優先用 `getByRole` / `getByLabel` 這類語意查詢,查不到再加 `data-testid`。
 
-const baseURL = "http://localhost:3001";
-const isCI = !!process.env.CI;
-
-export default defineConfig({
-  testDir: "./src/tests/e2e",
-  testMatch: "**/*.spec.ts",
-  // CI 上不平行、失敗重試兩次;本機相反,要快。
-  fullyParallel: !isCI,
-  forbidOnly: isCI,
-  retries: isCI ? 2 : 0,
-  workers: isCI ? 1 : "50%",
-  reporter: "html",
-  use: {
-    baseURL,
-    // 失敗才留 trace/截圖/錄影——成功的 case 留這些只是浪費 CI 空間。
-    trace: "retain-on-failure",
-    screenshot: "only-on-failure",
-    video: "retain-on-failure",
-    ...devices["Desktop Chrome"],
-    // 分享頁有「複製連結」,不給權限那條路測不了。
-    contextOptions: { permissions: ["clipboard-read", "clipboard-write"] },
-  },
-  webServer: {
-    // vite dev 會把 /api 代理到 :8787,所以後端要另外先跑起來。
-    command: "pnpm dev",
-    url: baseURL,
-    reuseExistingServer: !isCI,
-  },
-});
-```
-
-### 這個專案跟參考 repo 不一樣的地方
+## 這個專案跟參考 repo 不一樣的地方
 
 **後端起不起得來是主要差異。** 參考 repo 是 Next.js 單體,`webServer` 一行就全起來了。這裡前後端是分開的:vite dev(:3001)把 `/api` 代理到 Rust 伺服器 (:8787),所以 e2e 跑之前要先有後端。兩種做法:
 
@@ -69,31 +52,10 @@ export default defineConfig({
 
 **不要照抄他們的 auth setup。** 他們用 drizzle 直接寫一筆 session 進 DB、再自己簽出 cookie,那是因為前後端同一個 JS 專案、共用 DB client。這裡的 DB 歸 Rust 管,前端沒有(也不該有)直接寫入的路徑。要測登入狀態的話走 API:打 `POST /api/v1/auth/login` 拿 cookie,存成 `storageState`。
 
-**測試資料要自己收乾淨。** 他們有 `global.teardown.ts` 把測試產生的資料刪掉。這裡的分享大多會自己過期,但 e2e 建的分享還是該在 teardown 用 `DELETE /api/v1/shares/{code}`(帶 management token)刪掉,不然 `./data` 會一直長。
+**測試資料要自己收乾淨。** 他們有 `global.teardown.ts` 把測試產生的資料刪掉。這裡目前是每個上傳測試最後按結果畫面上的「Delete」—— management token 只在那個畫面上,順便也測到刪除。代價是測試中途失敗的那筆不會被刪,只能等它自己過期(預設 7 天);之後要更乾淨的話,改成從上傳的回應攔下 token,在 `afterEach` 打 `DELETE /api/v1/shares/{code}`。
 
 **要不要分 authenticated / unauthenticated 兩個 project?** 他們用 `projects` + `dependencies` 把登入狀態準備好一次給多個測試共用。這裡大部分功能 (上傳、分享、瀏覽)匿名就能用,所以先寫成單一 project 就好;等真的有多個需要登入的測試再拆。
 
-### 第一個該寫的測試
-
-冒煙測試,涵蓋這個產品的主要路徑:
-
-1. 開首頁 → 貼一段程式碼 → 送出
-2. 拿到分享連結
-3. 用新的 page 打開那個連結 → 看得到剛才的內容
-4. teardown 把這筆分享刪掉
-
-`data-testid` 目前程式碼裡幾乎沒有,寫的時候會需要補一些。優先用 `getByRole` / `getByLabel` 這類語意查詢,查不到再加 testid。
-
-### 還要補的三個地方
-
-script 名稱已經留好空間了(`test:unit*`),照這個模式補:
-
-```jsonc
-"test:e2e": "playwright test",
-"test:e2e:ui": "playwright test --ui",
-```
-
-- `turbo.json` 加一個 `test:e2e` task(`"cache": false`,因為會碰真的伺服器)
-- `.github/workflows/web.yml` 加一個 job:裝 Playwright(`--with-deps chromium --only-shell`)、起後端、跑測試,失敗時用 `actions/upload-artifact` 把 `playwright-report/` 存起來(`if: always()`)
-
-> 本機注意:這台機器的 Playwright chromium 缺 `libnspr4` 等系統函式庫, 要先跑 `playwright install --with-deps`。CI 的 runner 沒這問題。
+> 注意:Playwright 的 chromium 需要 `libnspr4`、`libnss3`、`libcups2` 等系統函式庫,缺的話先跑 `playwright install --with-deps chromium`;那份清單沒涵蓋到的發行版(例如 Ubuntu 26.04)就用 `ldd ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | grep "not found"` 看缺什麼,自己 apt 裝。
+>
+> 設定裡的 `channel: "chromium"` 不要拿掉:預設的 chrome-headless-shell 會把 `container-type: inline-size` 底下的 grid 列高算成 0,`CardHeader` 整塊塌掉,所有卡片標題都被判成 hidden。CI 裝的時候也就不能用 `--only-shell`。

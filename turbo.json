@@ -16,6 +16,10 @@
     "test": {
       "dependsOn": ["^build"]
     },
+    "test:e2e": {
+      "cache": false,
+      "passThroughEnv": ["CI", "TESSERA_API_ORIGIN", "PLAYWRIGHT_*"]
+    },
     "dev": {
       "cache": false,
       "persistent": true
