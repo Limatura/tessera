@@ -103,8 +103,11 @@ function OgCardFields({
   return (
     <form onSubmit={form.submit}>
       <FieldGroup>
-        {/* 寬螢幕左右並排,改一行就看得到結果;窄一點的螢幕預覽疊到下面。 */}
-        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_40rem]">
+        {/*
+          編輯器在上、預覽在下。設定頁的內容欄限寬,左右並排的話編輯器只剩兩百多
+          px,一行 HTML 都放不下;預覽照 1200×630 縮放,疊在下面剛好是整欄寬。
+        */}
+        <div className="grid gap-6">
           <Controller
             control={form.control}
             name="layout"
@@ -157,13 +160,7 @@ function OgCardFields({
           )}
         </div>
 
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
+        <SettingsFormFooter form={form} />
       </FieldGroup>
     </form>
   );

@@ -67,6 +67,12 @@ function codePoints(value: string): number {
   return [...value].length;
 }
 
+/**
+ * `site.language`：分享連結預覽（meta 標籤、`og.png` 卡片）上的字用哪個語言。
+ * 爬蟲不帶語言偏好，所以用站台的。不影響網頁介面本身的語言。
+ */
+export const SITE_LANGUAGES = ["en", "zh-TW", "ja"] as const;
+
 export const siteSettingsSchema = z.object({
   // site.description —— 空 = 不輸出這個 meta
   description: z
@@ -74,6 +80,8 @@ export const siteSettingsSchema = z.object({
     .refine((value) => codePoints(value) <= SITE_DESCRIPTION_MAX, {
       error: () => m.settings_schema_max_chars({ max: SITE_DESCRIPTION_MAX }),
     }),
+  // site.language
+  language: z.enum(SITE_LANGUAGES),
   // site.title
   title: z
     .string()
@@ -87,7 +95,8 @@ export const siteSettingsSchema = z.object({
 
 export type SiteSettingsValues = z.infer<typeof siteSettingsSchema>;
 
-// ---- 存儲配置：server.part_size_bytes ----
+// ---- 儲存空間：server.part_size_bytes + storage.split_across_backends
+//      + storage.reconcile_interval_hours / reconcile_grace_hours ----
 //
 // 儲存位置不是設定：每個 backend 是 `storage_backends` 表裡的一列，從
 // `/admin/storage/backends` 管，不透過這裡的 `PUT /admin/settings`。
@@ -103,37 +112,35 @@ export const storageSettingsSchema = z.object({
     .min(MIN_PART_SIZE_BYTES, {
       error: () => m.settings_schema_min_part_size(),
     }),
+  // storage.reconcile_grace_hours
+  reconcileGraceHours: z.number().int().min(0),
+  // storage.reconcile_interval_hours —— 0 = 不對帳
+  reconcileIntervalHours: z.number().int().min(0),
+  // storage.split_across_backends
+  splitAcrossBackends: z.boolean(),
 });
 
 export type StorageSettingsValues = z.infer<typeof storageSettingsSchema>;
 
-// ---- 上傳設置：auth.throttle.source.* + features.anonymous_upload
-//      + storage.max_total_bytes + share.default_expiry_hours / max_expiry_hours ----
+// ---- 上傳與保存：features.anonymous_upload + storage.max_total_bytes
+//      + share.default_expiry_hours / max_expiry_hours ----
 //
 // `server.max_body_bytes` 不在這裡：它是 FIXED_AT_BOOT，只能唯讀顯示。
+// `auth.throttle.source.*` 以前放在這一頁，但它管的是同一個來源的所有昂貴操作，
+// 不只上傳（#387），所以搬到限流頁。
 const BYTES_MIN = 0;
 
 export const uploadSettingsSchema = z
-  // oxlint-disable-next-line sort-keys -- 依限流／容量／保存時間的敘事順序分組，字母序會打散語意
+  // oxlint-disable-next-line sort-keys -- 依誰能傳／保存時間／容量的敘事順序分組，字母序會打散語意
   .object({
-    // auth.throttle.source.window_secs
-    throttleWindowSecs: z
-      .number()
-      .int()
-      .min(1, { error: () => m.settings_schema_at_least_seconds({ n: 1 }) }),
-    // auth.throttle.source.max_attempts
-    throttleMaxAttempts: z
-      .number()
-      .int()
-      .min(1, { error: () => m.settings_schema_at_least_times({ n: 1 }) }),
     // features.anonymous_upload
     allowAnonymousUpload: z.boolean(),
-    // storage.max_total_bytes
-    maxTotalBytes: z.number().int().min(BYTES_MIN),
     // share.default_expiry_hours，0 代表使用 maxExpiryHours
     defaultExpiryHours: z.number().int().min(0),
     // share.max_expiry_hours，0 代表無上限
     maxExpiryHours: z.number().int().min(0),
+    // storage.max_total_bytes
+    maxTotalBytes: z.number().int().min(BYTES_MIN),
   })
   .refine(
     (values) =>
@@ -370,18 +377,23 @@ export type NetworkSettingsValues = z.infer<typeof networkSettingsSchema>;
 // ---- 限流：auth.throttle.* ----
 
 /**
- * 六組計數器保護不同東西，每組都是 `{max_attempts, window_secs}`。
+ * 九組計數器保護不同東西，每組都是 `{max_attempts, window_secs}`。
  *
  * 兩個值都不能是 0，server 啟動時會拒絕：0 次嘗試等於鎖死所有人（在 `source`
  * 上就是整台機器），0 秒視窗則永遠不會擋，看起來開著實際上關著。
+ *
+ * 順序就是畫面上的順序：先放影響最大的 `source`，再依保護的對象分組。
  */
 export const THROTTLE_COUNTERS = [
-  "login",
   "source",
+  "login",
+  "share",
   "lookup",
   "reset",
   "registration",
-  "share",
+  "verification",
+  "speed",
+  "pwned",
 ] as const;
 
 export type ThrottleCounter = (typeof THROTTLE_COUNTERS)[number];
@@ -421,6 +433,8 @@ export const throttleSettingsSchema = z.object({
       error: () =>
         m.settings_schema_max_value({ max: MAX_TRACKED_KEYS_CEILING }),
     }),
+  pwnedMaxAttempts: throttleAttempts(),
+  pwnedWindowSecs: throttleWindow(),
   registrationMaxAttempts: throttleAttempts(),
   registrationWindowSecs: throttleWindow(),
   resetMaxAttempts: throttleAttempts(),
@@ -429,6 +443,10 @@ export const throttleSettingsSchema = z.object({
   shareWindowSecs: throttleWindow(),
   sourceMaxAttempts: throttleAttempts(),
   sourceWindowSecs: throttleWindow(),
+  speedMaxAttempts: throttleAttempts(),
+  speedWindowSecs: throttleWindow(),
+  verificationMaxAttempts: throttleAttempts(),
+  verificationWindowSecs: throttleWindow(),
 });
 
 export type ThrottleSettingsValues = z.infer<typeof throttleSettingsSchema>;

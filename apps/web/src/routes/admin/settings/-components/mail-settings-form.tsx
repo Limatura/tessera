@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { IconAlertTriangle, IconInfoCircle } from "@tabler/icons-react";
 import type { components } from "@tessera/api/schema";
-import { FieldGroup, FieldSeparator } from "@tessera/ui/components/field";
+import { FieldGroup } from "@tessera/ui/components/field";
 import { Controller, useWatch } from "react-hook-form";
 
 import { readSetting } from "@/hooks/admin/use-settings";
@@ -21,10 +22,16 @@ import {
 } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
-import { SealedField, SelectField, TextField } from "./form-fields";
+import {
+  SealedField,
+  SelectField,
+  SettingsNotice,
+  TextField,
+} from "./form-fields";
 import { NumberField } from "./number-field";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
+import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
@@ -125,188 +132,195 @@ function MailSettingsFields({
   const tls = useWatch({ control: form.control, name: "tls" });
 
   return (
-    <form onSubmit={form.submit}>
-      <FieldGroup>
-        {host.trim() === "" && (
-          <p className="rounded-md border border-border bg-muted/40 p-3 text-muted-foreground text-sm">
-            {m.settings_mail_form_host_empty_warning()}
-          </p>
-        )}
+    <form className="flex flex-col gap-6" onSubmit={form.submit}>
+      {host.trim() === "" && (
+        <SettingsNotice
+          icon={<IconInfoCircle />}
+          title={m.settings_mail_form_host_empty_title()}
+          tone="info"
+        >
+          {m.settings_mail_form_host_empty_warning()}
+        </SettingsNotice>
+      )}
 
-        <Controller
-          control={form.control}
-          name="host"
-          render={({ field, fieldState }) => (
-            <TextField
-              description={m.settings_mail_form_host_description()}
-              field={field}
-              fieldState={fieldState}
-              id="mail-host"
-              label={m.settings_mail_form_host_label()}
-              placeholder="smtp.resend.com"
-            />
+      <SettingsCard
+        description={m.settings_mail_relay_description()}
+        title={m.settings_mail_relay_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="host"
+            render={({ field, fieldState }) => (
+              <TextField
+                description={m.settings_mail_form_host_description()}
+                field={field}
+                fieldState={fieldState}
+                id="mail-host"
+                label={m.settings_mail_form_host_label()}
+                placeholder="smtp.resend.com"
+              />
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name="port"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_mail_form_port_description()}
+                field={field}
+                fieldState={fieldState}
+                id="mail-port"
+                label={m.settings_mail_form_port_label()}
+                max={MAX_PORT}
+                min={1}
+              />
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name="tls"
+            render={({ field, fieldState }) => (
+              <SelectField
+                description={m.settings_mail_form_tls_description()}
+                field={field}
+                fieldState={fieldState}
+                id="mail-tls"
+                label={m.settings_mail_form_tls_label()}
+                options={tlsOptions()}
+              />
+            )}
+          />
+
+          {/*
+            `none` 完全不加密，只給本機或內網的 relay 用。server 寄信時會檢查解析出的
+            位址是不是 private/loopback，不是就拒寄 —— 這裡提前說，免得送信時才碰壁。
+          */}
+          {tls === "none" && (
+            <SettingsNotice
+              icon={<IconAlertTriangle />}
+              title={m.settings_mail_form_tls_none_warning_title()}
+              tone="warning"
+            >
+              {m.settings_mail_form_tls_none_warning_body()}
+            </SettingsNotice>
           )}
-        />
 
-        <Controller
-          control={form.control}
-          name="port"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_mail_form_port_description()}
-              field={field}
-              fieldState={fieldState}
-              id="mail-port"
-              label={m.settings_mail_form_port_label()}
-              max={MAX_PORT}
-              min={1}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Controller
+              control={form.control}
+              name="username"
+              render={({ field, fieldState }) => (
+                <SealedField
+                  description={m.settings_mail_form_username_description()}
+                  field={field}
+                  fieldState={fieldState}
+                  id="mail-username"
+                  isSet={usernameIsSet}
+                  label={m.settings_mail_form_username_label()}
+                />
+              )}
             />
-          )}
-        />
 
-        <Controller
-          control={form.control}
-          name="tls"
-          render={({ field, fieldState }) => (
-            <SelectField
-              description={m.settings_mail_form_tls_description()}
-              field={field}
-              fieldState={fieldState}
-              id="mail-tls"
-              label={m.settings_mail_form_tls_label()}
-              options={tlsOptions()}
+            <Controller
+              control={form.control}
+              name="password"
+              render={({ field, fieldState }) => (
+                <SealedField
+                  description={m.settings_mail_form_password_description()}
+                  field={field}
+                  fieldState={fieldState}
+                  id="mail-password"
+                  isSet={passwordIsSet}
+                  label={m.settings_mail_form_password_label()}
+                />
+              )}
             />
-          )}
-        />
+          </div>
+        </FieldGroup>
+      </SettingsCard>
 
-        {tls === "none" && <MailTlsNoneWarning />}
+      <SettingsCard
+        description={m.settings_mail_sender_description()}
+        title={m.settings_mail_sender_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="from"
+            render={({ field, fieldState }) => (
+              <TextField
+                description={m.settings_mail_form_from_description()}
+                field={field}
+                fieldState={fieldState}
+                id="mail-from"
+                label={m.settings_mail_form_from_label()}
+                placeholder="tessera@example.com"
+              />
+            )}
+          />
 
-        <Controller
-          control={form.control}
-          name="username"
-          render={({ field, fieldState }) => (
-            <SealedField
-              description={m.settings_mail_form_username_description()}
-              field={field}
-              fieldState={fieldState}
-              id="mail-username"
-              isSet={usernameIsSet}
-              label={m.settings_mail_form_username_label()}
-            />
-          )}
-        />
+          <Controller
+            control={form.control}
+            name="publicUrl"
+            render={({ field, fieldState }) => (
+              <TextField
+                description={m.settings_mail_form_public_url_description()}
+                field={field}
+                fieldState={fieldState}
+                id="mail-public-url"
+                label={m.settings_mail_form_public_url_label()}
+                placeholder="https://tessera.example.com"
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
 
-        <Controller
-          control={form.control}
-          name="password"
-          render={({ field, fieldState }) => (
-            <SealedField
-              description={m.settings_mail_form_password_description()}
-              field={field}
-              fieldState={fieldState}
-              id="mail-password"
-              isSet={passwordIsSet}
-              label={m.settings_mail_form_password_label()}
-            />
-          )}
-        />
+      <SettingsCard
+        description={m.settings_mail_links_description()}
+        title={m.settings_mail_links_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="resetTtlMinutes"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_mail_form_reset_ttl_description()}
+                field={field}
+                fieldState={fieldState}
+                id="mail-reset-ttl"
+                label={m.settings_mail_form_reset_ttl_label()}
+                max={MAX_RESET_TTL_MINUTES}
+                min={1}
+                unit="minutes"
+              />
+            )}
+          />
 
-        <FieldSeparator />
+          <Controller
+            control={form.control}
+            name="registrationTtlHours"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_mail_form_registration_ttl_description()}
+                field={field}
+                fieldState={fieldState}
+                id="mail-registration-ttl"
+                label={m.settings_mail_form_registration_ttl_label()}
+                max={MAX_REGISTRATION_TTL_HOURS}
+                min={1}
+                unit="hours"
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
 
-        <Controller
-          control={form.control}
-          name="from"
-          render={({ field, fieldState }) => (
-            <TextField
-              description={m.settings_mail_form_from_description()}
-              field={field}
-              fieldState={fieldState}
-              id="mail-from"
-              label={m.settings_mail_form_from_label()}
-              placeholder="tessera@example.com"
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="publicUrl"
-          render={({ field, fieldState }) => (
-            <TextField
-              description={m.settings_mail_form_public_url_description()}
-              field={field}
-              fieldState={fieldState}
-              id="mail-public-url"
-              label={m.settings_mail_form_public_url_label()}
-              placeholder="https://tessera.example.com"
-            />
-          )}
-        />
-
-        <FieldSeparator />
-
-        <Controller
-          control={form.control}
-          name="resetTtlMinutes"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_mail_form_reset_ttl_description()}
-              field={field}
-              fieldState={fieldState}
-              id="mail-reset-ttl"
-              label={m.settings_mail_form_reset_ttl_label()}
-              max={MAX_RESET_TTL_MINUTES}
-              min={1}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="registrationTtlHours"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_mail_form_registration_ttl_description()}
-              field={field}
-              fieldState={fieldState}
-              id="mail-registration-ttl"
-              label={m.settings_mail_form_registration_ttl_label()}
-              max={MAX_REGISTRATION_TTL_HOURS}
-              min={1}
-            />
-          )}
-        />
-
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
-      </FieldGroup>
+      <SettingsFormFooter form={form} />
     </form>
-  );
-}
-
-/**
- * `none` 完全不加密，只給本機或內網的 relay 用（postfix、Mailpit 之類）。
- *
- * server 寄信時會檢查解析出的位址是不是 private/loopback，不是就拒寄 —— 這裡提前
- * 說清楚，免得選了之後才在送信時碰壁。
- */
-function MailTlsNoneWarning() {
-  return (
-    <div
-      className="flex flex-col gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
-      role="alert"
-    >
-      <p className="font-medium">
-        {m.settings_mail_form_tls_none_warning_title()}
-      </p>
-      <p className="text-muted-foreground">
-        {m.settings_mail_form_tls_none_warning_body()}
-      </p>
-    </div>
   );
 }

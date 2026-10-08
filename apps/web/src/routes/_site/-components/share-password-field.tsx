@@ -18,6 +18,8 @@ interface SharePasswordFieldProps {
   code: string;
   initialHasPassword: boolean;
   managementToken?: string;
+  /** 存成功之後才呼叫,給要記住「現在有沒有密碼」的呼叫端用。 */
+  onChange?: (hasPassword: boolean) => void;
 }
 
 /**
@@ -28,6 +30,7 @@ export function SharePasswordField({
   code,
   initialHasPassword,
   managementToken,
+  onChange,
 }: SharePasswordFieldProps) {
   const [hasPassword, setHasPassword] = useState(initialHasPassword);
   const [open, setOpen] = useState(false);
@@ -54,6 +57,7 @@ export function SharePasswordField({
     try {
       await updateShare(code, settings, managementToken);
       setHasPassword(nextHasPassword);
+      onChange?.(nextHasPassword);
       setOpen(false);
       setPassword("");
       setShowPassword(false);

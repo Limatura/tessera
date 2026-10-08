@@ -15,16 +15,18 @@ import { useSettingsForm } from "@/hooks/admin/use-settings-form";
 import type { SettingsKeyMap } from "@/hooks/admin/use-settings-form";
 import {
   SITE_DESCRIPTION_MAX,
+  SITE_LANGUAGES,
   SITE_TITLE_MAX,
   siteSettingsSchema,
 } from "@/lib/admin/settings-schema";
 import type { SiteSettingsValues } from "@/lib/admin/settings-schema";
-import { asString } from "@/lib/admin/settings-values";
+import { asEnum, asString } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
-import { TextField } from "./form-fields";
+import { SelectField, TextField } from "./form-fields";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
+import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
@@ -32,11 +34,21 @@ const DEFAULT_TITLE = "Tessera";
 
 const KEYS = {
   description: "site.description",
+  language: "site.language",
   title: "site.title",
 } satisfies SettingsKeyMap<SiteSettingsValues>;
 
 /**
- * 站台資訊：`site.title` / `site.description`。
+ * 語言名稱一律用該語言自己的寫法：要找日文的人認得「日本語」，不一定認得「Japanese」。
+ */
+const LANGUAGE_OPTIONS = [
+  { label: "English", value: "en" },
+  { label: "繁體中文", value: "zh-TW" },
+  { label: "日本語", value: "ja" },
+] as const;
+
+/**
+ * 站台資訊：`site.title` / `site.description` / `site.language`。
  *
  * 跟 `appearance.*` 一樣在 `index.html` 送出前就寫進去，所以分頁標題和連結預覽
  * 不用等 script。分享頁的說明用分享自己的，不會被這裡蓋掉。
@@ -54,6 +66,11 @@ export function SiteSettingsForm() {
 function initialValues(settings: Settings): SiteSettingsValues {
   return {
     description: asString(readSetting(settings, KEYS.description), ""),
+    language: asEnum(
+      readSetting(settings, KEYS.language),
+      SITE_LANGUAGES,
+      "en"
+    ),
     title: asString(readSetting(settings, KEYS.title), DEFAULT_TITLE),
   };
 }
@@ -70,57 +87,80 @@ function SiteSettingsFields({
   });
 
   return (
-    <form onSubmit={form.submit}>
-      <FieldGroup>
-        <Controller
-          control={form.control}
-          name="title"
-          render={({ field, fieldState }) => (
-            <TextField
-              description={m.settings_site_form_title_description({
-                max: SITE_TITLE_MAX,
-              })}
-              field={field}
-              fieldState={fieldState}
-              id="site-title"
-              label={m.settings_site_form_title_label()}
-              placeholder={DEFAULT_TITLE}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="description"
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="site-description">
-                {m.settings_site_form_description_label()}
-              </FieldLabel>
-              <Textarea
-                {...field}
-                aria-invalid={fieldState.invalid}
-                id="site-description"
-                rows={3}
-              />
-              <FieldDescription>
-                {m.settings_site_form_description_description({
-                  max: SITE_DESCRIPTION_MAX,
+    <form className="flex flex-col gap-6" onSubmit={form.submit}>
+      <SettingsCard
+        description={m.settings_site_identity_description()}
+        title={m.settings_site_identity_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="title"
+            render={({ field, fieldState }) => (
+              <TextField
+                description={m.settings_site_form_title_description({
+                  max: SITE_TITLE_MAX,
                 })}
-              </FieldDescription>
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
-          )}
-        />
+                field={field}
+                fieldState={fieldState}
+                id="site-title"
+                label={m.settings_site_form_title_label()}
+                placeholder={DEFAULT_TITLE}
+              />
+            )}
+          />
 
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
-      </FieldGroup>
+          <Controller
+            control={form.control}
+            name="description"
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor="site-description">
+                  {m.settings_site_form_description_label()}
+                </FieldLabel>
+                <Textarea
+                  {...field}
+                  aria-invalid={fieldState.invalid}
+                  id="site-description"
+                  rows={3}
+                />
+                <FieldDescription>
+                  {m.settings_site_form_description_description({
+                    max: SITE_DESCRIPTION_MAX,
+                  })}
+                </FieldDescription>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsCard
+        description={m.settings_site_preview_description()}
+        title={m.settings_site_preview_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="language"
+            render={({ field, fieldState }) => (
+              <SelectField
+                description={m.settings_site_form_language_description()}
+                field={field}
+                fieldState={fieldState}
+                id="site-language"
+                label={m.settings_site_form_language_label()}
+                options={LANGUAGE_OPTIONS}
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsFormFooter form={form} />
     </form>
   );
 }

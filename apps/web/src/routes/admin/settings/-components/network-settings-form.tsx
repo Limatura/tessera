@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { IconAlertTriangle } from "@tabler/icons-react";
 import type { components } from "@tessera/api/schema";
 import {
   Field,
@@ -6,7 +7,6 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from "@tessera/ui/components/field";
 import { Textarea } from "@tessera/ui/components/textarea";
 import { Controller, useWatch } from "react-hook-form";
@@ -28,10 +28,11 @@ import {
 } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
-import { SelectField, TextField } from "./form-fields";
+import { SelectField, SettingsNotice, TextField } from "./form-fields";
 import { NumberField } from "./number-field";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
+import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
@@ -110,125 +111,131 @@ function NetworkSettingsFields({
   });
 
   return (
-    <form onSubmit={form.submit}>
-      <FieldGroup>
-        <Controller
-          control={form.control}
-          name="publicUrl"
-          render={({ field, fieldState }) => (
-            <TextField
-              description={m.settings_network_form_public_url_description()}
-              field={field}
-              fieldState={fieldState}
-              id="network-public-url"
-              label={m.settings_network_form_public_url_label()}
-              placeholder="https://tessera.example.com"
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="trustedProxies"
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="network-trusted-proxies">
-                {m.settings_network_form_trusted_proxies_label()}
-              </FieldLabel>
-              <Textarea
-                {...field}
-                aria-invalid={fieldState.invalid}
-                id="network-trusted-proxies"
-                placeholder={"127.0.0.1\n::1"}
-                rows={3}
+    <form className="flex flex-col gap-6" onSubmit={form.submit}>
+      <SettingsCard
+        description={m.settings_network_address_description()}
+        title={m.settings_network_address_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="publicUrl"
+            render={({ field, fieldState }) => (
+              <TextField
+                description={m.settings_network_form_public_url_description()}
+                field={field}
+                fieldState={fieldState}
+                id="network-public-url"
+                label={m.settings_network_form_public_url_label()}
+                placeholder="https://tessera.example.com"
               />
-              <FieldDescription>
-                {m.settings_network_form_trusted_proxies_description()}
-              </FieldDescription>
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsCard
+        description={m.settings_network_proxy_description()}
+        title={m.settings_network_proxy_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="trustedProxies"
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor="network-trusted-proxies">
+                  {m.settings_network_form_trusted_proxies_label()}
+                </FieldLabel>
+                <Textarea
+                  {...field}
+                  aria-invalid={fieldState.invalid}
+                  className="font-mono"
+                  id="network-trusted-proxies"
+                  placeholder={"127.0.0.1\n::1"}
+                  rows={3}
+                />
+                <FieldDescription>
+                  {m.settings_network_form_trusted_proxies_description()}
+                </FieldDescription>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name="cookieSecure"
+            render={({ field, fieldState }) => (
+              <SelectField
+                description={m.settings_network_form_cookie_secure_description()}
+                field={field}
+                fieldState={fieldState}
+                id="network-cookie-secure"
+                label={m.settings_network_form_cookie_secure_label()}
+                options={cookieSecureOptions()}
+              />
+            )}
+          />
+
+          {/*
+            `always` 在非全 HTTPS 環境會讓登入**靜默**失效：瀏覽器收下回應、丟掉
+            cookie，使用者看到「登入成功」然後什麼都沒發生，log 裡也沒有失敗。
+          */}
+          {cookieSecure === "always" && (
+            <SettingsNotice
+              icon={<IconAlertTriangle />}
+              title={m.settings_network_form_always_secure_title()}
+              tone="warning"
+            >
+              {m.settings_network_form_always_secure_body()}
+            </SettingsNotice>
           )}
-        />
+        </FieldGroup>
+      </SettingsCard>
 
-        <Controller
-          control={form.control}
-          name="cookieSecure"
-          render={({ field, fieldState }) => (
-            <SelectField
-              description={m.settings_network_form_cookie_secure_description()}
-              field={field}
-              fieldState={fieldState}
-              id="network-cookie-secure"
-              label={m.settings_network_form_cookie_secure_label()}
-              options={cookieSecureOptions()}
-            />
-          )}
-        />
+      <SettingsCard
+        description={m.settings_network_timeouts_description()}
+        title={m.settings_network_timeouts_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="requestTimeoutSecs"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_network_form_request_timeout_description()}
+                field={field}
+                fieldState={fieldState}
+                id="network-request-timeout"
+                label={m.settings_network_form_request_timeout_label()}
+                min={1}
+                unit="seconds"
+              />
+            )}
+          />
 
-        {cookieSecure === "always" && <AlwaysSecureWarning />}
+          <Controller
+            control={form.control}
+            name="uploadStallSecs"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_network_form_upload_stall_description()}
+                field={field}
+                fieldState={fieldState}
+                id="network-upload-stall"
+                label={m.settings_network_form_upload_stall_label()}
+                min={1}
+                unit="seconds"
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
 
-        <FieldSeparator />
-
-        <Controller
-          control={form.control}
-          name="requestTimeoutSecs"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_network_form_request_timeout_description()}
-              field={field}
-              fieldState={fieldState}
-              id="network-request-timeout"
-              label={m.settings_network_form_request_timeout_label()}
-              min={1}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="uploadStallSecs"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_network_form_upload_stall_description()}
-              field={field}
-              fieldState={fieldState}
-              id="network-upload-stall"
-              label={m.settings_network_form_upload_stall_label()}
-              min={1}
-            />
-          )}
-        />
-
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
-      </FieldGroup>
+      <SettingsFormFooter form={form} />
     </form>
-  );
-}
-
-/**
- * `always` 在非全 HTTPS 環境會讓登入**靜默**失效，這是這一頁最容易踩的坑。
- *
- * 瀏覽器會收下回應、丟掉 cookie，所以使用者看到「登入成功」然後什麼都沒發生 ——
- * 沒有錯誤訊息、log 裡也沒有失敗。
- */
-function AlwaysSecureWarning() {
-  return (
-    <div
-      className="flex flex-col gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
-      role="alert"
-    >
-      <p className="font-medium">
-        {m.settings_network_form_always_secure_title()}
-      </p>
-      <p className="text-muted-foreground">
-        {m.settings_network_form_always_secure_body()}
-      </p>
-    </div>
   );
 }

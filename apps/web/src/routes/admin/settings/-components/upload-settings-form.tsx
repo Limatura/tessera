@@ -1,6 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Link } from "@tanstack/react-router";
 import type { components } from "@tessera/api/schema";
-import { FieldGroup, FieldSeparator } from "@tessera/ui/components/field";
+import { FieldGroup } from "@tessera/ui/components/field";
+import { formatBytes } from "@tessera/ui/lib/format";
 import { Controller } from "react-hook-form";
 
 import { readSetting } from "@/hooks/admin/use-settings";
@@ -17,11 +19,10 @@ import { NumberField } from "./number-field";
 import { ReadOnlySetting } from "./read-only-setting";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
+import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
-const DEFAULT_THROTTLE_WINDOW_SECS = 300;
-const DEFAULT_THROTTLE_MAX_ATTEMPTS = 20;
 const DEFAULT_DEFAULT_EXPIRY_HOURS = 24 * 7;
 const DEFAULT_MAX_EXPIRY_HOURS = 24 * 30;
 
@@ -33,8 +34,6 @@ const KEYS = {
   defaultExpiryHours: "share.default_expiry_hours",
   maxExpiryHours: "share.max_expiry_hours",
   maxTotalBytes: "storage.max_total_bytes",
-  throttleMaxAttempts: "auth.throttle.source.max_attempts",
-  throttleWindowSecs: "auth.throttle.source.window_secs",
 } satisfies SettingsKeyMap<UploadSettingsValues>;
 
 export function UploadSettingsForm() {
@@ -65,14 +64,6 @@ function initialValues(settings: Settings): UploadSettingsValues {
       DEFAULT_MAX_EXPIRY_HOURS
     ),
     maxTotalBytes: asNumber(readSetting(settings, KEYS.maxTotalBytes), 0),
-    throttleMaxAttempts: asNumber(
-      readSetting(settings, KEYS.throttleMaxAttempts),
-      DEFAULT_THROTTLE_MAX_ATTEMPTS
-    ),
-    throttleWindowSecs: asNumber(
-      readSetting(settings, KEYS.throttleWindowSecs),
-      DEFAULT_THROTTLE_WINDOW_SECS
-    ),
   };
 }
 
@@ -90,121 +81,113 @@ function UploadSettingsFields({
   });
 
   return (
-    <form onSubmit={form.submit}>
-      <FieldGroup>
-        <GuestAnonymousWarning fixAt="account" />
+    <form className="flex flex-col gap-6" onSubmit={form.submit}>
+      <GuestAnonymousWarning fixAt="account" />
 
-        <Controller
-          control={form.control}
-          name="throttleWindowSecs"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_upload_form_throttle_window_description()}
-              field={field}
-              fieldState={fieldState}
-              id="upload-throttle-window"
-              label={m.settings_upload_form_throttle_window_label()}
-              min={1}
-            />
-          )}
-        />
+      <SettingsCard
+        description={m.settings_upload_who_description()}
+        title={m.settings_upload_who_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="allowAnonymousUpload"
+            render={({ field }) => (
+              <SwitchField
+                description={m.settings_upload_form_allow_anonymous_description()}
+                field={field}
+                id="upload-allow-anonymous"
+                label={m.settings_upload_form_allow_anonymous_label()}
+              />
+            )}
+          />
+          <p className="text-muted-foreground text-sm">
+            {m.settings_upload_rate_limit_moved()}{" "}
+            <Link
+              className="underline underline-offset-4 hover:text-foreground"
+              to="/admin/settings/throttle"
+            >
+              {m.nav_settings_throttle()}
+            </Link>
+          </p>
+        </FieldGroup>
+      </SettingsCard>
 
-        <Controller
-          control={form.control}
-          name="throttleMaxAttempts"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_upload_form_throttle_attempts_description()}
-              field={field}
-              fieldState={fieldState}
-              id="upload-throttle-attempts"
-              label={m.settings_upload_form_throttle_attempts_label()}
-              min={1}
-            />
-          )}
-        />
+      <SettingsCard
+        description={m.settings_upload_expiry_description()}
+        title={m.settings_upload_expiry_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="defaultExpiryHours"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_upload_form_default_expiry_description()}
+                field={field}
+                fieldState={fieldState}
+                id="upload-default-expiry"
+                label={m.settings_upload_form_default_expiry_label()}
+                min={0}
+                unit="hours"
+              />
+            )}
+          />
 
-        <Controller
-          control={form.control}
-          name="allowAnonymousUpload"
-          render={({ field }) => (
-            <SwitchField
-              description={m.settings_upload_form_allow_anonymous_description()}
-              field={field}
-              id="upload-allow-anonymous"
-              label={m.settings_upload_form_allow_anonymous_label()}
-            />
-          )}
-        />
+          <Controller
+            control={form.control}
+            name="maxExpiryHours"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_upload_form_max_expiry_description()}
+                field={field}
+                fieldState={fieldState}
+                id="upload-max-expiry"
+                label={m.settings_upload_form_max_expiry_label()}
+                min={0}
+                unit="hours"
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
 
-        <ReadOnlySetting
-          description={
-            <>
-              {m.settings_upload_form_max_body_description_before()}{" "}
-              <code>TESSERA_SERVER__MAX_BODY_BYTES</code>{" "}
-              {m.settings_upload_form_max_body_description_after()}
-            </>
-          }
-          label={m.settings_upload_form_max_body_label()}
-          reason={m.settings_upload_form_max_body_reason()}
-          value={maxBodyBytes.toLocaleString()}
-        />
+      <SettingsCard
+        description={m.settings_upload_size_description()}
+        title={m.settings_upload_size_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="maxTotalBytes"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_upload_form_max_total_bytes_description()}
+                field={field}
+                fieldState={fieldState}
+                id="upload-max-total-bytes"
+                label={m.settings_upload_form_max_total_bytes_label()}
+                min={0}
+                unit="bytes"
+              />
+            )}
+          />
 
-        <FieldSeparator />
+          <ReadOnlySetting
+            description={
+              <>
+                {m.settings_upload_form_max_body_description()}{" "}
+                <code>TESSERA_SERVER__MAX_BODY_BYTES</code>
+              </>
+            }
+            label={m.settings_upload_form_max_body_label()}
+            reason={m.settings_upload_form_max_body_reason()}
+            value={formatBytes(maxBodyBytes)}
+          />
+        </FieldGroup>
+      </SettingsCard>
 
-        <Controller
-          control={form.control}
-          name="maxTotalBytes"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_upload_form_max_total_bytes_description()}
-              field={field}
-              fieldState={fieldState}
-              id="upload-max-total-bytes"
-              label={m.settings_upload_form_max_total_bytes_label()}
-              min={0}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="defaultExpiryHours"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_upload_form_default_expiry_description()}
-              field={field}
-              fieldState={fieldState}
-              id="upload-default-expiry"
-              label={m.settings_upload_form_default_expiry_label()}
-              min={0}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="maxExpiryHours"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_upload_form_max_expiry_description()}
-              field={field}
-              fieldState={fieldState}
-              id="upload-max-expiry"
-              label={m.settings_upload_form_max_expiry_label()}
-              min={0}
-            />
-          )}
-        />
-
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
-      </FieldGroup>
+      <SettingsFormFooter form={form} />
     </form>
   );
 }

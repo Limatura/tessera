@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 
 import { PasswordSettingsForm } from "./-components/password-settings-form";
-import { SettingsCard } from "./-components/settings-card";
+import { SettingsPage } from "./-components/settings-page";
 
 export const Route = createFileRoute("/admin/settings/password")({
   component: PasswordSettingsRoute,
@@ -11,11 +11,11 @@ export const Route = createFileRoute("/admin/settings/password")({
 
 function PasswordSettingsRoute() {
   return (
-    <SettingsCard
+    <SettingsPage
       description={m.settings_password_description()}
       title={m.settings_password_title()}
     >
       <PasswordSettingsForm />
-    </SettingsCard>
+    </SettingsPage>
   );
 }

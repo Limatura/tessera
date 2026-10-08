@@ -1,5 +1,6 @@
 import {
   Field,
+  FieldContent,
   FieldDescription,
   FieldError,
   FieldLabel,
@@ -14,6 +15,7 @@ import {
   SelectValue,
 } from "@tessera/ui/components/select";
 import { Switch } from "@tessera/ui/components/switch";
+import { cn } from "@tessera/ui/lib/utils";
 import type * as React from "react";
 import type { ControllerRenderProps, FieldValues, Path } from "react-hook-form";
 
@@ -22,6 +24,47 @@ import * as m from "@/paraglide/messages";
 interface FieldStateLike {
   invalid: boolean;
   error?: { message?: string };
+}
+
+/**
+ * 一列設定：左邊標題跟說明，右邊一個窄的控制項（數字、開關、下拉）。
+ *
+ * 放在 `FieldGroup` 裡才會左右排 —— 它是 container query，卡片夠寬才並排，手機上
+ * 自動疊成上下。網址、多行文字這種要寬度的欄位不用這個，用 `TextField`。
+ */
+export function SettingRow({
+  id,
+  label,
+  description,
+  error,
+  controlClassName,
+  children,
+}: {
+  id?: string;
+  label: string;
+  description?: React.ReactNode;
+  error?: { message?: string };
+  /** 控制項那一欄的寬度，預設 `w-48`。 */
+  controlClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Field data-invalid={error !== undefined} orientation="responsive">
+      <FieldContent>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        {description && <FieldDescription>{description}</FieldDescription>}
+        {error && <FieldError errors={[error]} />}
+      </FieldContent>
+      <div
+        className={cn(
+          "flex shrink-0 flex-col gap-1 @md/field-group:w-48",
+          controlClassName
+        )}
+      >
+        {children}
+      </div>
+    </Field>
+  );
 }
 
 /** 文字型 `Controller` 欄位。跟 `NumberField` 一組，差別只在不做數字轉換。 */
@@ -120,10 +163,10 @@ export function SwitchField<TValues extends FieldValues>({
 }) {
   return (
     <Field orientation="horizontal">
-      <FieldLabel htmlFor={id}>
-        {label}
+      <FieldContent>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
         {description && <FieldDescription>{description}</FieldDescription>}
-      </FieldLabel>
+      </FieldContent>
       <Switch
         checked={field.value === true}
         id={id}
@@ -152,10 +195,15 @@ export function SelectField<TValues extends FieldValues>({
   placeholder?: string;
 }) {
   return (
-    <Field data-invalid={fieldState.invalid}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+    <SettingRow
+      controlClassName="@md/field-group:w-60"
+      description={description}
+      error={fieldState.invalid ? fieldState.error : undefined}
+      id={id}
+      label={label}
+    >
       <Select onValueChange={field.onChange} value={field.value}>
-        <SelectTrigger id={id}>
+        <SelectTrigger className="w-full" id={id}>
           {/* 觸發按鈕預設顯示 raw value，要換回翻譯過的 label。 */}
           <SelectValue placeholder={placeholder}>
             {(value: string) =>
@@ -163,7 +211,7 @@ export function SelectField<TValues extends FieldValues>({
             }
           </SelectValue>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent alignItemWithTrigger={false}>
           <SelectGroup>
             {options.map((option) => (
               <SelectItem key={option.value} value={option.value}>
@@ -173,8 +221,51 @@ export function SelectField<TValues extends FieldValues>({
           </SelectGroup>
         </SelectContent>
       </Select>
-      {description && <FieldDescription>{description}</FieldDescription>}
-      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-    </Field>
+    </SettingRow>
+  );
+}
+
+/**
+ * 表單裡的提醒框。`warning` 是「這樣設會出事」，`danger` 是「存下去會把自己鎖在外面」，
+ * `info` 只是補充說明。各表單原本各自手刻一份，顏色跟間距不一致。
+ */
+export function SettingsNotice({
+  tone = "info",
+  title,
+  icon,
+  children,
+}: {
+  tone?: "info" | "warning" | "danger";
+  title?: string;
+  icon?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex gap-3 rounded-lg border p-3 text-sm",
+        tone === "info" && "border-border bg-muted/40",
+        tone === "warning" && "border-amber-500/40 bg-amber-500/10",
+        tone === "danger" && "border-destructive/50 bg-destructive/10"
+      )}
+      role={tone === "info" ? undefined : "alert"}
+    >
+      {icon && (
+        <span
+          className={cn(
+            "mt-0.5 shrink-0 [&_svg]:size-4",
+            tone === "warning" && "text-amber-600 dark:text-amber-500",
+            tone === "danger" && "text-destructive",
+            tone === "info" && "text-muted-foreground"
+          )}
+        >
+          {icon}
+        </span>
+      )}
+      <div className="flex min-w-0 flex-col gap-1">
+        {title && <p className="font-medium">{title}</p>}
+        {children && <div className="text-muted-foreground">{children}</div>}
+      </div>
+    </div>
   );
 }

@@ -1,0 +1,161 @@
+import { Button } from "@tessera/ui/components/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@tessera/ui/components/dialog";
+import { FieldGroup } from "@tessera/ui/components/field";
+import { useState } from "react";
+
+import {
+  ByteLimitField,
+  modeOf,
+  toBytes,
+  toMib,
+} from "@/components/admin/byte-limit-field";
+import type { ByteLimitMode } from "@/components/admin/byte-limit-field";
+import { useSetUserLimits } from "@/hooks/admin/use-admin";
+import type { AdminUser } from "@/lib/admin/accounts";
+import { apiErrorMessage } from "@/lib/api-error";
+import * as m from "@/paraglide/messages";
+
+/**
+ * 幫單一帳號設配額，不用為了一個人另開一個角色（#373）。
+ *
+ * 兩格都有「沿用角色」（`null`）跟「不限制」（`0`）—— 這兩個不是同一件事：前者角色
+ * 改了它跟著改，後者這個帳號從此不受角色限制。全站的 `storage.max_total_bytes`、
+ * `server.max_body_bytes` 仍然壓在上面，這裡給不出比全站更多的空間。
+ */
+export function UserQuotaDialog({
+  account,
+  open,
+  onOpenChange,
+}: {
+  account: AdminUser | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const close = () => onOpenChange(false);
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="sm:max-w-lg">
+        {/* key 換帳號時重新掛載，初始值才會跟著換。 */}
+        {open && account && (
+          <UserQuotaForm account={account} key={account.id} onDone={close} />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function UserQuotaForm({
+  account,
+  onDone,
+}: {
+  account: AdminUser;
+  onDone: () => void;
+}) {
+  const setLimits = useSetUserLimits();
+
+  const initialQuotaMode = modeOf(account.quota_bytes);
+  const initialQuotaMib = toMib(account.quota_bytes);
+  const [quotaMode, setQuotaMode] = useState<ByteLimitMode>(initialQuotaMode);
+  const [quotaMib, setQuotaMib] = useState(initialQuotaMib);
+
+  /*
+   * 帳號的單檔上限 API 讀不回來（`AdminUserResponse` 沒有這個欄位，#454），
+   * 所以從「不變更」開始，選了別的才送。假裝它是「沿用角色」的話，只改配額也會把
+   * 原本設好的單檔上限清掉。
+   */
+  const [fileMode, setFileMode] = useState<ByteLimitMode>("keep");
+  const [fileMib, setFileMib] = useState(0);
+
+  const quotaChanged =
+    quotaMode !== initialQuotaMode ||
+    (quotaMode === "custom" && quotaMib !== initialQuotaMib);
+  const fileChanged = fileMode !== "keep";
+  const invalid =
+    (quotaMode === "custom" && !(quotaMib > 0)) ||
+    (fileMode === "custom" && !(fileMib > 0));
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const limits: {
+      quota_bytes?: number | null;
+      max_file_bytes?: number | null;
+    } = {};
+    if (quotaChanged) {
+      limits.quota_bytes = toBytes(quotaMode, quotaMib);
+    }
+    if (fileChanged) {
+      limits.max_file_bytes = toBytes(fileMode, fileMib);
+    }
+    setLimits.mutate({ id: account.id, limits }, { onSuccess: onDone });
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>
+          {m.users_quota_dialog_title({ name: account.username })}
+        </DialogTitle>
+        <DialogDescription>
+          {m.users_quota_dialog_description()}
+        </DialogDescription>
+      </DialogHeader>
+
+      <form id="user-quota-form" onSubmit={handleSubmit}>
+        <FieldGroup>
+          <ByteLimitField
+            disabled={setLimits.isPending}
+            id="user-quota"
+            inheritDescription={m.users_quota_inherit_description()}
+            inheritLabel={m.users_quota_inherit()}
+            label={m.users_quota_label()}
+            mib={quotaMib}
+            mode={quotaMode}
+            onMibChange={setQuotaMib}
+            onModeChange={setQuotaMode}
+          />
+          <ByteLimitField
+            disabled={setLimits.isPending}
+            id="user-max-file"
+            inheritDescription={m.users_quota_inherit_description()}
+            inheritLabel={m.users_quota_inherit()}
+            keepLabel={m.users_quota_keep()}
+            label={m.users_quota_file_label()}
+            mib={fileMib}
+            mode={fileMode}
+            onMibChange={setFileMib}
+            onModeChange={setFileMode}
+          />
+        </FieldGroup>
+
+        {setLimits.error && (
+          <p className="mt-3 text-destructive text-sm" role="alert">
+            {apiErrorMessage(setLimits.error, m.users_quota_dialog_error())}
+          </p>
+        )}
+      </form>
+
+      <DialogFooter>
+        <Button onClick={onDone} type="button" variant="outline">
+          {m.common_cancel()}
+        </Button>
+        <Button
+          disabled={
+            setLimits.isPending || invalid || !(quotaChanged || fileChanged)
+          }
+          form="user-quota-form"
+          type="submit"
+        >
+          {setLimits.isPending ? m.common_saving() : m.common_save()}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}

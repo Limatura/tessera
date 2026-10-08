@@ -16,15 +16,18 @@ import * as m from "@/paraglide/messages";
 
 /**
  * 配額欄位有三種狀態，而且 `null` 跟 `0` 是不同的意思：
- * `null` 跟著全站設定跑（全站改了它就跟著改），`0` 是「這個角色不設上限」。
- * 用一個數字輸入框表達不出這個差別，所以拆成模式 + 數值。
+ * `null` 跟著上一層跑（角色跟全站、帳號跟角色；上一層改了它就跟著改），`0` 是
+ * 「這一層不設上限」。用一個數字輸入框表達不出這個差別，所以拆成模式 + 數值。
+ *
+ * 第四種 `keep` 只在「讀不到現值」的欄位出現：送出時連 key 都不帶，server 那邊
+ * 維持原狀。用在帳號的單檔上限 —— API 還沒回傳它（#454）。
  */
 const MIB = 1024 * 1024;
 
-export type ByteLimitMode = "inherit" | "unlimited" | "custom";
+export type ByteLimitMode = "keep" | "inherit" | "unlimited" | "custom";
 
 /** `inherit` 的字樣每個欄位不同，由呼叫端給。呼叫時才讀取，語系才能即時反映。 */
-function modeLabels(): Record<ByteLimitMode, string> {
+function modeLabels(): Record<Exclude<ByteLimitMode, "keep">, string> {
   return {
     custom: m.roles_byte_limit_custom(),
     inherit: m.roles_byte_limit_inherit(),
@@ -39,7 +42,14 @@ export function modeOf(value: number | null | undefined): ByteLimitMode {
   return value === 0 ? "unlimited" : "custom";
 }
 
-export function toBytes(mode: ByteLimitMode, mib: number): number | null {
+/** `undefined` = 不要送這個 key（`keep`）；`null` = 清掉；`0` = 不限制。 */
+export function toBytes(
+  mode: ByteLimitMode,
+  mib: number
+): number | null | undefined {
+  if (mode === "keep") {
+    return;
+  }
   if (mode === "inherit") {
     return null;
   }
@@ -59,10 +69,16 @@ export function ByteLimitField({
   onModeChange,
   onMibChange,
   disabled,
+  keepLabel,
+  inheritDescription,
 }: {
   id: string;
   label: string;
   inheritLabel: string;
+  /** 給了才多一個「不變更」選項。只給讀不到現值的欄位用。 */
+  keepLabel?: string;
+  /** 「沿用」時的說明。預設講的是全站，帳號那邊沿用的是角色。 */
+  inheritDescription?: string;
   mode: ByteLimitMode;
   mib: number;
   onModeChange: (mode: ByteLimitMode) => void;
@@ -83,12 +99,16 @@ export function ByteLimitField({
           <SelectTrigger className="w-full min-w-0" id={id}>
             {/* 不給對應函式的話會顯示原始值（inherit / unlimited / custom）。 */}
             <SelectValue>
-              {(value: ByteLimitMode) =>
-                value === "inherit" ? inheritLabel : labels[value]
-              }
+              {(value: ByteLimitMode) => {
+                if (value === "keep") {
+                  return keepLabel;
+                }
+                return value === "inherit" ? inheritLabel : labels[value];
+              }}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent alignItemWithTrigger={false}>
+            {keepLabel && <SelectItem value="keep">{keepLabel}</SelectItem>}
             <SelectItem value="inherit">{inheritLabel}</SelectItem>
             <SelectItem value="unlimited">{labels.unlimited}</SelectItem>
             <SelectItem value="custom">{labels.custom}</SelectItem>
@@ -107,8 +127,10 @@ export function ByteLimitField({
         )}
       </div>
       <FieldDescription>
+        {mode === "keep" && m.roles_byte_limit_keep_description()}
         {mode === "inherit" &&
-          m.roles_byte_limit_inherit_description({ inheritLabel })}
+          (inheritDescription ??
+            m.roles_byte_limit_inherit_description({ inheritLabel }))}
         {mode === "unlimited" && m.roles_byte_limit_unlimited_description()}
         {mode === "custom" && m.roles_byte_limit_custom_description()}
       </FieldDescription>

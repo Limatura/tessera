@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { components } from "@tessera/api/schema";
-import { FieldGroup, FieldSeparator } from "@tessera/ui/components/field";
-import { Controller } from "react-hook-form";
+import { FieldGroup } from "@tessera/ui/components/field";
+import { Controller, useWatch } from "react-hook-form";
 
 import { readSetting } from "@/hooks/admin/use-settings";
 import { useSettingsForm } from "@/hooks/admin/use-settings-form";
@@ -19,6 +19,7 @@ import { SwitchField, TextField } from "./form-fields";
 import { NumberField } from "./number-field";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
+import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
@@ -93,200 +94,187 @@ function PasswordSettingsFields({
     resolver: zodResolver(passwordSettingsSchema),
   });
 
+  const pwnedEnabled = useWatch({
+    control: form.control,
+    name: "pwnedEnabled",
+  });
+
   return (
-    <form onSubmit={form.submit}>
-      <FieldGroup>
-        <p className="text-muted-foreground text-sm">
-          {m.settings_password_form_intro_1()} <code>Password1!</code>
-          {m.settings_password_form_intro_2()}
-        </p>
+    <form className="flex flex-col gap-6" onSubmit={form.submit}>
+      <SettingsCard
+        description={m.settings_password_length_description()}
+        title={m.settings_password_length_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="minLength"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_password_form_min_length_description()}
+                field={field}
+                fieldState={fieldState}
+                id="password-min-length"
+                label={m.settings_password_form_min_length_label()}
+                max={PASSWORD_MAX_CEILING}
+                min={PASSWORD_MIN_FLOOR}
+              />
+            )}
+          />
 
-        <Controller
-          control={form.control}
-          name="minLength"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_password_form_min_length_description()}
-              field={field}
-              fieldState={fieldState}
-              id="password-min-length"
-              label={m.settings_password_form_min_length_label()}
-              max={PASSWORD_MAX_CEILING}
-              min={PASSWORD_MIN_FLOOR}
+          <Controller
+            control={form.control}
+            name="maxLength"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_password_form_max_length_description()}
+                field={field}
+                fieldState={fieldState}
+                id="password-max-length"
+                label={m.settings_password_form_max_length_label()}
+                max={PASSWORD_MAX_CEILING}
+                min={PASSWORD_MIN_FLOOR}
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsCard
+        description={m.settings_password_composition_description()}
+        title={m.settings_password_composition_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="requireMixedCase"
+            render={({ field }) => (
+              <SwitchField
+                field={field}
+                id="password-require-mixed-case"
+                label={m.settings_password_form_require_mixed_case_label()}
+              />
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name="requireDigit"
+            render={({ field }) => (
+              <SwitchField
+                field={field}
+                id="password-require-digit"
+                label={m.settings_password_form_require_digit_label()}
+              />
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name="requireSymbol"
+            render={({ field }) => (
+              <SwitchField
+                description={m.settings_password_form_require_symbol_description()}
+                field={field}
+                id="password-require-symbol"
+                label={m.settings_password_form_require_symbol_label()}
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsCard
+        description={m.settings_password_pwned_description()}
+        title={m.settings_password_pwned_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="pwnedEnabled"
+            render={({ field }) => (
+              <SwitchField
+                description={m.settings_password_form_pwned_enabled_description()}
+                field={field}
+                id="pwned-enabled"
+                label={m.settings_password_form_pwned_enabled_label()}
+              />
+            )}
+          />
+
+          {pwnedEnabled && (
+            <Controller
+              control={form.control}
+              name="pwnedUrl"
+              render={({ field, fieldState }) => (
+                <TextField
+                  description={m.settings_password_form_pwned_url_description()}
+                  field={field}
+                  fieldState={fieldState}
+                  id="pwned-url"
+                  label={m.settings_password_form_pwned_url_label()}
+                  placeholder={DEFAULT_PWNED_URL}
+                />
+              )}
             />
           )}
-        />
+        </FieldGroup>
+      </SettingsCard>
 
-        <Controller
-          control={form.control}
-          name="maxLength"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_password_form_max_length_description()}
-              field={field}
-              fieldState={fieldState}
-              id="password-max-length"
-              label={m.settings_password_form_max_length_label()}
-              max={PASSWORD_MAX_CEILING}
-              min={PASSWORD_MIN_FLOOR}
-            />
-          )}
-        />
+      <SettingsCard
+        description={m.settings_password_hashing_description()}
+        title={m.settings_password_hashing_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="memoryKib"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_password_form_memory_kib_description()}
+                field={field}
+                fieldState={fieldState}
+                id="hashing-memory-kib"
+                label={m.settings_password_form_memory_kib_label()}
+                min={8}
+                unit="kib"
+              />
+            )}
+          />
 
-        <FieldSeparator />
+          <Controller
+            control={form.control}
+            name="iterations"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_password_form_iterations_description()}
+                field={field}
+                fieldState={fieldState}
+                id="hashing-iterations"
+                label={m.settings_password_form_iterations_label()}
+                min={1}
+              />
+            )}
+          />
 
-        <p className="text-muted-foreground text-sm">
-          {m.settings_password_form_composition_intro_1()}
-          <strong className="font-medium text-foreground">
-            {m.settings_password_form_composition_intro_2()}
-          </strong>
-          {m.settings_password_form_composition_intro_3()}
-          <strong className="font-medium text-foreground">
-            {m.settings_password_form_composition_intro_4()}
-          </strong>
-          {m.settings_password_form_composition_intro_5()}
-        </p>
+          <Controller
+            control={form.control}
+            name="lanes"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_password_form_lanes_description()}
+                field={field}
+                fieldState={fieldState}
+                id="hashing-lanes"
+                label={m.settings_password_form_lanes_label()}
+                min={1}
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
 
-        <Controller
-          control={form.control}
-          name="requireMixedCase"
-          render={({ field }) => (
-            <SwitchField
-              description={m.settings_password_form_require_mixed_case_description()}
-              field={field}
-              id="password-require-mixed-case"
-              label={m.settings_password_form_require_mixed_case_label()}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="requireDigit"
-          render={({ field }) => (
-            <SwitchField
-              description={m.settings_password_form_require_digit_description()}
-              field={field}
-              id="password-require-digit"
-              label={m.settings_password_form_require_digit_label()}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="requireSymbol"
-          render={({ field }) => (
-            <SwitchField
-              description={m.settings_password_form_require_symbol_description()}
-              field={field}
-              id="password-require-symbol"
-              label={m.settings_password_form_require_symbol_label()}
-            />
-          )}
-        />
-
-        <FieldSeparator />
-
-        <p className="text-muted-foreground text-sm">
-          {m.settings_password_form_pwned_intro_1()}
-          <strong className="font-medium text-foreground">
-            {m.settings_password_form_pwned_intro_2()}
-          </strong>
-          {m.settings_password_form_pwned_intro_3()}
-        </p>
-
-        <Controller
-          control={form.control}
-          name="pwnedEnabled"
-          render={({ field }) => (
-            <SwitchField
-              description={m.settings_password_form_pwned_enabled_description()}
-              field={field}
-              id="pwned-enabled"
-              label={m.settings_password_form_pwned_enabled_label()}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="pwnedUrl"
-          render={({ field, fieldState }) => (
-            <TextField
-              description={m.settings_password_form_pwned_url_description()}
-              field={field}
-              fieldState={fieldState}
-              id="pwned-url"
-              label={m.settings_password_form_pwned_url_label()}
-              placeholder={DEFAULT_PWNED_URL}
-            />
-          )}
-        />
-
-        <FieldSeparator />
-
-        <p className="text-muted-foreground text-sm">
-          {m.settings_password_form_argon2_intro_1()}
-          <strong className="font-medium text-foreground">
-            {m.settings_password_form_argon2_intro_2()}
-          </strong>
-          {m.settings_password_form_argon2_intro_3()}
-        </p>
-
-        <Controller
-          control={form.control}
-          name="memoryKib"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_password_form_memory_kib_description()}
-              field={field}
-              fieldState={fieldState}
-              id="hashing-memory-kib"
-              label={m.settings_password_form_memory_kib_label()}
-              min={8}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="iterations"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_password_form_iterations_description()}
-              field={field}
-              fieldState={fieldState}
-              id="hashing-iterations"
-              label={m.settings_password_form_iterations_label()}
-              min={1}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="lanes"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_password_form_lanes_description()}
-              field={field}
-              fieldState={fieldState}
-              id="hashing-lanes"
-              label={m.settings_password_form_lanes_label()}
-              min={1}
-            />
-          )}
-        />
-
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
-      </FieldGroup>
+      <SettingsFormFooter form={form} />
     </form>
   );
 }

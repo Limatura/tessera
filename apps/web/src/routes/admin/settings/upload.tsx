@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import * as m from "@/paraglide/messages";
 
-import { SettingsCard } from "./-components/settings-card";
+import { SettingsPage } from "./-components/settings-page";
 import { UploadSettingsForm } from "./-components/upload-settings-form";
 
 export const Route = createFileRoute("/admin/settings/upload")({
@@ -11,11 +11,11 @@ export const Route = createFileRoute("/admin/settings/upload")({
 
 function UploadSettingsRoute() {
   return (
-    <SettingsCard
+    <SettingsPage
       description={m.settings_upload_description()}
       title={m.settings_upload_title()}
     >
       <UploadSettingsForm />
-    </SettingsCard>
+    </SettingsPage>
   );
 }

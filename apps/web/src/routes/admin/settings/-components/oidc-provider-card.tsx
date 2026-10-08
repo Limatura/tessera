@@ -19,12 +19,16 @@ import {
 } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
-import { SealedField, SwitchField, TextField } from "./form-fields";
+import {
+  SealedField,
+  SettingsNotice,
+  SwitchField,
+  TextField,
+} from "./form-fields";
 import { OidcDiscoveryField } from "./oidc-discovery-field";
 import { ProviderCallbackUrls } from "./provider-callback-urls";
-import { ProviderRegistrationNote } from "./provider-registration-note";
-import { SettingsCard } from "./settings-card";
 import { SettingsFormFooter } from "./settings-form-footer";
+import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
@@ -157,8 +161,6 @@ function OidcProviderFields({
           showBackchannel={backchannelLogout}
         />
 
-        <ProviderRegistrationNote />
-
         <Controller
           control={form.control}
           name="issuer"
@@ -276,13 +278,7 @@ function OidcProviderFields({
           )}
         />
 
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
+        <SettingsFormFooter form={form} surface="card" />
       </FieldGroup>
     </form>
   );
@@ -296,19 +292,12 @@ function OidcProviderFields({
  */
 function OpenToEveryoneWarning() {
   return (
-    <div
-      className="flex gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
-      role="alert"
+    <SettingsNotice
+      icon={<IconAlertTriangle />}
+      title={m.settings_oidc_card_open_warning_title()}
+      tone="warning"
     >
-      <IconAlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500" />
-      <div className="space-y-1">
-        <p className="font-medium">
-          {m.settings_oidc_card_open_warning_title()}
-        </p>
-        <p className="text-muted-foreground">
-          {m.settings_oidc_card_open_warning_body()}
-        </p>
-      </div>
-    </div>
+      {m.settings_oidc_card_open_warning_body()}
+    </SettingsNotice>
   );
 }

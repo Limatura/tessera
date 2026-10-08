@@ -301,6 +301,38 @@ export function useSetUserState() {
   });
 }
 
+/**
+ * 單一帳號的配額，蓋過角色的設定。
+ *
+ * 兩個欄位都是三種指令：不帶 = 不動、`null` = 清掉改回沿用角色、`0` = 這個帳號
+ * 不限制。所以呼叫端要嘛給值、要嘛整個 key 不放，不能拿 `undefined` 當 `null`。
+ * 一樣不帶 `is_admin`，理由同 `useSetUserState`。
+ */
+export function useSetUserLimits() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      limits,
+    }: {
+      id: string;
+      limits: { quota_bytes?: number | null; max_file_bytes?: number | null };
+    }) => {
+      const { data, error } = await api.PATCH("/api/v1/admin/users/{id}", {
+        body: limits,
+        params: { path: { id } },
+      });
+      if (error) {
+        throw error;
+      }
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+    },
+  });
+}
+
 /** 刪帳號不會動到他的分享(server 端把 owner 設成 NULL),要清掉是另一個動作。 */
 export function useDeleteUser() {
   const queryClient = useQueryClient();

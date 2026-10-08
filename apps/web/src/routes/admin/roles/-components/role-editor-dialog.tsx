@@ -17,11 +17,11 @@ import {
 } from "@tessera/ui/components/field";
 import { Input } from "@tessera/ui/components/input";
 
+import { ByteLimitField } from "@/components/admin/byte-limit-field";
 import { roleLabel } from "@/lib/admin/permissions";
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 
-import { ByteLimitField } from "./byte-limit-field";
 import { PermissionPicker } from "./permission-picker";
 import { useRoleForm } from "./use-role-form";
 

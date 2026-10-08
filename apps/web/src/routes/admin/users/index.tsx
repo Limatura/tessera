@@ -1,5 +1,6 @@
 import {
   IconDots,
+  IconGauge,
   IconPlayerPause,
   IconPlayerPlay,
   IconShieldCog,
@@ -36,6 +37,7 @@ import {
   TableRow,
 } from "@tessera/ui/components/table";
 import { toast } from "@tessera/ui/components/toast";
+import { formatBytes } from "@tessera/ui/lib/format";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -61,6 +63,7 @@ import * as m from "@/paraglide/messages";
 import { SetUserRoleDialog } from "./-components/set-user-role-dialog";
 import type { UserAction } from "./-components/user-action-dialog";
 import { UserActionDialog } from "./-components/user-action-dialog";
+import { UserQuotaDialog } from "./-components/user-quota-dialog";
 
 type Account = AdminUser;
 
@@ -84,6 +87,7 @@ export const Route = createFileRoute("/admin/users/")({
 /** 這列帳號上,目前登入的人能做哪些事。都不能做時整個選單不出現。 */
 interface RowAbilities {
   setRole: boolean;
+  setQuota: boolean;
   disable: boolean;
   enable: boolean;
   removeShares: boolean;
@@ -100,6 +104,8 @@ function UsersComponent() {
 
   const [editing, setEditing] = useState<Account | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [quotaFor, setQuotaFor] = useState<Account | null>(null);
+  const [quotaOpen, setQuotaOpen] = useState(false);
   const [pending, setPending] = useState<{
     account: Account;
     action: UserAction;
@@ -121,6 +127,7 @@ function UsersComponent() {
         enable: false,
         remove: false,
         removeShares: canRemoveShares,
+        setQuota: false,
         setRole: false,
       };
     }
@@ -133,6 +140,8 @@ function UsersComponent() {
       enable: canSetState && user.state === "disabled",
       remove: canDelete && !isSelf,
       removeShares: canRemoveShares,
+      // 配額改的是 PATCH /admin/users/{id}，跟停用同一個權限。自己的也可以改。
+      setQuota: canSetState,
       setRole: canSetRole && !isSelf,
     };
   };
@@ -144,6 +153,11 @@ function UsersComponent() {
   const handleEditRole = (user: Account) => {
     setEditing(user);
     setEditorOpen(true);
+  };
+
+  const handleEditQuota = (user: Account) => {
+    setQuotaFor(user);
+    setQuotaOpen(true);
   };
 
   const handleEnable = (user: Account) => {
@@ -211,6 +225,7 @@ function UsersComponent() {
                         onAction={(action) =>
                           setPending({ account: user, action })
                         }
+                        onEditQuota={() => handleEditQuota(user)}
                         onEditRole={() => handleEditRole(user)}
                         onEnable={() => handleEnable(user)}
                         username={
@@ -247,6 +262,7 @@ function UsersComponent() {
                             {m.users_not_decided()}
                           </span>
                         )}
+                        <QuotaBadge quotaBytes={user.quota_bytes} />
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {user.permissions.length}
@@ -277,6 +293,13 @@ function UsersComponent() {
           roles={roles.data ?? []}
         />
       )}
+      {canSetState && (
+        <UserQuotaDialog
+          account={quotaFor}
+          onOpenChange={setQuotaOpen}
+          open={quotaOpen}
+        />
+      )}
       <UserActionDialog
         account={pending?.account ?? null}
         action={pending?.action ?? null}
@@ -303,21 +326,41 @@ function DeletedUserRow({ menu }: { menu: React.ReactNode }) {
   );
 }
 
+/**
+ * 帳號自己設了配額才顯示 —— 沒設（`null`）就是沿用角色，角色那欄已經說了。
+ * `0` 是「這個帳號不限制」，跟沒設是兩回事，要看得出來。
+ */
+function QuotaBadge({ quotaBytes }: { quotaBytes?: number | null }) {
+  if (quotaBytes === null || quotaBytes === undefined) {
+    return null;
+  }
+  return (
+    <Badge className="ml-2" variant="outline">
+      {quotaBytes === 0
+        ? m.users_quota_badge_unlimited()
+        : m.users_quota_badge({ amount: formatBytes(quotaBytes) })}
+    </Badge>
+  );
+}
+
 function UserRowMenu({
   username,
   abilities,
   onEditRole,
+  onEditQuota,
   onEnable,
   onAction,
 }: {
   username: string;
   abilities: RowAbilities;
   onEditRole: () => void;
+  onEditQuota: () => void;
   onEnable: () => void;
   onAction: (action: UserAction) => void;
 }) {
-  const { setRole, disable, enable, removeShares, remove } = abilities;
-  if (!(setRole || disable || enable || removeShares || remove)) {
+  const { setRole, setQuota, disable, enable, removeShares, remove } =
+    abilities;
+  if (!(setRole || setQuota || disable || enable || removeShares || remove)) {
     return null;
   }
 
@@ -342,6 +385,12 @@ function UserRowMenu({
             {m.users_menu_set_role()}
           </DropdownMenuItem>
         )}
+        {setQuota && (
+          <DropdownMenuItem onClick={onEditQuota}>
+            <IconGauge />
+            {m.users_menu_set_quota()}
+          </DropdownMenuItem>
+        )}
         {disable && (
           <DropdownMenuItem onClick={() => onAction("disable")}>
             <IconPlayerPause />
@@ -354,9 +403,10 @@ function UserRowMenu({
             {m.users_menu_enable()}
           </DropdownMenuItem>
         )}
-        {(removeShares || remove) && (setRole || disable || enable) && (
-          <DropdownMenuSeparator />
-        )}
+        {(removeShares || remove) &&
+          (setRole || setQuota || disable || enable) && (
+            <DropdownMenuSeparator />
+          )}
         {removeShares && (
           <DropdownMenuItem
             onClick={() => onAction("removeShares")}

@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 
 import { NetworkSettingsForm } from "./-components/network-settings-form";
-import { SettingsCard } from "./-components/settings-card";
+import { SettingsPage } from "./-components/settings-page";
 
 export const Route = createFileRoute("/admin/settings/network")({
   component: NetworkSettingsRoute,
@@ -11,11 +11,11 @@ export const Route = createFileRoute("/admin/settings/network")({
 
 function NetworkSettingsRoute() {
   return (
-    <SettingsCard
+    <SettingsPage
       description={m.settings_network_description()}
       title={m.settings_network_title()}
     >
       <NetworkSettingsForm />
-    </SettingsCard>
+    </SettingsPage>
   );
 }
