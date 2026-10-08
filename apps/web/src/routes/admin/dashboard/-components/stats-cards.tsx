@@ -1,3 +1,4 @@
+import NumberFlow from "@number-flow/react";
 import {
   IconDatabase,
   IconFiles,
@@ -12,7 +13,8 @@ import {
   CardTitle,
 } from "@tessera/ui/components/card";
 import { Skeleton } from "@tessera/ui/components/skeleton";
-import { formatBytes, formatNumber } from "@tessera/ui/lib/format";
+import { formatBytes, formatNumber, splitBytes } from "@tessera/ui/lib/format";
+import { useEffect, useState } from "react";
 
 import { useStats } from "@/hooks/admin/use-admin";
 import { getLocale } from "@/lib/locale";
@@ -24,6 +26,22 @@ type Stats = components["schemas"]["StatsResponse"];
 
 /** 載入中先佔四格，版面不會在資料回來時跳一下。 */
 const STAT_PLACEHOLDERS = ["shares", "stored", "served", "accounts"] as const;
+
+/** 卡片上的大數字：數值交給 NumberFlow 做動畫，單位當後綴不動。 */
+interface StatValue {
+  value: number;
+  fractionDigits: number;
+  suffix?: string;
+}
+
+function countValue(value: number): StatValue {
+  return { fractionDigits: 0, value };
+}
+
+function bytesValue(bytes: number): StatValue {
+  const { value, unit, fractionDigits } = splitBytes(bytes);
+  return { fractionDigits, suffix: ` ${unit}`, value };
+}
 
 /** 數字要跟著介面語言走，所以在元件裡建（`getLocale()` 是執行期的值）。 */
 function buildItems(stats: Stats) {
@@ -38,7 +56,7 @@ function buildItems(stats: Stats) {
       sub: m.dashboard_stats_shares_live({
         count: number(stats.live_shares),
       }),
-      value: number(stats.shares),
+      value: countValue(stats.shares),
     },
     {
       icon: IconDatabase,
@@ -51,7 +69,7 @@ function buildItems(stats: Stats) {
               amount: formatBytes(quota),
               percent: number(usagePercent(stats.stored_bytes, quota)),
             }),
-      value: formatBytes(stats.stored_bytes),
+      value: bytesValue(stats.stored_bytes),
     },
     {
       icon: IconSend,
@@ -63,7 +81,7 @@ function buildItems(stats: Stats) {
               amount: formatBytes(stats.bytes_redirected),
             })
           : m.dashboard_stats_served_direct(),
-      value: formatBytes(stats.bytes_served),
+      value: bytesValue(stats.bytes_served),
     },
     {
       icon: IconUsers,
@@ -71,7 +89,7 @@ function buildItems(stats: Stats) {
       sub: m.dashboard_stats_accounts_detail({
         count: number(stats.administrators),
       }),
-      value: number(stats.accounts),
+      value: countValue(stats.accounts),
     },
   ];
 }
@@ -98,7 +116,7 @@ export function StatsCards() {
                   <item.icon className="size-4 text-muted-foreground" />
                 </div>
                 <CardTitle className="font-semibold text-2xl tabular-nums">
-                  {item.value}
+                  <AnimatedStat {...item.value} />
                 </CardTitle>
               </CardHeader>
               <p className="px-(--card-spacing) text-muted-foreground text-xs">
@@ -110,5 +128,33 @@ export function StatsCards() {
             <Skeleton key={key} className="h-28 rounded-xl" />
           ))}
     </div>
+  );
+}
+
+/**
+ * 從 0 數到實際值。NumberFlow 只在 value 變動時播動畫，所以先以 0 掛載、下一幀再
+ * 換成真的數字；之後背景重抓到新數字時也會從舊值滾到新值。
+ *
+ * NumberFlow 預設就尊重「減少動態效果」，不用另外判斷。
+ */
+function AnimatedStat({ value, fractionDigits, suffix }: StatValue) {
+  const [mounted, setMounted] = useState(false);
+
+  // 等 0 畫出來的下一幀再換，NumberFlow 才有「從 0 開始」可以播。
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return (
+    <NumberFlow
+      format={{
+        maximumFractionDigits: fractionDigits,
+        minimumFractionDigits: fractionDigits,
+      }}
+      locales={getLocale()}
+      suffix={suffix}
+      value={mounted ? value : 0}
+    />
   );
 }

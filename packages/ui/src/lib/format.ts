@@ -8,17 +8,33 @@ const BYTES_PER_UNIT = 1024;
  * 只會是上游算錯,顯示成 0 比顯示 NaN 有用。
  */
 export function formatBytes(bytes: number): string {
+  const { value, unit, fractionDigits } = splitBytes(bytes);
+  return `${value.toFixed(fractionDigits)} ${unit}`;
+}
+
+/**
+ * `formatBytes` 拆成數值跟單位，給要對數值做動畫的地方用（數字會跳、單位不動）。
+ * 規則跟 `formatBytes` 一樣：整數位元組不帶小數，進位之後固定一位。
+ */
+export function splitBytes(bytes: number): {
+  value: number;
+  unit: (typeof BYTE_UNITS)[number];
+  fractionDigits: 0 | 1;
+} {
   if (bytes <= 0) {
-    return "0 B";
+    return { fractionDigits: 0, unit: "B", value: 0 };
   }
 
   const exponent = Math.min(
     Math.floor(Math.log(bytes) / Math.log(BYTES_PER_UNIT)),
     BYTE_UNITS.length - 1
   );
-  const value = bytes / BYTES_PER_UNIT ** exponent;
 
-  return `${exponent === 0 ? value : value.toFixed(1)} ${BYTE_UNITS[exponent]}`;
+  return {
+    fractionDigits: exponent === 0 ? 0 : 1,
+    unit: BYTE_UNITS[exponent],
+    value: bytes / BYTES_PER_UNIT ** exponent,
+  };
 }
 
 /**

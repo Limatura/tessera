@@ -5,8 +5,10 @@ import {
 } from "@tessera/ui/components/chart";
 import type { ChartConfig } from "@tessera/ui/components/chart";
 import { formatBytes } from "@tessera/ui/lib/format";
+import { useReducedMotion } from "motion/react";
 import { Bar, BarChart, LabelList, XAxis, YAxis } from "recharts";
 
+import { CHART_ANIMATION } from "@/lib/admin/motion";
 import * as m from "@/paraglide/messages";
 
 /** 內容放在哪裡：一個 backend，或資料庫本身。 */
@@ -41,6 +43,7 @@ export function StorageLocationChart({
 }: {
   locations: StorageLocation[];
 }) {
+  const reduceMotion = useReducedMotion();
   const chartConfig = buildChartConfig();
 
   return (
@@ -75,6 +78,8 @@ export function StorageLocationChart({
           cursor={false}
         />
         <Bar
+          {...CHART_ANIMATION}
+          isAnimationActive={!reduceMotion}
           barSize={BAR_SIZE}
           dataKey="usedBytes"
           fill="var(--color-usedBytes)"

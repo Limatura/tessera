@@ -1,4 +1,5 @@
 import { Outlet, createFileRoute, useMatches } from "@tanstack/react-router";
+import { MotionConfig } from "motion/react";
 
 import { AdminShell } from "@/components/admin/admin-shell";
 import { requireAuth } from "@/lib/route-guard";
@@ -14,6 +15,8 @@ import * as m from "@/paraglide/messages";
  *
  * 這層只擋「要登入」,因為側欄要讀 session。每頁要的權限不同，仍由各頁的
  * `beforeLoad` 各自檢查。
+ *
+ * `reducedMotion="user"`:系統設定「減少動態效果」時，後台的位移動畫會被關掉。
  */
 export const Route = createFileRoute("/admin")({
   beforeLoad: ({ context, location }) =>
@@ -39,8 +42,10 @@ function AdminLayout() {
   });
 
   return (
-    <AdminShell title={title?.() ?? m.admin_app_name()}>
-      <Outlet />
-    </AdminShell>
+    <MotionConfig reducedMotion="user">
+      <AdminShell title={title?.() ?? m.admin_app_name()}>
+        <Outlet />
+      </AdminShell>
+    </MotionConfig>
   );
 }

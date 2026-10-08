@@ -1,5 +1,10 @@
-import { Outlet, createFileRoute } from "@tanstack/react-router";
+import {
+  Outlet,
+  createFileRoute,
+  useRouterState,
+} from "@tanstack/react-router";
 
+import { PageTransition } from "@/components/admin/page-transition";
 import { PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
@@ -28,12 +33,16 @@ export const Route = createFileRoute("/admin/settings")({
  * 每一頁用同一個寬度，切換分頁時左邊選單才不會跟著跳。
  */
 function SettingsLayout() {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+
   return (
     <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
       <SettingsNav />
-      <div className="min-w-0">
+      <PageTransition className="min-w-0" transitionKey={pathname}>
         <Outlet />
-      </div>
+      </PageTransition>
     </div>
   );
 }

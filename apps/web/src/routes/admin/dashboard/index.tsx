@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSession } from "@tessera/auth/hooks";
 
+import { Stagger, StaggerItem } from "@/components/admin/stagger";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
@@ -12,6 +13,7 @@ import { StorageOverview } from "./-components/storage-overview";
 import { TrendChart } from "./-components/trend-chart";
 
 export const Route = createFileRoute("/admin/dashboard/")({
+  staticData: { title: m.dashboard_title },
   beforeLoad: ({ context, location }) =>
     requirePermission(
       context.queryClient,
@@ -19,7 +21,6 @@ export const Route = createFileRoute("/admin/dashboard/")({
       PERMISSIONS.statsRead
     ),
   component: DashboardComponent,
-  staticData: { title: m.dashboard_title },
 });
 
 /**
@@ -35,18 +36,20 @@ function DashboardComponent() {
   const bothLower = canReadSettings && canReadShares;
 
   return (
-    <>
-      <StatsCards />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+    <Stagger className="flex flex-col gap-6">
+      <StaggerItem>
+        <StatsCards />
+      </StaggerItem>
+      <StaggerItem className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         <div className="xl:col-span-3">
           <TrendChart />
         </div>
         <div className="xl:col-span-2">
           <StorageOverview canReadSettings={canReadSettings} />
         </div>
-      </div>
+      </StaggerItem>
       {(canReadShares || canReadSettings) && (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <StaggerItem className="grid grid-cols-1 gap-4 xl:grid-cols-5">
           {canReadShares && (
             <div className={bothLower ? "xl:col-span-3" : "xl:col-span-5"}>
               <RecentSharesTable />
@@ -57,8 +60,8 @@ function DashboardComponent() {
               <ConfigSummary />
             </div>
           )}
-        </div>
+        </StaggerItem>
       )}
-    </>
+    </Stagger>
   );
 }
