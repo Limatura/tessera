@@ -35,6 +35,33 @@ function removeOrphanContainer(id: string) {
   }
 }
 
+const SVG_OPEN_TAG = /<svg\b[^>]*>/u;
+const VIEW_BOX_SIZE =
+  /\sviewBox="[^\s"]+\s+[^\s"]+\s+(?<width>[^\s"]+)\s+(?<height>[^\s"]+)"/u;
+const SIZE_ATTRIBUTE = /\s(?:width|height)="[^"]*"/gu;
+const MAX_WIDTH_STYLE = /max-width:\s*[^;"]*;?/u;
+
+/**
+ * mermaid 輸出 `width="100%" style="max-width: Npx"`:寬度跟著容器走,
+ * 原尺寸只藏在 inline style 裡。改成 viewBox 的原始寬高寫進 width/height,
+ * 顯示端用 max-w-full + max-h-full 就能「塞得下就原尺寸、塞不下就等比縮小」,
+ * 放大 dialog 量到的也才是原尺寸。viewBox 預設 xMidYMid meet,
+ * 框被兩個 max 夾成不同比例時圖只會置中留白,不會變形。
+ */
+function withNaturalSize(svg: string): string {
+  const openTag = SVG_OPEN_TAG.exec(svg)?.[0];
+  const size = openTag ? VIEW_BOX_SIZE.exec(openTag)?.groups : undefined;
+  if (!(openTag && size)) {
+    return svg;
+  }
+  const { width, height } = size;
+  const sized = openTag
+    .replace(SIZE_ATTRIBUTE, "")
+    .replace(MAX_WIDTH_STYLE, "")
+    .replace("<svg", `<svg width="${width}" height="${height}"`);
+  return svg.replace(openTag, () => sized);
+}
+
 /**
  * 把 mermaid 原始碼渲染成 SVG 字串。mermaid 這包很大(~500KB gzip),
  * 所以只在真的要畫圖時才動態載入,不進主 bundle。
@@ -74,10 +101,11 @@ export function useMermaid(code: string, debounceMs = 0): MermaidState {
             suppressErrorRendering: true,
             theme: resolvedTheme === "dark" ? "dark" : "default",
           });
-          const { svg } = await mermaid.render(id, trimmed);
+          const rendered = await mermaid.render(id, trimmed);
           if (cancelled) {
             return;
           }
+          const svg = withNaturalSize(rendered.svg);
           lastSvg.current = svg;
           setResult({ error: null, renderedFor: code, svg });
         } catch (error) {

@@ -117,6 +117,8 @@
   "share_unlock": "Unlock",
   "share_unlocking": "Unlocking…",
   "share_untitled": "Untitled share",
+  "share_untitled_code": "{language} snippet",
+  "share_untitled_text": "Text snippet",
   "share_uses_remaining": "{count} retrievals left",
   "share_uses_unlimited": "Unlimited retrievals",
   "share_expires_at": "Expires {date}",

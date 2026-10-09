@@ -30,15 +30,18 @@ import {
   MermaidDiagram,
 } from "@/components/mermaid/mermaid-diagram";
 import { detectLanguage } from "@/lib/detect-language";
+import { LANGUAGE_LABELS } from "@/lib/language-labels";
+import { readPasteSource } from "@/lib/paste-source";
 import * as m from "@/paraglide/messages";
 
 import { QuickSubmitButton } from "./quick-submit-button";
 import type { SubmitStatus } from "./use-submit-transition";
 
-// 加一個語言要改三個地方,漏掉不會報錯只會靜默少功能:
+// 加一個語言要改四個地方,漏掉不會報錯只會靜默少功能:
 //   1. 這裡的 LANGUAGES —— 選單選項,load 給了才有編輯器高亮
 //   2. lib/detect-language.ts —— 貼上自動偵測(id 要跟這裡的 value 一致)
 //   3. lib/shiki.ts 的 bundledLanguages —— 分享頁語法高亮,漏掉會靜默 fallback 成純文字
+//   4. lib/paste-source.ts 的 LANGUAGE_ALIASES —— 從 VS Code / 檔案貼上時直接認出語言
 // Mermaid 例外:分享頁走渲染而非高亮,不進 shiki(見 tessera#227)。
 //
 // 語法包用 load 動態載入、選到才抓:13 包靜態 import 會全落進首頁 chunk,
@@ -48,9 +51,9 @@ const LANGUAGES: readonly {
   value: string;
   load?: () => Promise<Extension>;
 }[] = [
-  { label: "Plain text", value: "plaintext" },
+  { label: LANGUAGE_LABELS.plaintext, value: "plaintext" },
   {
-    label: "JavaScript",
+    label: LANGUAGE_LABELS.javascript,
     load: async () => {
       const { javascript } = await import("@codemirror/lang-javascript");
       return javascript({ jsx: true });
@@ -58,7 +61,7 @@ const LANGUAGES: readonly {
     value: "javascript",
   },
   {
-    label: "TypeScript",
+    label: LANGUAGE_LABELS.typescript,
     load: async () => {
       const { javascript } = await import("@codemirror/lang-javascript");
       return javascript({
@@ -69,7 +72,7 @@ const LANGUAGES: readonly {
     value: "typescript",
   },
   {
-    label: "Python",
+    label: LANGUAGE_LABELS.python,
     load: async () => {
       const { python } = await import("@codemirror/lang-python");
       return python();
@@ -77,7 +80,7 @@ const LANGUAGES: readonly {
     value: "python",
   },
   {
-    label: "HTML",
+    label: LANGUAGE_LABELS.html,
     load: async () => {
       const { html } = await import("@codemirror/lang-html");
       return html();
@@ -85,7 +88,7 @@ const LANGUAGES: readonly {
     value: "html",
   },
   {
-    label: "CSS",
+    label: LANGUAGE_LABELS.css,
     load: async () => {
       const { css } = await import("@codemirror/lang-css");
       return css();
@@ -93,7 +96,7 @@ const LANGUAGES: readonly {
     value: "css",
   },
   {
-    label: "JSON",
+    label: LANGUAGE_LABELS.json,
     load: async () => {
       const { json } = await import("@codemirror/lang-json");
       return json();
@@ -101,7 +104,7 @@ const LANGUAGES: readonly {
     value: "json",
   },
   {
-    label: "Markdown",
+    label: LANGUAGE_LABELS.markdown,
     load: async () => {
       const { markdown } = await import("@codemirror/lang-markdown");
       return markdown();
@@ -109,7 +112,7 @@ const LANGUAGES: readonly {
     value: "markdown",
   },
   {
-    label: "SQL",
+    label: LANGUAGE_LABELS.sql,
     load: async () => {
       const { sql } = await import("@codemirror/lang-sql");
       return sql();
@@ -117,7 +120,7 @@ const LANGUAGES: readonly {
     value: "sql",
   },
   {
-    label: "Java",
+    label: LANGUAGE_LABELS.java,
     load: async () => {
       const { java } = await import("@codemirror/lang-java");
       return java();
@@ -125,7 +128,7 @@ const LANGUAGES: readonly {
     value: "java",
   },
   {
-    label: "C++",
+    label: LANGUAGE_LABELS.cpp,
     load: async () => {
       const { cpp } = await import("@codemirror/lang-cpp");
       return cpp();
@@ -133,7 +136,7 @@ const LANGUAGES: readonly {
     value: "cpp",
   },
   {
-    label: "Rust",
+    label: LANGUAGE_LABELS.rust,
     load: async () => {
       const { rust } = await import("@codemirror/lang-rust");
       return rust();
@@ -141,7 +144,7 @@ const LANGUAGES: readonly {
     value: "rust",
   },
   {
-    label: "Go",
+    label: LANGUAGE_LABELS.go,
     load: async () => {
       const { go } = await import("@codemirror/lang-go");
       return go();
@@ -149,7 +152,7 @@ const LANGUAGES: readonly {
     value: "go",
   },
   {
-    label: "YAML",
+    label: LANGUAGE_LABELS.yaml,
     load: async () => {
       const { yaml } = await import("@codemirror/lang-yaml");
       return yaml();
@@ -157,7 +160,7 @@ const LANGUAGES: readonly {
     value: "yaml",
   },
   {
-    label: "PHP",
+    label: LANGUAGE_LABELS.php,
     load: async () => {
       const { php } = await import("@codemirror/lang-php");
       return php();
@@ -165,21 +168,23 @@ const LANGUAGES: readonly {
     value: "php",
   },
   // Shell 的高亮要另外裝 @codemirror/legacy-modes。
-  { label: "Shell", value: "shellscript" },
+  { label: LANGUAGE_LABELS.shellscript, value: "shellscript" },
   // Mermaid 沒有 CodeMirror 語法包,編輯器維持純文字;
   // 分享頁會直接把它渲染成圖,不走 shiki(tessera#227)。
-  { label: "Mermaid", value: "mermaid" },
+  { label: LANGUAGE_LABELS.mermaid, value: "mermaid" },
 ];
 
 const MERMAID = "mermaid";
 const EXPANDED_EDITOR_HEIGHT = "65vh";
+/** 貼上的檔案超過這個大小就不讀進編輯器:CodeMirror 塞太大的內容會卡。 */
+const MAX_PASTED_FILE_BYTES = 1_000_000;
 
 interface CodeUploadFormProps {
   status: SubmitStatus;
   progress: number;
   onSubmit: (
     el: HTMLButtonElement | null,
-    payload: { content: string; language: string }
+    payload: { content: string; language: string; title?: string }
   ) => void;
 }
 
@@ -197,6 +202,10 @@ export function CodeUploadForm({
   const [wasGuessed, setWasGuessed] = useState(false);
   const [userPickedLanguage, setUserPickedLanguage] = useState(false);
   const [mermaidPane, setMermaidPane] = useState<"edit" | "preview">("edit");
+  // paste 事件比 onChange 早觸發:先記下剪貼簿說的語言,onChange 再拿來用。
+  const pastedLanguage = useRef<string | null>(null);
+  // 貼上檔案時記下檔名,送出時存成分享標題;內容清空就跟著丟掉。
+  const [title, setTitle] = useState<string | null>(null);
 
   const handleLanguageChange = (value: string | null) => {
     setLanguage(value ?? "plaintext");
@@ -206,6 +215,9 @@ export function CodeUploadForm({
 
   const handleCodeChange = (value: string, viewUpdate: ViewUpdate) => {
     setCode(value);
+    if (value.length === 0) {
+      setTitle(null);
+    }
     if (userPickedLanguage) {
       return;
     }
@@ -216,11 +228,41 @@ export function CodeUploadForm({
     if (isExternal) {
       return;
     }
-    const guess = detectLanguage(value);
+    // 剪貼簿明講的語言比從內容猜的可靠;用一次就清掉,之後打字照常猜。
+    const guess = pastedLanguage.current ?? detectLanguage(value);
+    pastedLanguage.current = null;
     if (guess) {
       setLanguage(guess);
       setWasGuessed(true);
     }
+  };
+
+  // capture 階段:React 的 capture 監聽在 root 上,會比 CodeMirror 掛在
+  // contentDOM 的 paste 先跑,也就比 onChange 早。不攔截,文字照常插入。
+  const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const source = readPasteSource(event.clipboardData);
+    if (source.kind !== "file") {
+      pastedLanguage.current = source.language;
+      return;
+    }
+    // CodeMirror 收到檔案不會插入任何東西,要自己讀。只在編輯器是空的時候接手,
+    // 整份換掉才合理;已經有內容時插到游標處的語意不清楚,乾脆不處理。
+    const [file] = event.clipboardData.files;
+    const isText = source.language !== null || file.type.startsWith("text/");
+    if (code.length > 0 || !isText || file.size > MAX_PASTED_FILE_BYTES) {
+      return;
+    }
+    event.preventDefault();
+    (async () => {
+      setCode(await file.text());
+      setTitle(source.filename);
+      // setCode 推回編輯器算 ExternalChange,不會走 handleCodeChange 的猜測,
+      // 所以語言在這裡直接設。
+      if (!userPickedLanguage && source.language) {
+        setLanguage(source.language);
+        setWasGuessed(true);
+      }
+    })();
   };
 
   const mode = useLanguageMode(language);
@@ -232,6 +274,7 @@ export function CodeUploadForm({
       className="h-full"
       extensions={extensions}
       height={height}
+      onPasteCapture={handlePaste}
       onChange={handleCodeChange}
       placeholder={m.upload_code_placeholder()}
       value={code}
@@ -249,7 +292,7 @@ export function CodeUploadForm({
 
   const submitFrom = (origin: HTMLButtonElement | null) => {
     if (code.trim().length > 0) {
-      onSubmit(origin, { content: code, language });
+      onSubmit(origin, { content: code, language, title: title ?? undefined });
       setExpanded(false);
     }
   };
@@ -309,6 +352,7 @@ export function CodeUploadForm({
       <CodeEditor
         extensions={extensions}
         height="300px"
+        onPasteCapture={handlePaste}
         onChange={handleCodeChange}
         placeholder={m.upload_code_placeholder()}
         value={code}
@@ -375,7 +419,12 @@ export function CodeUploadForm({
                 <TabsContent className="min-w-0" value="edit">
                   {renderEditor(EXPANDED_EDITOR_HEIGHT)}
                 </TabsContent>
-                <TabsContent className="h-[65vh] min-w-0" value="preview">
+                {/* flex-none:TabsContent 預設 flex-1(basis 0)會蓋過 h-[65vh],
+                    預覽內層是 absolute 不撐高度,框會直接縮成 0。 */}
+                <TabsContent
+                  className="h-[65vh] min-w-0 flex-none"
+                  value="preview"
+                >
                   {renderPreview()}
                 </TabsContent>
               </Tabs>

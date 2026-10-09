@@ -117,6 +117,8 @@
   "share_unlock": "ロック解除",
   "share_unlocking": "ロック解除中…",
   "share_untitled": "無題の共有",
+  "share_untitled_code": "{language} のコード",
+  "share_untitled_text": "テキスト",
   "share_uses_remaining": "残り{count}回取得可能",
   "share_uses_unlimited": "取得回数制限なし",
   "share_expires_at": "{date}に期限切れ",

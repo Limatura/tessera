@@ -19,6 +19,7 @@ import {
 import { useState } from "react";
 
 import { useShare } from "@/hooks/use-share";
+import { languageLabel } from "@/lib/language-labels";
 import * as m from "@/paraglide/messages";
 
 import { LinkShare } from "./link-share";
@@ -155,7 +156,7 @@ export function ShareView({ code }: { code: string }) {
             )}
           </div>
           <CardTitle className="font-medium text-xl tracking-tight">
-            {data.title || data.files[0]?.filename || m.share_untitled()}
+            {data.title || data.files[0]?.filename || fallbackTitle(data)}
           </CardTitle>
           <ShareMeta
             expiresAt={data.expires_at}
@@ -217,4 +218,22 @@ function ShareSkeleton() {
       </CardContent>
     </Card>
   );
+}
+
+/**
+ * 沒標題也沒檔名時(直接貼上的程式碼大多如此)用語言組一個名字,
+ * 比一律「未命名分享」有資訊量。加密分享的語言封在密文裡,這裡拿不到,
+ * 會退回「未命名分享」。
+ */
+function fallbackTitle(data: { kind: string; language?: string | null }) {
+  if (data.kind !== "text") {
+    return m.share_untitled();
+  }
+  const label =
+    data.language && data.language !== "plaintext"
+      ? languageLabel(data.language)
+      : null;
+  return label
+    ? m.share_untitled_code({ language: label })
+    : m.share_untitled_text();
 }

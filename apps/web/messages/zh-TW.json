@@ -117,6 +117,8 @@
   "share_unlock": "解鎖",
   "share_unlocking": "解鎖中…",
   "share_untitled": "未命名分享",
+  "share_untitled_code": "{language} 程式碼",
+  "share_untitled_text": "文字片段",
   "share_uses_remaining": "剩餘 {count} 次提取",
   "share_uses_unlimited": "不限提取次數",
   "share_expires_at": "將於 {date} 過期",
