@@ -10,6 +10,8 @@ import { loadCardRenderer, renderCard } from "@/lib/admin/og-renderer";
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 
+import { adminKeys } from "./keys";
+
 type Changes = components["schemas"]["UpdateSettingsRequest"]["changes"];
 
 const RENDER_DEBOUNCE_MS = 250;
@@ -132,7 +134,7 @@ export function useLayoutCheck(layout: string, enabled: boolean) {
         ? apiErrorMessage(error, m.settings_form_save_failed())
         : null;
     },
-    queryKey: ["admin", "og-layout-check", debounced],
+    queryKey: adminKeys.ogLayoutCheck(debounced),
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,
   });

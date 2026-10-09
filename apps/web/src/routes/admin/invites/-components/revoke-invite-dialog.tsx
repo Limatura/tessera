@@ -9,7 +9,7 @@ import {
 } from "@tessera/ui/components/alert-dialog";
 import { Button } from "@tessera/ui/components/button";
 
-import { useRevokeInvite } from "@/hooks/admin/use-admin";
+import { useRevokeInvite } from "@/hooks/admin/use-invites";
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 

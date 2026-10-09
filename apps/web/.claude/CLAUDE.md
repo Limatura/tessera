@@ -234,7 +234,7 @@ Authorization reads `permissions` off `/auth/session`. **Never branch on `is_adm
 
 Roles are database rows and one account holds at most one. An empty `roles` array ("未指派") and the seeded `guest` role are both zero permissions, but they mean different things — nobody has decided yet, versus somebody deliberately chose the most restricted role — so the UI must keep them visually distinct.
 
-Admin query keys start with `"admin"`; `main.tsx` gives that prefix a 30-second `staleTime` so moving between admin pages does not refetch everything.
+Admin query hooks are one file per domain under `hooks/admin/` (`use-users.ts`, `use-roles.ts`, `use-all-shares.ts`, `use-invites.ts`, `use-stats.ts`, `use-storage-backends.ts`, `use-settings.ts`). Every key comes from `adminKeys` in `hooks/admin/keys.ts` — never write an `["admin", …]` literal: the no-argument entries (`adminKeys.users()`) are prefixes for `invalidateQueries`, the ones with arguments (`adminKeys.usersPage(offset, deleted)`) are single cache entries for `queryOptions`. All of them start with `"admin"`, and `main.tsx` gives that prefix a 30-second `staleTime` so moving between admin pages does not refetch everything. A query that needs a permission the page itself does not gate on (e.g. `useRoles()` needs `roles:read`) belongs in the component that is only mounted when that permission is held, not at the top of the page.
 
 **Settings forms ↔ backend config mapping**
 

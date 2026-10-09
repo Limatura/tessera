@@ -9,7 +9,7 @@ import {
 } from "@tessera/ui/components/alert-dialog";
 import { Button } from "@tessera/ui/components/button";
 
-import { useDeleteRole } from "@/hooks/admin/use-admin";
+import { useDeleteRole } from "@/hooks/admin/use-roles";
 import { roleLabel } from "@/lib/admin/permissions";
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";

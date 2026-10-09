@@ -20,7 +20,7 @@ import {
 import { formatBytes } from "@tessera/ui/lib/format";
 
 import { ShareStatusBadge } from "@/components/admin/share-status-badge";
-import { useRecentShares } from "@/hooks/admin/use-admin";
+import { useRecentShares } from "@/hooks/admin/use-all-shares";
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { ownerLabel, shareLabel } from "@/lib/admin/admin-shares";
 import * as m from "@/paraglide/messages";
