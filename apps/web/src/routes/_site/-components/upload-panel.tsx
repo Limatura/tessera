@@ -76,7 +76,7 @@ export function UploadPanel() {
   return (
     <>
       <GlassBackground />
-      <div className="w-full max-w-sm">
+      <div className="m-auto w-full max-w-sm">
         <Card className="border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
           <CardHeader>
             <CardTitle className="font-medium text-xl tracking-tight">
@@ -143,7 +143,7 @@ export function UploadPanel() {
                 ? `circle(${origin.radius}px at ${origin.x}px ${origin.y}px)`
                 : `circle(0px at ${origin.x}px ${origin.y}px)`,
             }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-melt text-melt-foreground"
+            className="fixed inset-0 z-50 flex overflow-y-auto bg-melt px-6 pt-16 pb-6 text-melt-foreground"
             // 先讓瀏覽器把這層提升成獨立圖層,不要等動畫開始才提升(提升本身會掉一幀)
             style={{ willChange: "clip-path" }}
             exit={{

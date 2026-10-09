@@ -98,7 +98,7 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
   return (
     <motion.div
       animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: 0 }}
-      className="flex w-full max-w-sm flex-col items-center gap-6 text-center text-melt-foreground"
+      className="relative m-auto flex w-full max-w-sm flex-col items-center gap-6 text-center text-melt-foreground"
       initial={{ opacity: 0, y: 12 }}
       transition={
         visible

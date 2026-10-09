@@ -46,17 +46,21 @@ export function Header() {
   };
 
   return (
-    <nav className="fixed w-full z-50">
-      <div className="flex items-center justify-between gap-2 p-4">
-        <Link to="/" className="flex items-center">
-          <Logo className="h-6" />
+    // 內容(上傳卡片、結果頁)會捲到 Header 底下,沒有底色的話文字會直接疊在按鈕上,
+    // 所以給一層毛玻璃把後面的東西霧化掉。
+    <nav className="fixed z-50 w-full border-border/40 border-b bg-background/50 backdrop-blur-xl">
+      {/* 手機寬度下 Logo(寬約 6 倍高)+ 語言 + 主題 + 登入加起來會超出視窗,把登入鈕擠出畫面,
+          所以 Logo 在窄螢幕縮小、可再被壓縮,右側控制項固定不縮。 */}
+      <div className="flex items-center justify-between gap-2 p-3 sm:p-4">
+        <Link to="/" className="flex min-w-0 items-center">
+          <Logo className="h-4 max-w-full sm:h-6" />
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Select
             value={locale}
             onValueChange={(value) => setLocale(value as typeof locale)}
           >
-            <SelectTrigger className="w-24">
+            <SelectTrigger className="w-20 sm:w-24">
               <SelectValue placeholder={m.common_language()} />
             </SelectTrigger>
             <SelectContent>
