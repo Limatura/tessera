@@ -1817,6 +1817,99 @@ pub async fn delete_share(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Body of `DELETE /admin/shares`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteAnySharesRequest {
+    /// Share identifiers, at most 200.
+    #[schema(example = json!(["01K1ZQK9V8QF5S3T4M2N6P7R8S"]))]
+    pub ids: Vec<String>,
+}
+
+/// What an administrative batch delete did, share by share.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DeleteAnySharesResponse {
+    /// The identifiers that were deleted, as they were sent.
+    pub deleted: Vec<String>,
+    /// The identifiers that were not, and why.
+    pub failed: Vec<DeleteAnyShareFailure>,
+}
+
+/// One share an administrative batch delete could not remove.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DeleteAnyShareFailure {
+    /// The identifier, as it was sent.
+    pub id: String,
+    /// Why: `not_found` when no share has it.
+    pub error: ErrorCode,
+}
+
+/// Removes several shares at once, whoever uploaded them.
+///
+/// Each one as `DELETE /admin/shares/{id}` would, and logged the same way. One
+/// that fails does not stop the rest.
+///
+/// # Errors
+///
+/// `400` for more than 200 identifiers, `401` when nothing was signed in, `403`
+/// when the caller may not delete every share or used a bearer token, `404`
+/// when this instance has no administration. Problems with individual shares
+/// are in the body.
+#[utoipa::path(
+    delete,
+    path = "/admin/shares",
+    operation_id = "delete_any_shares",
+    tag = ADMIN_TAG,
+    request_body = DeleteAnySharesRequest,
+    responses(
+        (status = 200, description = "What happened to each share", body = DeleteAnySharesResponse),
+        (status = 400, description = "More than 200 identifiers", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not delete every share, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn delete_shares(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiJson(body): ApiJson<DeleteAnySharesRequest>,
+) -> Result<Json<DeleteAnySharesResponse>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::SharesDeleteAny)?;
+    let ids = crate::api::shares::batch_of(body.ids, "ids")?;
+
+    let mut deleted = Vec::new();
+    let mut failed = Vec::new();
+    for id in ids {
+        match delete_any(&state, &current, &id).await {
+            Ok(()) => deleted.push(id),
+            Err(error) => {
+                if error.code() != ErrorCode::NotFound {
+                    tracing::warn!(share = id, error = %error, "a share in a batch delete was not removed");
+                }
+                failed.push(DeleteAnyShareFailure {
+                    id,
+                    error: error.code(),
+                });
+            }
+        }
+    }
+    Ok(Json(DeleteAnySharesResponse { deleted, failed }))
+}
+
+/// One share of an administrative batch.
+async fn delete_any(state: &AppState, current: &CurrentUser, id: &str) -> Result<()> {
+    let share_id = ShareId::parse(id).map_err(|_| Error::NotFound)?;
+    if state.shares.find_by_id(share_id).await?.is_none() {
+        return Err(Error::NotFound);
+    }
+    crate::api::shares::remove_objects(state, share_id).await?;
+    state.shares.delete(share_id).await?;
+    tracing::info!(share = %share_id, by = %current.user.id, "an administrator removed a share");
+    Ok(())
+}
+
 /// How many shares an operation ended.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RemovedSharesResponse {

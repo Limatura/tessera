@@ -830,6 +830,127 @@ pub async fn delete(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Body of `DELETE /shares`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteSharesRequest {
+    /// Retrieval codes of the caller's own shares, at most 200.
+    #[schema(example = json!(["K3P9XQ2M", "7RT2W9HD"]))]
+    pub codes: Vec<String>,
+}
+
+/// What a batch delete did, share by share.
+///
+/// Never all-or-nothing. A client keeps the ones that failed selected so they
+/// can be retried, and only the ones listed in `deleted` are gone.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DeleteSharesResponse {
+    /// The codes that were deleted, as they were sent.
+    pub deleted: Vec<String>,
+    /// The codes that were not, and why.
+    pub failed: Vec<DeleteShareFailure>,
+}
+
+/// One share a batch delete could not remove.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DeleteShareFailure {
+    /// The code, as it was sent.
+    pub code: String,
+    /// Why: `not_found` for a code that is not one of the caller's shares,
+    /// whether it exists or not, as the single delete answers.
+    pub error: ErrorCode,
+}
+
+/// Deletes several of the caller's shares in one request.
+///
+/// Each one exactly as `DELETE /shares/{code}` would: its objects first, each
+/// from the backend holding it, then its row. One that fails does not stop the
+/// rest. Repeated codes are deleted once.
+///
+/// Signed in only: a management token belongs to one share, so there is
+/// nothing for a batch to check it against.
+///
+/// # Errors
+///
+/// `400` for more than 200 codes, `401` when nothing was signed in, `403`
+/// when the credential does not carry `shares:delete`. Problems with
+/// individual shares are in the body, not the status.
+#[utoipa::path(
+    delete,
+    path = "/shares",
+    operation_id = "delete_shares",
+    tag = SHARES_TAG,
+    request_body = DeleteSharesRequest,
+    responses(
+        (status = 200, description = "What happened to each share", body = DeleteSharesResponse),
+        (status = 400, description = "More than 200 codes", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "The credential does not carry `shares:delete`", body = crate::error::ErrorBody),
+    ),
+    security(("session" = []), ("bearer" = [])),
+)]
+pub async fn delete_many(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiJson(body): ApiJson<DeleteSharesRequest>,
+) -> Result<Json<DeleteSharesResponse>> {
+    current.require(Permission::SharesDelete)?;
+    let codes = batch_of(body.codes, "codes")?;
+
+    let mut deleted = Vec::new();
+    let mut failed = Vec::new();
+    for code in codes {
+        match delete_own(&state, &current, &code).await {
+            Ok(()) => deleted.push(code),
+            Err(error) => {
+                if error.code() != ErrorCode::NotFound {
+                    tracing::warn!(code, error = %error, "a share in a batch delete was not removed");
+                }
+                failed.push(DeleteShareFailure {
+                    code,
+                    error: error.code(),
+                });
+            }
+        }
+    }
+    Ok(Json(DeleteSharesResponse { deleted, failed }))
+}
+
+/// One share of a batch: the caller's, or `not_found`.
+async fn delete_own(state: &AppState, current: &CurrentUser, code: &str) -> Result<()> {
+    let code = RetrievalCode::parse(code).map_err(|_| Error::NotFound)?;
+    let share = state
+        .shares
+        .find_by_code(&code)
+        .await?
+        .ok_or(Error::NotFound)?;
+    // Someone else's answers like one that does not exist, so a batch cannot
+    // be used to find out which codes are taken.
+    if share.user_id != Some(current.user.id) {
+        return Err(Error::NotFound);
+    }
+    remove_objects(state, share.id).await?;
+    state.shares.delete(share.id).await?;
+    Ok(())
+}
+
+/// The list a batch delete was given: at most a page of the listing
+/// (`MAX_SHARE_PAGE`), each entry once, in the order sent.
+pub(crate) fn batch_of(values: Vec<String>, field: &str) -> Result<Vec<String>> {
+    if u64::try_from(values.len()).unwrap_or(u64::MAX) > MAX_SHARE_PAGE {
+        return Err(
+            Error::out_of_range(field, None, Some(MAX_SHARE_PAGE)).with_message(format!(
+                "`{field}` takes at most {MAX_SHARE_PAGE} at a time"
+            )),
+        );
+    }
+    let mut seen = std::collections::HashSet::new();
+    Ok(values
+        .into_iter()
+        .filter(|value| seen.insert(value.clone()))
+        .collect())
+}
+
 /// Deletes every object a share has, each from the backend that holds it.
 ///
 /// Not from the backend new uploads go to: asking a store for a key it never

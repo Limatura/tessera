@@ -393,7 +393,19 @@ export interface paths {
         get: operations["list_all_shares"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Removes several shares at once, whoever uploaded them.
+         * @description Each one as `DELETE /admin/shares/{id}` would, and logged the same way. One
+         *     that fails does not stop the rest.
+         *
+         *     # Errors
+         *
+         *     `400` for more than 200 identifiers, `401` when nothing was signed in, `403`
+         *     when the caller may not delete every share or used a bearer token, `404`
+         *     when this instance has no administration. Problems with individual shares
+         *     are in the body.
+         */
+        delete: operations["delete_any_shares"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1317,7 +1329,22 @@ export interface paths {
          *     unused code could be found.
          */
         post: operations["create_share"];
-        delete?: never;
+        /**
+         * Deletes several of the caller's shares in one request.
+         * @description Each one exactly as `DELETE /shares/{code}` would: its objects first, each
+         *     from the backend holding it, then its row. One that fails does not stop the
+         *     rest. Repeated codes are deleted once.
+         *
+         *     Signed in only: a management token belongs to one share, so there is
+         *     nothing for a batch to check it against.
+         *
+         *     # Errors
+         *
+         *     `400` for more than 200 codes, `401` when nothing was signed in, `403`
+         *     when the credential does not carry `shares:delete`. Problems with
+         *     individual shares are in the body, not the status.
+         */
+        delete: operations["delete_shares"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2469,6 +2496,63 @@ export interface components {
              *     arrives after the answer is the disk space.
              */
             delete_shares?: boolean;
+        };
+        /** @description One share an administrative batch delete could not remove. */
+        DeleteAnyShareFailure: {
+            /** @description Why: `not_found` when no share has it. */
+            error: components["schemas"]["ErrorCode"];
+            /** @description The identifier, as it was sent. */
+            id: string;
+        };
+        /** @description Body of `DELETE /admin/shares`. */
+        DeleteAnySharesRequest: {
+            /**
+             * @description Share identifiers, at most 200.
+             * @example [
+             *       "01K1ZQK9V8QF5S3T4M2N6P7R8S"
+             *     ]
+             */
+            ids: string[];
+        };
+        /** @description What an administrative batch delete did, share by share. */
+        DeleteAnySharesResponse: {
+            /** @description The identifiers that were deleted, as they were sent. */
+            deleted: string[];
+            /** @description The identifiers that were not, and why. */
+            failed: components["schemas"]["DeleteAnyShareFailure"][];
+        };
+        /** @description One share a batch delete could not remove. */
+        DeleteShareFailure: {
+            /** @description The code, as it was sent. */
+            code: string;
+            /**
+             * @description Why: `not_found` for a code that is not one of the caller's shares,
+             *     whether it exists or not, as the single delete answers.
+             */
+            error: components["schemas"]["ErrorCode"];
+        };
+        /** @description Body of `DELETE /shares`. */
+        DeleteSharesRequest: {
+            /**
+             * @description Retrieval codes of the caller's own shares, at most 200.
+             * @example [
+             *       "K3P9XQ2M",
+             *       "7RT2W9HD"
+             *     ]
+             */
+            codes: string[];
+        };
+        /**
+         * @description What a batch delete did, share by share.
+         *
+         *     Never all-or-nothing. A client keeps the ones that failed selected so they
+         *     can be retried, and only the ones listed in `deleted` are gone.
+         */
+        DeleteSharesResponse: {
+            /** @description The codes that were deleted, as they were sent. */
+            deleted: string[];
+            /** @description The codes that were not, and why. */
+            failed: components["schemas"]["DeleteShareFailure"][];
         };
         /** @description Body of `POST /admin/settings/oidc/discovery`. */
         DiscoveryProbeRequest: {
@@ -4565,6 +4649,66 @@ export interface operations {
             };
         };
     };
+    delete_any_shares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAnySharesRequest"];
+            };
+        };
+        responses: {
+            /** @description What happened to each share */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteAnySharesResponse"];
+                };
+            };
+            /** @description More than 200 identifiers */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not delete every share, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     delete_any_share: {
         parameters: {
             query?: never;
@@ -6442,6 +6586,57 @@ export interface operations {
             };
             /** @description Out of room; the body says whether that is the account's quota, its role's, or the instance's */
             507: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    delete_shares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteSharesRequest"];
+            };
+        };
+        responses: {
+            /** @description What happened to each share */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteSharesResponse"];
+                };
+            };
+            /** @description More than 200 codes */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The credential does not carry `shares:delete` */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
