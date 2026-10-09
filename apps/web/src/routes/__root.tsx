@@ -4,10 +4,9 @@ import {
   Outlet,
   createRootRouteWithContext,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ThemeProvider } from "@tessera/ui/components/theme-provider";
 import { Toaster } from "@tessera/ui/components/toast";
-import { useEffect, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useSyncExternalStore } from "react";
 
 import { AppearanceSync } from "@/components/appearance-sync";
 import { readSiteAppearance } from "@/lib/appearance";
@@ -20,6 +19,14 @@ import { requirePasswordChanged } from "@/lib/route-guard";
 import * as m from "@/paraglide/messages";
 
 import "../index.css";
+
+/** 開發工具,只有開發時才需要,不該佔生產 bundle 的空間。 */
+const TanStackRouterDevtools = import.meta.env.PROD
+  ? null
+  : lazy(async () => {
+      const mod = await import("@tanstack/react-router-devtools");
+      return { default: mod.TanStackRouterDevtools };
+    });
 
 /**
  * Carries the QueryClient so route `beforeLoad`/`loader` hooks can read or
@@ -91,7 +98,11 @@ function RootComponent() {
         </div>
         <Toaster />
       </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-left" />
+      {TanStackRouterDevtools ? (
+        <Suspense fallback={null}>
+          <TanStackRouterDevtools position="bottom-left" />
+        </Suspense>
+      ) : null}
     </>
   );
 }

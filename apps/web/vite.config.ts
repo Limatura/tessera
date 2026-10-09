@@ -10,6 +10,13 @@ import { defineConfig, lazyPlugins } from "vite-plus";
 const apiOrigin = process.env.TESSERA_API_ORIGIN ?? "http://localhost:8787";
 
 export default defineConfig({
+  build: {
+    // 500kB 的預設門檻在這個 app 會被誤報：cpp.js、mermaid 的圖表類型 chunk、
+    // cytoscape 等都是只在使用者真的用到對應語法/圖表時才動態載入，不影響首屏,
+    // 真正的入口 chunk（index.js）只有 ~117kB gzip。調高門檻只是讓警告符合實際情況，
+    // 不代表關掉檢查——新增的「一次性」大型依賴如果誤植進主 bundle，仍會在這個門檻觸發。
+    chunkSizeWarningLimit: 800,
+  },
   test: {
     // Vitest v4 compatibility: preserve mock call history.
     // Remove after tests no longer rely on calls from setup or earlier tests.
