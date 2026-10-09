@@ -26,6 +26,12 @@ const LANGUAGES: readonly LanguageRules[] = [
     hints: [],
   },
   {
+    // 要排在 html 前:SVG 也長得像標記語言。
+    id: "svg",
+    unique: [/^\s*(?:<\?xml[^>]*>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg\b/u],
+    hints: [],
+  },
+  {
     id: "rust",
     unique: [/\blet\s+mut\s+/u, /#\[derive\(/u, /\bfn\s+\w+\s*\([^)]*\)\s*->/u],
     hints: [
