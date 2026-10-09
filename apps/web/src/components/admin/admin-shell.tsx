@@ -3,8 +3,8 @@ import { SidebarInset, SidebarProvider } from "@tessera/ui/components/sidebar";
 import type * as React from "react";
 
 import { AppSidebar } from "@/components/admin/app-sidebar";
-import { PageTransition } from "@/components/admin/page-transition";
 import { SiteHeader } from "@/components/admin/site-header";
+import { PageTransition } from "@/components/page-transition";
 
 /** `/admin/settings/mail` → `settings`：設定內切分頁不算換區塊，外框不重播。 */
 function sectionOf(pathname: string) {

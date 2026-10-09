@@ -4,7 +4,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 
-import { PageTransition } from "@/components/admin/page-transition";
+import { PageTransition } from "@/components/page-transition";
 import { PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
