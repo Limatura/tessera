@@ -1092,6 +1092,7 @@ fn text_name(title: Option<&str>, code: &str, language: Option<&str>) -> String 
         Some("php") => "php",
         Some("shellscript") => "sh",
         Some("mermaid") => "mmd",
+        Some("svg") => "svg",
         _ => "txt",
     };
     format!("{stem}.{extension}")
@@ -1506,6 +1507,7 @@ mod tests {
     #[test]
     fn a_note_is_named_for_its_title_or_code_and_language() {
         assert_eq!(text_name(None, "ab12cd", Some("python")), "ab12cd.py");
+        assert_eq!(text_name(None, "ab12cd", Some("svg")), "ab12cd.svg");
         assert_eq!(text_name(None, "ab12cd", None), "ab12cd.txt");
         assert_eq!(text_name(None, "ab12cd", Some("plaintext")), "ab12cd.txt");
         assert_eq!(
