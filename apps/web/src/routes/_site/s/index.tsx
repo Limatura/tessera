@@ -70,7 +70,9 @@ function RouteComponent() {
                 <Field>
                   <InputOTP
                     aria-label={m.share_code_label()}
+                    autoCapitalize="characters"
                     autoFocus
+                    inputMode="text"
                     maxLength={CODE_LENGTH}
                     onChange={handleChange}
                     pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
