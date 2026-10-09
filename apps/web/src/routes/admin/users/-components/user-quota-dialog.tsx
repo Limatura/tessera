@@ -17,7 +17,7 @@ import {
   toMib,
 } from "@/components/admin/byte-limit-field";
 import type { ByteLimitMode } from "@/components/admin/byte-limit-field";
-import { useSetUserLimits } from "@/hooks/admin/use-admin";
+import { useSetUserLimits } from "@/hooks/admin/use-users";
 import type { AdminUser } from "@/lib/admin/accounts";
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";

@@ -19,7 +19,7 @@ import { Input } from "@tessera/ui/components/input";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
-import { useCreateInvite } from "@/hooks/admin/use-admin";
+import { useCreateInvite } from "@/hooks/admin/use-invites";
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 

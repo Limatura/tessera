@@ -19,7 +19,8 @@ import {
 } from "@tessera/ui/components/select";
 import { useState } from "react";
 
-import { useSetUserRole } from "@/hooks/admin/use-admin";
+import { useRoles } from "@/hooks/admin/use-roles";
+import { useSetUserRole } from "@/hooks/admin/use-users";
 import { roleLabel, unassignedRoleLabel } from "@/lib/admin/permissions";
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
@@ -31,17 +32,21 @@ type ErrorBody = components["schemas"]["ErrorBody"];
 /** 選單裡代表「未指派」的值，因為 Select 不接受空字串或 null 當 item value。 */
 const UNASSIGNED_VALUE = "__unassigned__";
 
+/**
+ * 角色清單在這裡查而不是在使用者頁：查它要 `roles:read`,只有能改角色的人才會掛這個
+ * 對話框 —— 只有 `users:read` 的自訂角色打開使用者頁時不該吃一個 403。
+ * 掛載就查、不等打開，表單的初始值要靠清單把角色名稱換回 id。
+ */
 export function SetUserRoleDialog({
   account,
-  roles,
   open,
   onOpenChange,
 }: {
   account: Account | null;
-  roles: Role[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const roles = useRoles();
   const close = () => onOpenChange(false);
 
   return (
@@ -54,7 +59,7 @@ export function SetUserRoleDialog({
             key={account.id}
             onCancel={close}
             onDone={close}
-            roles={roles}
+            roles={roles.data ?? []}
           />
         )}
       </DialogContent>

@@ -14,8 +14,9 @@ import { Skeleton } from "@tessera/ui/components/skeleton";
 import { formatBytes } from "@tessera/ui/lib/format";
 import type { ReactNode } from "react";
 
-import { useStats, useStorageBackends } from "@/hooks/admin/use-admin";
 import { readSetting, useSettings } from "@/hooks/admin/use-settings";
+import { useStats } from "@/hooks/admin/use-stats";
+import { useStorageBackends } from "@/hooks/admin/use-storage-backends";
 import * as m from "@/paraglide/messages";
 
 import { StorageLocationChart } from "./storage-location-chart";

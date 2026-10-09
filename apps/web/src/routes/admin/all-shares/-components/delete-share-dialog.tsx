@@ -9,7 +9,7 @@ import {
 } from "@tessera/ui/components/alert-dialog";
 import { Button } from "@tessera/ui/components/button";
 
-import { useDeleteShare } from "@/hooks/admin/use-admin";
+import { useDeleteShare } from "@/hooks/admin/use-all-shares";
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 

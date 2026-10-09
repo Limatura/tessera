@@ -2,7 +2,7 @@ import type { components } from "@tessera/api/schema";
 import { useState } from "react";
 import type * as React from "react";
 
-import { useAddStorageBackend } from "@/hooks/admin/use-admin";
+import { useAddStorageBackend } from "@/hooks/admin/use-storage-backends";
 
 type Backend = components["schemas"]["BackendResponse"];
 type ErrorBody = components["schemas"]["ErrorBody"];

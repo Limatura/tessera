@@ -22,11 +22,11 @@ import { useState } from "react";
 
 import { Pager } from "@/components/admin/pager";
 import { ShareStatusBadge } from "@/components/admin/share-status-badge";
-import { PAGE_SIZE, useAllShares } from "@/hooks/admin/use-admin";
+import { useAllShares } from "@/hooks/admin/use-all-shares";
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { ownerLabel, shareLabel } from "@/lib/admin/admin-shares";
 import type { AdminShare } from "@/lib/admin/admin-shares";
-import { pageSearchSchema } from "@/lib/admin/page-search";
+import { PAGE_SIZE, pageSearchSchema } from "@/lib/admin/page-search";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
