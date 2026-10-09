@@ -22,7 +22,7 @@ import {
 } from "@tessera/ui/components/table";
 import { useState } from "react";
 
-import { useInvites } from "@/hooks/admin/use-admin";
+import { useInvites } from "@/hooks/admin/use-invites";
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";

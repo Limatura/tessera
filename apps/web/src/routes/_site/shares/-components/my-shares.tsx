@@ -9,7 +9,11 @@ import { buttonVariants } from "@tessera/ui/components/button";
 import { cn } from "@tessera/ui/lib/utils";
 import { useState } from "react";
 
-import { SHARES_PAGE_SIZE, useMyShares } from "@/hooks/use-shares";
+import {
+  MY_SHARES_KEY,
+  SHARES_PAGE_SIZE,
+  useMyShares,
+} from "@/hooks/use-shares";
 import { toResult } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
 
@@ -36,7 +40,7 @@ export function MyShares({ page }: { page: number }) {
 
   // 期限、次數一改,列表上的「到期」那欄就舊了;刪掉的話總數跟分頁也變了。
   const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ["shares", "mine"] });
+    queryClient.invalidateQueries({ queryKey: MY_SHARES_KEY });
 
   const handleManage = (share: Share) => {
     setManaging(toManaged(share));

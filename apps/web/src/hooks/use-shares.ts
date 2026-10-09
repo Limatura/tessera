@@ -10,6 +10,9 @@ import { api } from "@tessera/api";
 /** 一頁幾筆。server 的上限是 200,這裡挑一個表格看得完的數字。 */
 export const SHARES_PAGE_SIZE = 20;
 
+/** 「我的分享」每一頁的共同前綴。後台刪了誰的分享，也要讓這串失效。 */
+export const MY_SHARES_KEY = ["shares", "mine"] as const;
+
 /**
  * 目前登入帳號自己的分享。server 端用 session 的 user id 過濾（見 `list_for_user`），
  * 前端不需要、也不能指定要看誰的。
@@ -29,7 +32,7 @@ export function sharesQueryOptions(offset: number) {
       }
       return data;
     },
-    queryKey: ["shares", "mine", offset],
+    queryKey: [...MY_SHARES_KEY, offset],
   });
 }
 
@@ -39,7 +42,7 @@ export function useMyShares(offset: number) {
 
 /**
  * 刪自己的分享。登入者是擁有者就夠,不需要管理 token(那是匿名上傳用的)。
- * 刪完整個 `["shares", "mine"]` 前綴都失效:總數變了,後面每一頁的內容也會往前補。
+ * 刪完整個 `MY_SHARES_KEY` 前綴都失效:總數變了,後面每一頁的內容也會往前補。
  */
 export function useDeleteMyShare() {
   const queryClient = useQueryClient();
@@ -53,7 +56,7 @@ export function useDeleteMyShare() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shares", "mine"] });
+      queryClient.invalidateQueries({ queryKey: MY_SHARES_KEY });
     },
   });
 }

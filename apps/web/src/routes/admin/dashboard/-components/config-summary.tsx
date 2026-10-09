@@ -11,8 +11,8 @@ import {
 import { Skeleton } from "@tessera/ui/components/skeleton";
 import { formatBytes, formatNumber } from "@tessera/ui/lib/format";
 
-import { useStats } from "@/hooks/admin/use-admin";
 import { useSettings } from "@/hooks/admin/use-settings";
+import { useStats } from "@/hooks/admin/use-stats";
 import { getLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
 

@@ -7,6 +7,8 @@ import {
 import { api } from "@tessera/api";
 import type { components } from "@tessera/api/schema";
 
+import { adminKeys } from "./keys";
+
 type Settings = components["schemas"]["SettingsResponse"];
 type Changes = components["schemas"]["UpdateSettingsRequest"]["changes"];
 
@@ -24,7 +26,7 @@ export const settingsQueryOptions = queryOptions({
     }
     return data;
   },
-  queryKey: ["admin", "settings"],
+  queryKey: adminKeys.settings(),
 });
 
 export function useSettings() {

@@ -11,7 +11,7 @@ import {
 } from "@tessera/ui/components/select";
 import { Controller, useWatch } from "react-hook-form";
 
-import { useRoles } from "@/hooks/admin/use-admin";
+import { useRoles } from "@/hooks/admin/use-roles";
 import { readSetting } from "@/hooks/admin/use-settings";
 import { useSettingsForm } from "@/hooks/admin/use-settings-form";
 import type { SettingsKeyMap } from "@/hooks/admin/use-settings-form";

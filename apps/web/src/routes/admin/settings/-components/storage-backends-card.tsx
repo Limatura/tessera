@@ -17,7 +17,7 @@ import { useState } from "react";
 import {
   useSetDefaultStorageBackend,
   useStorageBackends,
-} from "@/hooks/admin/use-admin";
+} from "@/hooks/admin/use-storage-backends";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import * as m from "@/paraglide/messages";
 

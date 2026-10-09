@@ -61,6 +61,7 @@ export const ADMIN_ENTRY_PERMISSIONS = [
   PERMISSIONS.invitesRead,
   PERMISSIONS.rolesRead,
   PERMISSIONS.sharesReadAny,
+  PERMISSIONS.settingsRead,
 ] as const;
 
 /** 這個帳號在後台有沒有任何一頁進得去。 */
