@@ -19,6 +19,11 @@ export type ReadResult =
       /** provider 宣告支援的全部 scopes，用來在畫面上解釋為什麼加了或少了幾個。 */
       supportedScopes: string[] | null;
       backchannelLogout: boolean;
+      /**
+       * Provider 宣告會發的 claims；沒宣告是 null。用來判斷 `when_verified` 對它
+       * 會不會有作用 —— 沒有 `email_verified` 就永遠不會連結到任何人。
+       */
+      claimsSupported: string[] | null;
     }
   | { ok: false; reason: string };
 
@@ -109,6 +114,9 @@ export async function readDiscovery(
 
   return {
     backchannelLogout: data.backchannel_logout_supported,
+    // 跟 scopes 一樣：空陣列是沒宣告，不是一個都不發。
+    claimsSupported:
+      data.claims_supported.length > 0 ? data.claims_supported : null,
     issuer: data.issuer,
     ok: true,
     // 沒宣告就不動使用者填的 —— 沒宣告不代表不支援。
