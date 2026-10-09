@@ -19,15 +19,15 @@ import * as m from "@/paraglide/messages";
 /**
  * 貼上 discovery URL，請伺服器讀一次文件，把裡面的值填進下面的欄位。
  *
- * 值是讀出來的，不是從網址推的：文件裡的 `issuer` 才是權威來源，規範要求它與
- * `iss` claim 一字不差。剪網址字尾多數時候結果一樣，但那是猜的。
+ * 值是讀出來的，不是從網址推的：文件裡的 `issuer` 是權威來源，規範要求它與
+ * `iss` claim 一字不差；剪網址字尾多數時候結果一樣，但那是猜的。
  *
  * 讀取走後端（見 `lib/oidc-discovery.ts`）：不少 provider 不開放瀏覽器跨來源
- * 讀取，而伺服器抓得到就代表登入路徑也抓得到。
+ * 讀取，伺服器抓得到就代表登入路徑也抓得到。
  *
- * 能帶入的只有 issuer 跟 scopes —— 端點後端自己會從同一份文件讀（見
- * `discovery.rs`），根本沒有欄位存它們。Client ID／Secret 是 provider 後台另外
- * 發的，不在這份文件裡，要自己填。
+ * 只帶入 issuer 跟 scopes：端點後端自己會從同一份文件讀（見 `discovery.rs`），
+ * 根本沒有欄位存它們。Client ID／Secret 是 provider 後台另外發的，不在這份
+ * 文件裡，要自己填。
  */
 export function OidcDiscoveryField({
   issuer,
@@ -47,8 +47,7 @@ export function OidcDiscoveryField({
   const [result, setResult] = useState<ReadResult | null>(null);
   const [isReading, setIsReading] = useState(false);
 
-  // 這格空著就讀下面 Issuer 的現值 —— 已經設定好的站台是來重新確認的，
-  // 不該逼人把網址再貼一次。
+  // 空著就讀下面 Issuer 的現值——已設定好的站台是來重新確認，不該逼人再貼一次。
   const target = value.trim() === "" ? issuer.trim() : value.trim();
 
   const handleRead = async () => {
@@ -68,7 +67,7 @@ export function OidcDiscoveryField({
         backchannelLogout: read.backchannelLogout,
         claimsSupported: read.claimsSupported,
         issuer: read.issuer,
-        // 沒宣告 scopes_supported 就不動使用者填的 —— 沒宣告不代表不支援。
+        // 沒宣告 scopes_supported 就不動使用者填的——沒宣告不代表不支援。
         scopes: read.scopes ? read.scopes.join(" ") : undefined,
       });
     }
@@ -153,10 +152,7 @@ function ReadMessage({ result }: { result: ReadResult }) {
             {m.settings_oidc_discovery_field_no_scopes_declared()}
           </p>
         )}
-        {/*
-          email 拿不到就沒有帳號可建，後端會以 no_address 拒絕每一次登入。
-          這件事值得當場講，不然要到第一個人登入失敗才會發現。
-        */}
+        {/* email 拿不到就沒帳號可建，後端會以 no_address 拒絕每次登入，當場講掉比等第一次登入失敗才發現好。 */}
         {missingEmail ? (
           <p className="font-medium text-amber-600 dark:text-amber-500">
             {m.settings_oidc_discovery_field_missing_email()}

@@ -56,7 +56,9 @@ export function ManageShareDialog({
 }) {
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
+      {/* grid 的隱含欄預設是 auto,長標題 / 長網址會把欄撐得比對話框寬,內容就溢出右邊;
+          明確給 minmax(0,1fr) 才能讓 truncate 生效。 */}
+      <DialogContent className="grid-cols-[minmax(0,1fr)] sm:max-w-md">
         {share &&
           (verify ? (
             <VerifiedShareContent

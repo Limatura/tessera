@@ -1,12 +1,9 @@
 /**
- * 把 `created_user_agent` 的原始字串猜成「Chrome / macOS」。
- *
- * 後端不解析 UA,而且 issue #90 講得很直接:**解錯比不解糟**,因為把別人的 session
- * 標成你熟悉的瀏覽器,會讓人放過一筆該撤銷的登入。所以這裡只認幾條沒有歧義的樣式,
- * 認不出來就回 `null`,由畫面退回顯示原始字串 —— 原始字串很醜,但它不會騙人。
- *
- * 之所以不裝 ua-parser-js 之類的套件:那些函式庫的長處是「盡量猜出一個答案」,
- * 在這一頁剛好是短處。
+ * 把 `created_user_agent` 的原始字串猜成「Chrome / macOS」。後端不解析 UA,
+ * 且 issue #90 講得很直接:**解錯比不解糟**——把別人的 session 標成你熟悉的
+ * 瀏覽器,會讓人放過一筆該撤銷的登入。所以這裡只認幾條沒有歧義的樣式,認不出來
+ * 就回 `null`,由畫面退回顯示原始字串——醜但不會騙人。不裝 ua-parser-js 之類
+ * 套件:那些函式庫的長處是「盡量猜出一個答案」,在這一頁剛好是短處。
  */
 
 export interface ParsedUserAgent {
@@ -14,10 +11,7 @@ export interface ParsedUserAgent {
   os: string | null;
 }
 
-/**
- * 順序就是規則。UA 字串裡的假冒是歷史共業:Edge 同時自稱 Chrome 和 Safari、
- * Chrome 自稱 Safari,所以最具體的要先比,比中就停。
- */
+/** 順序就是規則:Edge 同時自稱 Chrome 和 Safari、Chrome 自稱 Safari,最具體的要先比,比中就停。 */
 const BROWSERS: [name: string, pattern: RegExp][] = [
   ["Edge", /\bEdg(?:e|A|iOS)?\//u],
   ["Opera", /\bOPR\/|\bOpera\//u],
@@ -29,10 +23,7 @@ const BROWSERS: [name: string, pattern: RegExp][] = [
   ["Tessera CLI", /^tessera\//iu],
 ];
 
-/**
- * iOS/iPadOS 要排在 macOS 前面:iPad 的 UA 裡也有 "Mac OS X"。
- * Android 要排在 Linux 前面,理由一樣。
- */
+/** iOS/iPadOS 要排在 macOS 前面:iPad 的 UA 裡也有 "Mac OS X"。Android 排在 Linux 前面,理由一樣。 */
 const OPERATING_SYSTEMS: [name: string, pattern: RegExp][] = [
   ["iOS", /\((?:iPhone|iPad|iPod)\b/u],
   ["Android", /\bAndroid\b/u],
@@ -53,9 +44,7 @@ function matchFirst(
   return null;
 }
 
-/**
- * 兩邊都認不出來時回 `null`,呼叫端才好分辨「沒答案」跟「一半有答案」。
- */
+/** 兩邊都認不出來時回 `null`,呼叫端才好分辨「沒答案」跟「一半有答案」。 */
 export function parseUserAgent(
   userAgent?: string | null
 ): ParsedUserAgent | null {

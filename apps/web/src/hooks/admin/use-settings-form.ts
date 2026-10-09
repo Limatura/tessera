@@ -12,19 +12,14 @@ export type SettingsKeyMap<TValues extends FieldValues> = Partial<
   Record<keyof TValues & string, string>
 >;
 
-/**
- * 送出前的轉換。回 `undefined` 代表「這次不要送這個 key」—— SEALED 欄位留空就是
- * 走這條，使用者沒填的 secret 不該被一個空字串覆蓋掉。
- */
+/** 送出前的轉換。回 `undefined` 代表「這次不要送這個 key」—— SEALED 欄位留空走這條，沒填的 secret 不該被空字串覆蓋。 */
 export type SettingsEncoders<TValues extends FieldValues> = Partial<{
   [K in keyof TValues]: (value: TValues[K]) => unknown;
 }>;
 
 /**
- * 只挑出真正改動過的欄位。
- *
- * `PUT /admin/settings` 把 changes 當一組驗證，一個 key 不合法會讓整批退回 ——
- * 所以沒動過的欄位就算值是對的也別送。
+ * 只挑出真正改動過的欄位。`PUT /admin/settings` 把 changes 當一組驗證，一個
+ * key 不合法會讓整批退回 —— 沒動過的欄位就算值是對的也別送。
  */
 export function collectChanges<TValues extends FieldValues>(
   keys: SettingsKeyMap<TValues>,
@@ -61,11 +56,9 @@ export function settingsErrorMessage(error: unknown): string | null {
 }
 
 /**
- * 每個設定表單共用的那一半：react-hook-form、寫入權限、以及「只送 dirty 欄位」的
- * 送出流程。
- *
- * 初始值由呼叫端從 `GET /admin/settings` 讀好再傳進來，而且只在掛載時讀一次 ——
- * 背景重抓不該把使用者打到一半的內容洗掉。
+ * 每個設定表單共用的那一半：react-hook-form、寫入權限、以及「只送 dirty 欄位」
+ * 的送出流程。初始值由呼叫端從 `GET /admin/settings` 讀好再傳進來，只在掛載時
+ * 讀一次 —— 背景重抓不該把使用者打到一半的內容洗掉。
  */
 export function useSettingsForm<TValues extends FieldValues>({
   defaultValues,
@@ -85,8 +78,8 @@ export function useSettingsForm<TValues extends FieldValues>({
     resolver,
   });
 
-  // 在 render 期間讀出來，react-hook-form 才會訂閱這兩個 —— 只在送出的 callback
-  // 裡碰 `formState.dirtyFields` 的話它根本不會被計算。
+  // 在 render 期間讀出來，react-hook-form 才會訂閱這兩個 —— 只在送出的
+  // callback 裡碰 `dirtyFields` 的話它根本不會被計算。
   const { dirtyFields, isDirty } = form.formState;
 
   const submit = form.handleSubmit((values) => {
@@ -97,8 +90,8 @@ export function useSettingsForm<TValues extends FieldValues>({
       encoders
     );
 
-    // 只動了 SEALED 欄位又把它清空的話，這裡會是空的。reset 讓「已儲存」的狀態
-    // 回到乾淨，而不是留一顆按不動的按鈕。
+    // 只動了 SEALED 欄位又清空的話，這裡會是空的。reset 讓「已儲存」狀態回到
+    // 乾淨，而不是留一顆按不動的按鈕。
     if (Object.keys(changes).length === 0) {
       form.reset(values);
       return;
@@ -119,11 +112,9 @@ export function useSettingsForm<TValues extends FieldValues>({
     isDirty,
     isPending: update.isPending,
     isSaved: update.isSuccess && !isDirty,
-    /*
-     * 給「由另一格推導出這一格」的欄位用（目前只有 OIDC 的 discovery URL）。
-     * 呼叫端務必帶 `shouldDirty` —— 送出時只挑 dirty 的欄位，沒標記的話這個值
-     * 會留在畫面上卻不會被儲存，那比沒帶入更糟。
-     */
+    // 給「由另一格推導出這一格」的欄位用（目前只有 OIDC 的 discovery URL）。
+    // 呼叫端務必帶 `shouldDirty` —— 送出時只挑 dirty 欄位，沒標記的話這個值
+    // 會留在畫面上卻不會被儲存，比沒帶入更糟。
     setValue: form.setValue,
     submit,
   };

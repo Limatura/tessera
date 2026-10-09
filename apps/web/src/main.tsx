@@ -24,8 +24,8 @@ const queryClient = new QueryClient({
   queryCache: new QueryCache({ onError: redirectIfPasswordExpired }),
 });
 
-// 後台資料改動頻繁，切回分頁時重抓（預設就會）比看到舊的使用者/角色列表安全；
-// 30 秒內換頁不重抓，免得在幾個管理頁之間切換時每次都閃 loading。
+// 後台資料改動頻繁，切回分頁時重抓（預設就會）比看到舊列表安全；
+// 30 秒內換頁不重抓，免得在管理頁之間切換時每次都閃 loading。
 queryClient.setQueryDefaults(["admin"], { staleTime: 30_000 });
 
 const router = createRouter({
@@ -39,8 +39,8 @@ const router = createRouter({
 /**
  * 任何請求回 `password_change_required` 就送去改密碼頁。
  *
- * 進站時 root 的 guard 已經看過 session，這裡接的是之後才變的情況（例如管理員在
- * 你登入期間重設了密碼）。順手把 session 快取標成要改密碼，之後換頁 guard 才擋得住。
+ * root 的 guard 進站時已看過 session，這裡接的是之後才變的情況（例如管理員在
+ * 你登入期間重設密碼）。順手把 session 快取標成要改密碼，換頁 guard 才擋得住。
  */
 function redirectIfPasswordExpired(error: unknown) {
   if (apiErrorCode(error) !== "password_change_required") {

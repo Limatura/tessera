@@ -28,8 +28,8 @@ import { UploadResult } from "./upload-result";
 import { useSubmitTransition } from "./use-submit-transition";
 
 // 程式碼分頁帶著 CodeMirror(~200KB gzip),但首頁預設停在「檔案」,大部分人
-// 根本不會點過去。拆成獨立 chunk,滑到或 focus 到分頁標籤時才開始抓,點下去
-// 通常已經抓完了。
+// 不會點過去,所以拆成獨立 chunk,滑到或 focus 分頁標籤時才抓,點下去通常
+// 已經抓完了。
 const loadCodeUploadForm = () => import("./code-upload-form");
 
 const CodeUploadForm = lazy(async () => {
@@ -76,7 +76,7 @@ export function UploadPanel() {
   return (
     <>
       <GlassBackground />
-      <div className="w-full max-w-sm">
+      <div className="m-auto w-full max-w-sm">
         <Card className="border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
           <CardHeader>
             <CardTitle className="font-medium text-xl tracking-tight">
@@ -144,7 +144,7 @@ export function UploadPanel() {
                 : `circle(0px at ${origin.x}px ${origin.y}px)`,
             }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-melt text-melt-foreground"
-            // 先讓瀏覽器把這層提升成獨立圖層,不要等動畫開始才提升(提升本身會掉一幀)
+            // 先讓瀏覽器把這層提升成獨立圖層,不等動畫開始才提升(提升本身會掉一幀)
             style={{ willChange: "clip-path" }}
             exit={{
               clipPath: `circle(0px at ${origin.x}px ${origin.y}px)`,
@@ -172,7 +172,7 @@ export function UploadPanel() {
   );
 }
 
-/** 跟 CodeUploadForm 同樣的骨架高度,載完換上去時卡片不會跳。 */
+/** 跟 CodeUploadForm 同樣骨架高度,載完換上去時卡片不會跳。 */
 function CodeUploadFormSkeleton() {
   return (
     <div className="flex flex-col gap-3">

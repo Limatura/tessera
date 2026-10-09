@@ -6,10 +6,9 @@ import * as m from "@/paraglide/messages";
 /**
  * Character classes, matching `PasswordPolicy`'s doc comment in
  * `crates/tessera-core/src/password.rs`. Unicode, not ASCII, so a password in
- * any script is judged the same way the server judges it.
- *
- * A space is not a symbol: counting it would let any passphrase satisfy the
- * rule, which is not what an operator who turned it on asked for.
+ * any script is judged the same way the server judges it. A space is not a
+ * symbol — counting it would let any passphrase satisfy the rule, which
+ * isn't what an operator who turned it on asked for.
  */
 const UPPERCASE = /\p{Uppercase}/u;
 const LOWERCASE = /\p{Lowercase}/u;
@@ -50,10 +49,9 @@ export interface PasswordRule {
 }
 
 /**
- * The rules `policy` turns on, checked against `value`.
- *
- * Length is always a rule; the composition ones appear only when the operator
- * asked for them, so an instance on the defaults shows a single line.
+ * The rules `policy` turns on, checked against `value`. Length is always a
+ * rule; composition rules appear only when the operator asked for them, so
+ * an instance on the defaults shows a single line.
  */
 export function passwordRules(
   policy: PasswordPolicy,
@@ -94,10 +92,9 @@ export function passwordRules(
 }
 
 /**
- * A zod schema for choosing a new password under `policy`.
- *
- * Every unmet rule is reported, not just the first, so someone who is missing
- * both a digit and a symbol learns that in one attempt instead of two.
+ * A zod schema for choosing a new password under `policy`. Every unmet rule
+ * is reported, not just the first, so someone missing both a digit and a
+ * symbol learns that in one attempt instead of two.
  */
 export function passwordSchemaFor(policy: PasswordPolicy) {
   return z
@@ -114,10 +111,9 @@ export function passwordSchemaFor(policy: PasswordPolicy) {
 
 /**
  * Whether the server turned the password down because it appears in a known
- * breach (`auth.pwned.*`).
- *
- * It belongs on the password field, next to the other reasons a password is
- * refused, rather than under the submit button like a failure of the request.
+ * breach (`auth.pwned.*`) — belongs on the password field, next to the other
+ * reasons a password is refused, not under the submit button like a request
+ * failure.
  */
 export function isBreachedPasswordError(error: unknown): boolean {
   return apiErrorCode(error) === "password_breached";

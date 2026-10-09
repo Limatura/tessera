@@ -102,8 +102,8 @@ export function providerRegistrationOptions() {
 }
 
 /**
- * 認不得的值當成 `open` —— 那是 server 的預設，說錯話不如說最可能的那句。
- * 三個值以外的東西只會在 server 加了新模式、面板還沒跟上時出現。
+ * 認不得的值當成 `open`：那是 server 的預設，說錯話不如說最可能那句。三個
+ * 值以外的東西只會在 server 加了新模式、面板還沒跟上時出現。
  */
 function headline(registration: unknown): string {
   switch (registration) {

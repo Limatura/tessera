@@ -24,19 +24,15 @@ import { EmptyBox, Section } from "./section";
 /** 直接 import Route 會跟 index.tsx 形成循環依賴（同 login-form）。 */
 const routeApi = getRouteApi("/_site/user/");
 
-/**
- * 409 是「這是最後一個登入方式」（`last_sign_in_method`）：後端自己算過，它知道
- * 有沒有密碼，前端不知道。
- */
+/** 409 是「這是最後一個登入方式」（`last_sign_in_method`）——後端算過，前端不知道有沒有密碼。 */
 function errorMessage(error: unknown): string {
   return apiErrorMessage(error, m.common_try_again());
 }
 
 /**
- * 一家一列，沒綁的也列出來 —— 這一區要回答的是「我可以用哪些方式進來」，
- * 只畫已綁的話沒綁過的人會看到一個空框，不知道還能綁什麼。
- *
- * 一個帳號可以同時綁多家，所以這是清單而不是單選。
+ * 一家一列，沒綁的也列出來——這一區要回答「我可以用哪些方式進來」，只畫已綁的
+ * 話沒綁過的人會看到空框，不知道還能綁什麼。一個帳號可同時綁多家，所以是清單
+ * 而不是單選。
  */
 export function IdentitiesSection() {
   const providers = useProviders();
@@ -81,9 +77,8 @@ export function IdentitiesSection() {
   const linked = identities.data ?? [];
 
   /*
-   * 站台把某家關掉之後，已經綁在上面的身分還在資料庫裡。不畫出來的話那個人會
-   * 以為自己沒綁過，卻又解不掉（它還算在 is_last_way_in 裡）。所以關掉但仍綁著
-   * 的也要列 —— 只是沒有「綁定」鍵可按。
+   * 站台關掉某家後，已綁的身分還在資料庫裡（仍算在 is_last_way_in 裡）。不畫
+   * 出來會讓人以為自己沒綁過卻又解不掉，所以仍要列出，只是沒有「綁定」鍵。
    */
   const orphaned = linked.filter(
     (identity) =>
@@ -135,14 +130,13 @@ export function IdentitiesSection() {
 }
 
 /**
- * 標題、說明，還有失敗訊息 —— 三個 return 分支都要，所以抽出來，
- * 免得訊息只在某一種狀態下看得到。
+ * 標題、說明、失敗訊息抽出來共用，免得三個 return 分支只有部分能看到訊息。
  *
- * 綁定失敗時後端把人送回這頁並帶上代碼。放在這一區而不是頁首：這是「剛才按的
- * 綁定沒成功」，訊息離那顆按鈕愈近愈好。認不得的代碼退回一句通用的。
+ * 綁定失敗時後端把人送回這頁並帶上代碼，放在這一區而不是頁首，讓訊息離剛按的
+ * 綁定鍵愈近愈好；認不得的代碼退回通用訊息。
  *
- * `sign_in_again` 不算失敗：綁定要 10 分鐘內登入過（#435），補救是再登入一次，
- * 所以附上按鈕而不是只給一行紅字。回來後再按一次綁定就會成功。
+ * `sign_in_again` 不算失敗：綁定要求 10 分鐘內登入過（#435），補救是再登入
+ * 一次，所以給按鈕而非紅字——回來後再按一次綁定就會成功。
  */
 function IdentitiesShell({ children }: { children: React.ReactNode }) {
   const { oidc_error: code } = routeApi.useSearch();
@@ -192,10 +186,7 @@ function IdentityRow({
   const isLastWayIn = identity?.is_last_way_in ?? false;
 
   return (
-    /*
-     * 跟 session-row 一樣用 flex-wrap：手機上按鈕自己掉到下一行變滿版，
-     * 桌機上三者同一列。
-     */
+    /* 跟 session-row 一樣用 flex-wrap：手機上按鈕換行變滿版，桌機上同一列。 */
     <li className="flex flex-wrap items-start gap-x-3 gap-y-3 rounded-lg border p-3">
       <span className="mt-0.5 shrink-0 text-muted-foreground">
         <ProviderIcon provider={provider} size={18} />
@@ -215,10 +206,7 @@ function IdentityRow({
               })
             : m.user_identities_not_linked()}
         </p>
-        {/*
-          鎖起來的原因要寫在旁邊，不能只靠 disabled —— disabled 的按鈕收不到
-          hover，tooltip 在觸控裝置上也開不了，那等於沒有解釋。
-        */}
+        {/* 鎖起來的原因要寫在旁邊，不能只靠 disabled——disabled 按鈕收不到 hover，觸控裝置上開不了 tooltip，等於沒解釋。 */}
         {isLastWayIn ? (
           <p className="text-muted-foreground text-xs">
             {m.user_identities_last_way_in()}
@@ -241,7 +229,7 @@ function IdentityRow({
       ) : (
         <Button
           className="w-full sm:w-auto"
-          // 導頁而不是 fetch：後端回 303，要瀏覽器自己跟到 provider 去。
+          // 導頁而非 fetch：後端回 303，要瀏覽器自己跟到 provider 去。
           onClick={() => startLink(provider)}
           size="sm"
           type="button"

@@ -9,10 +9,10 @@ import { SettingsNotice } from "./form-fields";
 const GUEST_ROLE = "guest";
 
 /**
- * 兩個設定各在一頁，`fixAt` 指的是「另外那一頁」—— 也就是這一頁修不到、要跳過去改的
- * 那一個。動作跟著頁面走：帳號與註冊那頁改的是預設角色，上傳設置那頁關的是匿名上傳。
+ * 兩個設定各在一頁，`fixAt` 指「另外那一頁」——這一頁修不到、要跳過去改的那
+ * 一個：帳號與註冊那頁改預設角色，上傳設置那頁關匿名上傳。
  *
- * 是函式而不是 module-level const —— 裡面呼叫的 `m.xxx()` 要在渲染當下讀 locale，
+ * 是函式而不是 module-level const：裡面的 `m.xxx()` 要在渲染當下讀 locale，
  * 包成 const 只會在模組第一次載入時凍住語系。
  */
 function fixTargets() {
@@ -33,12 +33,12 @@ function fixTargets() {
 /**
  * `auth.default_role` 選了 `guest`、`features.anonymous_upload` 又開著時的提醒。
  *
- * 這兩個設定分屬兩個頁面，兩邊都掛一份。值一律讀 server 上實際生效的設定而不是表單
- * 狀態 —— 它講的是這台 instance 現在的樣子。正在改 `default_role` 的那一頁可以用
+ * 分屬兩個頁面，兩邊都掛一份。值一律讀 server 上實際生效的設定而非表單狀態
+ * ——講的是這台 instance 現在的樣子；正在改 `default_role` 的那頁可用
  * `defaultRole` 把還沒存的值蓋進來先預覽。
  *
- * 為什麼要提醒：guest 是空權限，但拒絕是針對「帳號」不是針對 instance。匿名上傳開著
- * 的時候同一個人登出就能以陌生人的身分上傳，這個角色實際上限制不到任何人。
+ * 為什麼要提醒：guest 雖是空權限，但限制的是「帳號」不是「instance」。匿名
+ * 上傳開著時，同一個人登出就能以陌生人身分上傳，這角色實際限制不到任何人。
  */
 export function GuestAnonymousWarning({
   defaultRole,

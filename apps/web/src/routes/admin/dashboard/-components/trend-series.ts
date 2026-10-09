@@ -18,12 +18,12 @@ const MS_PER_DAY = 86_400_000;
 /**
  * 把 server 給的日子攤成連續的每一天。
  *
- * server 只回有紀錄的日子：伺服器沒開的那天直接不在清單裡。照原樣丟給圖表，橫軸會把
- * 前後兩天緊貼在一起、線直接連過去，看起來像那段時間什麼都沒變。所以中間缺的補成
- * `null` 讓圖斷開。
+ * server 只回有紀錄的日子，沒開的那天直接不在清單裡。照原樣丟給圖表會讓前後
+ * 兩天緊貼、線直接連過去，看起來像那段時間什麼都沒變，所以中間缺的補 `null`
+ * 讓圖斷開。
  *
- * 第一筆之前不補：歷史從這版部署那天才開始記，選 90 天卻只有 3 天資料時，前面 87 天
- * 的空白只會把真的資料擠到角落。
+ * 第一筆之前不補：歷史從這版部署那天才開始記，選 90 天卻只有 3 天資料時，前
+ * 面 87 天的空白只會把真資料擠到角落。
  */
 export function buildTrendPoints(days: StatsDay[]): {
   points: TrendPoint[];
@@ -55,9 +55,7 @@ export function buildTrendPoints(days: StatsDay[]): {
   return { hasGaps: points.length > days.length, points };
 }
 
-/**
- * 第一個有值的點到最後一個有值的點，差了多少、橫跨幾天。少於兩個點就沒有變化可說。
- */
+/** 第一個有值的點到最後一個有值的點，差了多少、橫跨幾天。少於兩個點沒有變化可說。 */
 export function trendChange(
   points: TrendPoint[],
   key: TrendKey
