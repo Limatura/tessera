@@ -76,7 +76,7 @@ export function UploadPanel() {
   return (
     <>
       <GlassBackground />
-      <div className="w-full max-w-sm">
+      <div className="m-auto w-full max-w-sm">
         <Card className="border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
           <CardHeader>
             <CardTitle className="font-medium text-xl tracking-tight">
