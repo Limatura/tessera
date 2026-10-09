@@ -54,7 +54,7 @@ const COUNTER_DEFAULTS: Record<
 /**
  * 畫面上的分組：先是影響整台機器的總量限制，再依「保護什麼」分。
  *
- * 是函式而不是 module-level const —— 裡面呼叫的 `m.xxx()` 要在渲染當下讀 locale，
+ * 是函式而不是 module-level const：裡面的 `m.xxx()` 要在渲染當下讀 locale，
  * 包成 const 只會在模組第一次載入時凍住語系。
  */
 function counterGroups(): {
@@ -254,8 +254,8 @@ function ThrottleSettingsFields({
 }
 
 /**
- * 一組計數器佔一列：左邊它保護什麼，右邊「幾次 / 多久」兩格並排。兩格的錯誤都掛在
- * 左邊說明底下，跟其他設定列的錯誤位置一致。
+ * 一組計數器佔一列：左邊保護什麼，右邊「幾次 / 多久」兩格並排。兩格的錯誤
+ * 都掛在左邊說明底下，跟其他設定列一致。
  */
 function CounterRow({
   control,

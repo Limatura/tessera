@@ -4,12 +4,12 @@ import {
 } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 
-// Fine-grained bundle: only the languages this app actually needs, instead of
-// shiki's default full bundle (~328 language chunks, ~10MB). See tessera#104 —
-// rust-embed bakes the whole `dist/` into the binary, so unused languages are
-// dead weight there even though the browser only fetches what it uses.
-// 加語言時這裡也要補一筆,否則分享頁會靜默 fallback 成純文字。
-// 另外兩處:code-upload-form.tsx 的選單、detect-language.ts 的偵測規則。
+// Fine-grained bundle: only the languages this app needs, instead of shiki's
+// default full bundle (~328 language chunks, ~10MB). See tessera#104 — rust-embed
+// bakes the whole `dist/` into the binary, so unused languages are dead weight
+// there even though the browser only fetches what it uses.
+// 加語言時這裡也要補一筆,否則分享頁會靜默 fallback 成純文字。另外兩處:
+// code-upload-form.tsx 的選單、detect-language.ts 的偵測規則。
 const bundledLanguages = {
   c: () => import("@shikijs/langs/c"),
   cpp: () => import("@shikijs/langs/cpp"),

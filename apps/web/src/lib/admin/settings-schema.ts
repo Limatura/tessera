@@ -12,28 +12,19 @@ import {
 import * as m from "@/paraglide/messages";
 
 /**
- * 表單欄位對應到 `apps/server/SETTINGS.md` 列出的 dotted key（`settings::keys()`
- * 的實際輸出），值轉成 camelCase。
+ * 表單欄位對應 `apps/server/SETTINGS.md` 列出的 dotted key，值轉成 camelCase。
  *
  * 三種欄位這裡不收：
+ * - `FIXED_AT_BOOT`（如 `server.max_body_bytes`）—— PUT 會被拒整批，改用唯讀欄位顯示。
+ * - `SECRET`（如 `scan.authorization`）—— 讀不到也寫不了，只能走專用端點。
+ * - `SEALED`（如 `*.client_secret`、`mail.password`）—— 寫得進去讀不回來，留空 = 不改動。
  *
- * - `FIXED_AT_BOOT`（`server.max_body_bytes`...）—— PUT 會被拒，而 settings 是整批
- *   驗證，混進去會連同一批的合法欄位一起退回。要顯示就用唯讀欄位。
- * - `SECRET`（`scan.authorization`、儲存 backend 憑證...）—— 讀不到也寫不了，只能
- *   透過對應的專用端點設定。
- * - `SEALED`（`*.client_secret`、`mail.username` / `mail.password`）—— 寫得進去、讀不
- *   回來。欄位收在這裡，但語意是「留空 = 不改動，有填 = 覆寫」，不是目前的值。
- *
- * 錯誤訊息一律用 `error: () => m.xxx()` 而不是 `error: m.xxx()`——schema 是模組載入
- * 時建立一次的常數，直接呼叫會把當下的語系烤進字串裡，之後切換語言也不會變；包一層
- * function 讓 zod 驗證當下才讀 `m.xxx()`，才會跟著目前的語系走。
+ * 錯誤訊息一律用 `error: () => m.xxx()`：schema 是模組載入時建一次的常數，直接呼叫
+ * `m.xxx()` 會把當下語系烤進字串，包一層 function 才能跟著切換語言走。
  */
 
-// ---- 外觀：appearance.* ----
-//
-// 三個 enum 住在 `@tessera/ui/lib/appearance`，跟它們對應的 globals.css 放在一起；
-// 那份清單同時要跟 `crates/tessera-core/src/appearance.rs` 一致。這裡只是轉出去，
-// 讓本檔仍是「表單欄位形狀」的單一入口。
+// 外觀：appearance.*
+// 三個 enum 住在 `@tessera/ui/lib/appearance`，需跟 `appearance.rs` 保持一致，這裡只轉出去。
 export {
   APPEARANCE_ACCENTS,
   APPEARANCE_MODES,
@@ -51,7 +42,7 @@ export const appearanceSettingsSchema = z.object({
 
 export type AppearanceSettingsValues = z.infer<typeof appearanceSettingsSchema>;
 
-// ---- 站台資訊：site.* ----
+// 站台資訊：site.*
 
 /** `site.title` 的上限（`SiteConfig::MAX_TITLE`）。 */
 export const SITE_TITLE_MAX = 100;
@@ -95,8 +86,8 @@ export const siteSettingsSchema = z.object({
 
 export type SiteSettingsValues = z.infer<typeof siteSettingsSchema>;
 
-// ---- 儲存空間：server.part_size_bytes + storage.split_across_backends
-//      + storage.reconcile_interval_hours / reconcile_grace_hours ----
+// 儲存空間：server.part_size_bytes + storage.split_across_backends
+//      + storage.reconcile_interval_hours / reconcile_grace_hours
 //
 // 儲存位置不是設定：每個 backend 是 `storage_backends` 表裡的一列，從
 // `/admin/storage/backends` 管，不透過這裡的 `PUT /admin/settings`。
@@ -122,8 +113,8 @@ export const storageSettingsSchema = z.object({
 
 export type StorageSettingsValues = z.infer<typeof storageSettingsSchema>;
 
-// ---- 上傳與保存：features.anonymous_upload + storage.max_total_bytes
-//      + share.default_expiry_hours / max_expiry_hours ----
+// 上傳與保存：features.anonymous_upload + storage.max_total_bytes
+//      + share.default_expiry_hours / max_expiry_hours
 //
 // `server.max_body_bytes` 不在這裡：它是 FIXED_AT_BOOT，只能唯讀顯示。
 // `auth.throttle.source.*` 以前放在這一頁，但它管的是同一個來源的所有昂貴操作，
@@ -155,8 +146,8 @@ export const uploadSettingsSchema = z
 
 export type UploadSettingsValues = z.infer<typeof uploadSettingsSchema>;
 
-// ---- 帳號與註冊：auth.registration / auth.default_role
-//      / auth.session_ttl_hours / auth.login_history_days ----
+// 帳號與註冊：auth.registration / auth.default_role
+//      / auth.session_ttl_hours / auth.login_history_days
 
 /** 對應 server 的 `auth.registration`，值原樣送出。 */
 export const REGISTRATION_MODES = ["open", "invite", "closed"] as const;
@@ -182,7 +173,7 @@ export const accountSettingsSchema = z.object({
 
 export type AccountSettingsValues = z.infer<typeof accountSettingsSchema>;
 
-// ---- 登入方式：auth.oidc.* / auth.github.* / auth.discord.* ----
+// 登入方式：auth.oidc.* / auth.github.* / auth.discord.*
 
 const HTTPS_URL = /^https:\/\/[^\s/][^\s]*$/u;
 const ABSOLUTE_URL = /^https?:\/\/[^\s/][^\s]*$/u;
@@ -206,12 +197,7 @@ export const oidcSettingsSchema = z.object({
     .refine((value) => value === "" || HTTPS_URL.test(value), {
       error: () => m.settings_schema_oidc_issuer_https(),
     })
-    /*
-     * 貼成 discovery URL 是最常見的填法錯誤，而且它會通過上面那條（它也是合法
-     * 的 https URL）。後端抓取時自己會接 `/.well-known/openid-configuration`，
-     * 所以存成這樣的結果是每次登入都以 `unavailable` 失敗 —— 擋在儲存前，
-     * 比讓人事後從一個錯誤代碼回推便宜得多。
-     */
+    // 貼成 discovery URL 是常見填法錯誤，會通過上一條檢查，但後端會自己接 `/.well-known/...`，每次登入都失敗
     .refine((value) => !value.includes("/.well-known/"), {
       error: () => m.settings_schema_oidc_issuer_not_discovery_url(),
     }),
@@ -250,7 +236,7 @@ export const oauthSettingsSchema = z.object({
 
 export type OauthSettingsValues = z.infer<typeof oauthSettingsSchema>;
 
-// ---- 寄信：mail.* ----
+// 寄信：mail.*
 
 /** `mail.reset_ttl_minutes` 的上限（24 小時），對應 config.rs 的同名常數。 */
 export const MAX_RESET_TTL_MINUTES = 24 * 60;
@@ -324,8 +310,7 @@ export const mailSettingsSchema = z
       });
     }
 
-    // 半套會被 server 拒絕，而整批驗證會讓同一次送出的其他欄位一起退回，
-    // 所以在這裡就擋下來並指出缺的是哪一格。
+    // 半套會被 server 拒整批，連帶退回其他合法欄位，所以先在這裡擋下並指出缺哪一格
     const missing = MAIL_TRIO.filter((name) => values[name].trim() === "");
     if (missing.length === 0 || missing.length === MAIL_TRIO.length) {
       return;
@@ -342,7 +327,7 @@ export const mailSettingsSchema = z
 
 export type MailSettingsValues = z.infer<typeof mailSettingsSchema>;
 
-// ---- 網路與反向代理：server.* ----
+// 網路與反向代理：server.*
 
 /** 對應 server 的 `auth.cookie_secure`。 */
 export const COOKIE_SECURE_POLICIES = ["auto", "always", "never"] as const;
@@ -374,15 +359,12 @@ export const networkSettingsSchema = z
 
 export type NetworkSettingsValues = z.infer<typeof networkSettingsSchema>;
 
-// ---- 限流：auth.throttle.* ----
+// 限流：auth.throttle.*
 
 /**
- * 九組計數器保護不同東西，每組都是 `{max_attempts, window_secs}`。
- *
- * 兩個值都不能是 0，server 啟動時會拒絕：0 次嘗試等於鎖死所有人（在 `source`
- * 上就是整台機器），0 秒視窗則永遠不會擋，看起來開著實際上關著。
- *
- * 順序就是畫面上的順序：先放影響最大的 `source`，再依保護的對象分組。
+ * 九組計數器保護不同東西，都是 `{max_attempts, window_secs}`。兩個值不能是 0——
+ * 0 次嘗試等於鎖死所有人（`source` 等於鎖死整台機器），0 秒視窗則永遠不擋。
+ * 順序即畫面順序：影響最大的 `source` 放最前，其餘依保護對象分組。
  */
 export const THROTTLE_COUNTERS = [
   "source",
@@ -416,9 +398,8 @@ function throttleWindow() {
 }
 
 /**
- * 欄位刻意攤平成 `loginMaxAttempts` 這種名字而不是巢狀物件：送出時只挑 dirty 的
- * 欄位，而 react-hook-form 的 `dirtyFields` 對巢狀物件給的是物件而非布林，攤平讓
- * 「哪一格動過」跟「要送哪個 key」一對一。
+ * 欄位刻意攤平成 `loginMaxAttempts` 而非巢狀物件：react-hook-form 的
+ * `dirtyFields` 對巢狀物件給的是物件而非布林，攤平才能讓「哪格動過」對應「送哪個 key」。
  */
 export const throttleSettingsSchema = z.object({
   loginMaxAttempts: throttleAttempts(),
@@ -451,7 +432,7 @@ export const throttleSettingsSchema = z.object({
 
 export type ThrottleSettingsValues = z.infer<typeof throttleSettingsSchema>;
 
-// ---- 密碼與雜湊：auth.password.* / auth.hashing.* / auth.pwned.* ----
+// 密碼與雜湊：auth.password.* / auth.hashing.* / auth.pwned.*
 
 // `auth.password.min_length` 的下限、`auth.password.max_length` 的上限，跟註冊／
 // 改密碼表單驗的是同一組（`PasswordPolicy::FLOOR` / `CEILING`），只定義在一處。
@@ -515,7 +496,7 @@ export const passwordSettingsSchema = z
 
 export type PasswordSettingsValues = z.infer<typeof passwordSettingsSchema>;
 
-// ---- 分享與取件：share.* ----
+// 分享與取件：share.*
 
 /** `share.code_length` 的範圍（`RetrievalCode::MIN_LENGTH`..=`MAX_LENGTH`）。 */
 export const CODE_LENGTH_MIN = 4;
@@ -573,7 +554,7 @@ export const shareSettingsSchema = z
 
 export type ShareSettingsValues = z.infer<typeof shareSettingsSchema>;
 
-// ---- 功能開關：features.* ----
+// 功能開關：features.*
 //
 // `features.docs` 不在這裡：它是 FIXED_AT_BOOT（建路由時決定要不要掛）。
 
@@ -586,7 +567,7 @@ export const featureSettingsSchema = z.object({
 
 export type FeatureSettingsValues = z.infer<typeof featureSettingsSchema>;
 
-// ---- 預覽卡片：og.layout ----
+// 預覽卡片：og.layout
 //
 // 版面規則(元素、屬性、大小、外部資源)不在這裡驗:只有 server 的 `og::layout::check`
 // 是準的,編輯器打 `POST /admin/settings/preview` 去問它。

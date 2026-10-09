@@ -227,7 +227,6 @@ function AppearanceSettingsFields({
             )}
           />
 
-          {/* 三個值是一起看的,所以預覽讀表單當下的值而不是已儲存的值。 */}
           <AppearancePreview values={preview} />
         </FieldGroup>
       </SettingsCard>

@@ -23,10 +23,7 @@ import type { Session } from "@/hooks/use-sessions";
 import { formatUserAgent, parseUserAgent } from "@/lib/user-agent";
 import * as m from "@/paraglide/messages";
 
-/**
- * `ended_reason` 是後端定義的固定字串。沒對到的值(後端加了新的、我們還沒跟上)
- * 就原樣顯示,總比吞掉一個「為什麼結束」的答案好。
- */
+/** `ended_reason` 是後端固定字串,沒對到的值(後端加了新的、我們還沒跟上)就原樣顯示,總比吞掉答案好。 */
 function endedReasonLabel(reason: string): string {
   switch (reason) {
     case "signed_out": {
@@ -63,14 +60,11 @@ function DeviceIcon({ userAgent }: { userAgent: string | null | undefined }) {
 }
 
 /**
- * meta 清單裡的一列。
+ * meta 清單裡的一列。手機上標籤靠左、值靠右疊成小表,窄螢幕好掃;桌機
+ * (sm+)外層 `dl` 變 flex-wrap,縮成「標籤 值」小團並排。
  *
- * 手機:標籤靠左、值靠右的一行,四列疊起來像一張小表,窄螢幕下最好掃。
- * 桌機(sm+):外層 `dl` 變成 flex-wrap,這一列縮成「標籤 值」的一小團,
- * 幾團並排在同一行。
- *
- * 不用間隔點分隔 —— 點是獨立的節點,換行時會有一個點單獨掉到下一行開頭。
- * 這裡靠 `gap-x-4` 拉開,永遠不會孤兒化。
+ * 不用間隔點分隔——點是獨立節點,換行時會孤兒化掉到下一行開頭,改用
+ * `gap-x-4` 拉開就不會。
  */
 function MetaItem({
   label,
@@ -102,9 +96,9 @@ export function SessionRow({
 
   return (
     /*
-     * `flex-wrap` + 撤銷鍵的 `w-full sm:w-auto`:手機上內容佔滿一行、按鈕自己
-     * 換到下一行變滿版(拇指好按);桌機上三者同一列。用 wrap 而不是把按鈕寫兩次,
-     * AlertDialog 只有一份,不會有兩個 dialog 同時掛在 DOM 上。
+     * `flex-wrap` + 撤銷鍵的 `w-full sm:w-auto`:手機上換行變滿版(拇指好按),
+     * 桌機同一列。用 wrap 而非把按鈕寫兩次,AlertDialog 只有一份,不會有兩個
+     * dialog 同時掛在 DOM 上。
      */
     <li
       className={cn(
@@ -120,12 +114,11 @@ export function SessionRow({
       <div className="min-w-0 flex-1 basis-48 space-y-1.5">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {/*
-            解析失敗就拿原始字串當標題,再失敗(UA 是 null)才用佔位字。
-            原始字串可能很長,`break-words` 讓它在手機上斷行而不是撐爆卡片。
-
-            解析成功時原始字串只收進 `title`。這是這版唯一的取捨:觸控裝置
-            hover 不到。判斷是辨識「這不是我」實際靠的是底下的 IP 跟時間,
-            原始 UA 是最後一道;把它獨佔一行會讓每張卡在手機上再高一截。
+            解析失敗就拿原始字串當標題,再失敗(UA 是 null)才用佔位字;
+            `break-words` 讓長字串在手機上斷行而不是撐爆卡片。
+            解析成功時原始字串只收進 `title`——觸控裝置 hover 不到是唯一取捨,
+            但辨識「這不是我」實際靠下面的 IP 跟時間,原始 UA 只是最後一道,
+            獨佔一行只會讓卡片在手機上更高。
           */}
           <span
             className="break-words font-medium text-sm"
@@ -148,10 +141,9 @@ export function SessionRow({
         </div>
 
         {/*
-          沒有「到期」這一項。issue #90 講得很清楚:存活與否要看 `active`,
-          不要讓人拿 `expires_at` 自己跟時鐘比 —— 卡片上擺一個到期時間,
-          等於邀請人做那件事,而且它跟「最後活動」擺在一起很容易看混。
-          真正該知道的「這個還能不能用」,已經由是否有撤銷鍵跟結束原因 badge 表達了。
+          沒有「到期」這一項。issue #90:存活與否要看 `active`,不要讓人拿
+          `expires_at` 自己跟時鐘比——擺一個到期時間等於邀請人那麼做,還容易
+          跟「最後活動」看混。「還能不能用」已經由撤銷鍵跟結束原因 badge 表達了。
         */}
         <dl className="space-y-0.5 text-muted-foreground text-xs sm:flex sm:flex-wrap sm:gap-x-4 sm:space-y-0">
           <MetaItem label={m.user_sessions_ip()}>

@@ -41,11 +41,7 @@ interface ApiError {
   status?: number;
 }
 
-/**
- * What the revealed card should render for this share. Resolved once,
- * synchronously, from metadata already on hand — no network round trip
- * needed to decide whether to auto-fetch a preview.
- */
+/** What the revealed card renders for this share — resolved synchronously from metadata already on hand, no round trip needed to decide whether to auto-fetch a preview. */
 type PreviewPlan =
   | { type: "text" }
   | { type: "file"; Component: FilePreviewComponent }
@@ -63,9 +59,8 @@ export function ShareView({ code }: { code: string }) {
   const status =
     share.isError && isApiError(share.error) ? share.error.status : undefined;
 
-  // A wrong password re-triggers the same 401 the initial locked lookup
-  // gets, so the only way to tell them apart is whether a password was
-  // already tried.
+  // Wrong password re-triggers the same 401 as the initial locked lookup,
+  // so only "was a password already tried" tells them apart.
   const wrongPassword = status === 401 && password !== undefined;
 
   if (share.isError && !wrongPassword) {
@@ -196,8 +191,8 @@ export function ShareView({ code }: { code: string }) {
  * 連結分享只有在有密碼或有次數限制時才會看到這頁,其他情況伺服器直接 302。
  *
  * 不自動拿票券、也不讀 `/raw` 顯示目的地:兩者都會花掉一次提取,Discord 之類的
- * 爬蟲展開網址就會把一次性連結用掉。所以次數限制要等人按「前往」才花。
- * 有密碼的話人已經輸入過密碼,解鎖本身就是意圖,直接導走。
+ * 爬蟲展開網址就會用掉一次性連結,所以次數限制要等人按「前往」才花。有密碼的
+ * 話人已經輸入過,解鎖本身就是意圖,直接導走。
  */
 function LinkShare({
   code,
@@ -223,7 +218,7 @@ function LinkShare({
 
   const going = ticket.isFetching || ticket.isSuccess;
 
-  // 失敗後 query 仍是 enabled,再 set 一次不會重抓,要明確 refetch
+  // 失敗後 query 仍 enabled,再 set 一次不會重抓,要明確 refetch
   const handleGo = () => {
     if (requested) {
       ticket.refetch();
@@ -269,11 +264,11 @@ function isApiError(error: unknown): error is ApiError {
 }
 
 /**
- * 這次就是最後一次可以提取的機會(下載即焚,或次數只剩一次)。
+ * 這是最後一次可提取的機會(下載即焚,或次數只剩一次)。
  *
- * 預覽要先拿票券,拿票券就花掉一次提取;自動預覽等於一打開頁面就把它用掉,
- * 而預覽出來的圖片右鍵就能另存,「下載一次」形同虛設。所以這種分享不自動預覽,
- * 等人明確按下去才花。
+ * 預覽要先拿票券,拿票券就花掉一次提取——自動預覽等於一開頁就用掉它,而圖片
+ * 右鍵就能另存,「下載一次」形同虛設。所以這種分享不自動預覽,等人明確按下去
+ * 才花。
  */
 function isLastRetrieval(data: PublicShare): boolean {
   return data.uses_remaining === 1;
@@ -335,10 +330,7 @@ function ShareSkeleton() {
   );
 }
 
-/**
- * 分享密碼的長度不固定(後端只規定至少 4 碼),所以用一般的密碼輸入框,
- * 不用固定格數的 OTP 輸入(#357)。
- */
+/** 分享密碼長度不固定(後端只規定至少 4 碼),用一般密碼輸入框,不用固定格數的 OTP 輸入(#357)。 */
 function PasswordForm({
   error,
   onSubmit,
@@ -449,8 +441,8 @@ function RevealedShare({
     password,
     (plan.type !== "none" && !oneTime) || manualRequested
   );
-  // 一次性的文字要等人按「檢視文字」才拿票券,在那之前不給下載鈕——
-  // 按下載同樣會花掉這一次,卻什麼都看不到。
+  // 一次性文字要等人按「檢視文字」才拿票券,之前不給下載鈕——按下載同樣會
+  // 花掉這一次,卻什麼都看不到。
   const textHidden = plan.type === "text" && oneTime && !manualRequested;
 
   useEffect(() => {

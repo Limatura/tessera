@@ -59,10 +59,7 @@ type ErrorBody = components["schemas"]["ErrorBody"];
 export type UploadSessionResponse = components["schemas"]["UploadResponse"];
 type PartUrlResponse = components["schemas"]["PartUrlResponse"];
 
-/**
- * 失敗時丟的 `Error`。`message` 是 server 的英文（沒有回應本體時是狀態碼），
- * 另外掛上 `code`、`details`，畫面才能用 `apiErrorMessage` 翻譯。
- */
+/** 失敗時丟的 `Error`；掛上 `code`、`details` 讓畫面能用 `apiErrorMessage` 翻譯。 */
 function apiError(body: ErrorBody | null, fallback: string): Error {
   const error = new Error(body?.message ?? fallback);
   return body
@@ -97,7 +94,7 @@ async function uploadFile(
 ): Promise<UploadResultData> {
   const { files } = payload;
   const total = files.length;
-  // 已完成的檔案數加上目前這個檔案的位元組進度，合成成整體百分比
+  // 完成的檔案數 + 目前檔案的位元組進度，合成整體百分比
   const reportProgress = (done: number, currentFilePercent: number) => {
     options.onProgress?.(((done + currentFilePercent / 100) / total) * 100);
   };
@@ -115,15 +112,14 @@ async function uploadFile(
       signal: options.signal,
     }
   );
-  // 只有建立時才會回傳，之後每個 add_file 的回應都不會再帶，所以要記下來重複使用
+  // 只有建立時回傳，之後每個 add_file 的回應都不會再帶，記下來重複使用
   const managementToken = share.management_token ?? undefined;
   reportProgress(1, 0);
 
   try {
     for (const [index, entry] of rest.entries()) {
       const done = index + 1;
-      // 每個檔案都要掛到同一個 share 上，且進度要照實際完成順序回報，不能平行送出
-      // oxlint-disable-next-line no-await-in-loop -- 見上一行說明
+      // oxlint-disable-next-line no-await-in-loop -- 要掛到同一個 share，且進度要照完成順序回報，不能平行送
       share = await addFileToShare(
         share.code,
         entry.file,
@@ -138,7 +134,7 @@ async function uploadFile(
     }
   } catch (error) {
     await deleteShare(share.code, managementToken).catch(() => {
-      // 已經在回報原本的錯誤，刪除失敗就不再蓋過去
+      // 已回報原本的錯誤，刪除失敗不再蓋過去
     });
     throw error;
   }
@@ -178,14 +174,13 @@ function addFileToShare(
 }
 
 /**
- * 單一檔案的分派點:超過這個 instance 的單次上傳上限(`GET /capabilities`
- * 的 `max_upload_bytes`,後端也用同一個值當 body size limit)就無法用一次
- * `POST` 送完,改走 resumable session(`POST /uploads` + `PATCH`/直傳 S3)。
+ * 單一檔案的分派點:超過 instance 的單次上傳上限(`GET /capabilities` 的
+ * `max_upload_bytes`,後端也用它當 body size limit)就無法一次 `POST` 送完,
+ * 改走 resumable session(`POST /uploads` + `PATCH`/直傳 S3)。兩條路徑回傳
+ * 同一個 `ShareResponse`,呼叫端不用分辨走了哪一條。
  *
- * 兩條路徑回傳同一個 `ShareResponse`,呼叫端不用分辨走了哪一條。
- *
- * `existingCode`:掛到既有 share 時要傳給 `POST /uploads?code=`,
- * 建新 share 就留 `undefined`。`basePath` 只有單次 `POST` 這條路會用到。
+ * `existingCode`:掛到既有 share 時傳給 `POST /uploads?code=`,建新 share 留
+ * `undefined`。`basePath` 只有單次 `POST` 會用到。
  */
 async function uploadOneFile(
   file: File,
@@ -203,11 +198,10 @@ async function uploadOneFile(
 }
 
 /**
- * 快取住這次頁面存活期間查到的上限,一個資料夾裡幾百個檔案不用每個都打一次
- * `/capabilities`。`undefined` 代表查詢失敗(離線、instance 沒開
- * capabilities 之類),此時讓呼叫端照舊走單次 `POST`——後端本來就會依
- * `max_body_bytes` 擋下太大的請求,只是少了「上傳前就先分流到 resumable」
- * 這個優化。
+ * 快取頁面存活期間查到的上限,一個資料夾幾百個檔案不用每個都打一次
+ * `/capabilities`。`undefined` 代表查詢失敗(離線、instance 沒開 capabilities),
+ * 讓呼叫端照舊走單次 `POST`——後端本來就會依 `max_body_bytes` 擋下過大請求,
+ * 只是少了「上傳前先分流到 resumable」這個優化。
  */
 let cachedMaxUploadBytes: Promise<number | undefined> | undefined;
 
@@ -225,7 +219,7 @@ async function requestMaxUploadBytes(
     const body = (await response.json()) as { max_upload_bytes?: number };
     return body.max_upload_bytes;
   } catch {
-    // 離線或 instance 沒開 capabilities:讓呼叫端照舊走單次 POST
+    // 離線或 instance 沒開 capabilities:照舊走單次 POST
   }
 }
 
@@ -251,8 +245,7 @@ function uploadLink(
   payload: LinkUploadPayload,
   options: UploadOptions
 ): Promise<UploadResultData> {
-  // 不帶 title:title 上限 191 bytes,網址最長可到 2048,塞進去長網址會被拒。
-  // 結果畫面要顯示的網址就在手上,直接用。
+  // 不帶 title:上限 191 bytes,網址可到 2048,塞長網址會被拒;顯示用的網址直接拿手上這個就好。
   return createShare(payload.url, { kind: "link" }, options).then((share) => ({
     ...toResult(share),
     fileName: payload.url,
@@ -294,10 +287,7 @@ interface ShareQuery {
   max_uses?: number;
 }
 
-/**
- * `DELETE /api/v1/shares/{code}` 需要登入的 session 或匿名上傳時拿到的
- * `management_token`（透過 `X-Share-Management-Token` header 傳遞）
- */
+/** `DELETE /api/v1/shares/{code}` 需要登入 session,或匿名上傳拿到的 `management_token`(走 `X-Share-Management-Token` header)。 */
 export async function deleteShare(
   code: string,
   managementToken?: string
@@ -320,15 +310,14 @@ export async function deleteShare(
 }
 
 /**
- * `PATCH /api/v1/shares/{code}` 的授權方式跟 DELETE 一樣:登入的 session,
- * 或匿名上傳時拿到的 `management_token`。
+ * 授權方式跟 DELETE 一樣:登入 session 或匿名的 `management_token`。
  *
- * 三個欄位都是「省略 = 不動這項設定」,跟「送 null = 清掉」不一樣,所以下面
- * 只把呼叫端真的有指定的欄位放進 body。
+ * 三個欄位都是「省略 = 不動」,跟「送 null = 清掉」不一樣,所以只把呼叫端
+ * 真的指定的欄位放進 body。
  *
- * 密碼是特例:設定密碼走 `X-Share-Password` header(不進 query string、
- * access log 和 Referer),移除密碼才走 body 的 `remove_password`。後端明講
- * 兩個一起送會被拒絕,所以這裡二選一。
+ * 密碼是特例:設密碼走 `X-Share-Password` header(不進 query string、access
+ * log、Referer),移除密碼才走 body 的 `remove_password`——後端會拒絕兩個一起送,
+ * 所以這裡二選一。
  */
 export async function updateShare(
   code: string,
@@ -337,7 +326,7 @@ export async function updateShare(
 ): Promise<void> {
   const body: PatchShareRequest = {};
   if ("expiresInMinutes" in settings) {
-    // 0 在建立時代表「永不過期」,PATCH 這邊要用 null 表達。
+    // 0 在建立時代表「永不過期」,PATCH 這邊用 null 表達同一件事。
     body.expires_in_minutes =
       settings.expiresInMinutes === undefined || settings.expiresInMinutes === 0
         ? null
@@ -384,10 +373,7 @@ function buildShareUrl(query: ShareQuery, basePath = "/api/v1/shares"): string {
   return `${basePath}${search ? `?${search}` : ""}`;
 }
 
-/**
- * `fetch` 沒有上傳進度事件，所以改用 `XMLHttpRequest`
- * ——進度只能透過回呼來取得，因此需要這個本來可以避免的 `Promise` wrapper
- */
+/** `fetch` 沒有上傳進度事件，改用 `XMLHttpRequest`，因此需要這個本可避免的 `Promise` wrapper。 */
 function createShare(
   body: Blob | string,
   query: ShareQuery,
@@ -485,13 +471,13 @@ const resumableIo: ResumableIo = { completeUpload, patchPart, putPartDirect };
 
 /**
  * A file too big for one `POST` goes through a resumable session instead:
- * `POST /uploads` opens it, then each part either goes straight to the
- * store (`direct: true`) or through `PATCH` here, part by part in order
- * since the offset is the same session-wide state either way.
+ * `POST /uploads` opens it, then each part goes straight to the store
+ * (`direct: true`) or through `PATCH`, in order since the offset is
+ * session-wide state either way.
  *
- * A part `PUT` that fails falls back to `PATCH` for the rest of the upload
- * — see `docs/resumable.md`: a bucket with no CORS looks exactly like a
- * `direct: true` upload the browser cannot actually reach.
+ * A failed part `PUT` falls back to `PATCH` for the rest of the upload —
+ * see `docs/resumable.md`: a bucket with no CORS looks exactly like a
+ * `direct: true` upload the browser can't actually reach.
  */
 async function uploadResumable(
   file: File,
@@ -517,10 +503,10 @@ async function uploadResumable(
 }
 
 /**
- * The pure orchestration: given an already-opened session, drives every
- * part to completion. Exported (only) so tests can inject fake I/O and
- * exercise the direct-PUT-fails-fall-back-to-PATCH path without real
- * XHR/fetch — see `upload.test.ts`.
+ * The pure orchestration: drives an already-opened session's parts to
+ * completion. Exported only so tests can inject fake I/O and exercise the
+ * direct-PUT-fails-falls-back-to-PATCH path without real XHR/fetch — see
+ * `upload.test.ts`.
  */
 export async function runResumableUpload(
   file: File,
@@ -531,8 +517,8 @@ export async function runResumableUpload(
 ): Promise<ShareResponse> {
   const parts = planParts(file.size, session.part_size);
   const etags: string[] = [];
-  // 走 direct 的話一路直傳失敗才會轉走 PATCH；一旦轉了就不會再切回去，
-  // 因為 PATCH 是照 offset 累加位元組，跟已經直傳出去的那些片段順序相關。
+  // 直傳失敗才轉走 PATCH，轉了就不切回去——PATCH 是照 offset 累加位元組，
+  // 跟已經直傳出去的片段順序相關。
   let { direct } = session;
   const token = session.token ?? managementToken;
 
@@ -553,7 +539,7 @@ export async function runResumableUpload(
         reportPartProgress(100);
         continue;
       }
-      // PUT 失敗（例如 bucket 沒設 CORS）：這一片改走 PATCH，之後的片也是。
+      // PUT 失敗（例如 bucket 沒設 CORS）：這片起改走 PATCH。
       direct = false;
     }
 
@@ -642,10 +628,7 @@ export type PatchOutcome =
   | { done: false }
   | { done: true; share: ShareResponse };
 
-/**
- * `PATCH`es one part at `offset`. `204` means keep going; `201` means this
- * was the last part and the session is a share now.
- */
+/** `PATCH`es one part at `offset`. `204` keeps going; `201` means this was the last part and the session is a share now. */
 function patchPart(
   sessionId: string,
   offset: number,

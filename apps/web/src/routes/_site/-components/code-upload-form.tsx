@@ -35,15 +35,14 @@ import * as m from "@/paraglide/messages";
 import { QuickSubmitButton } from "./quick-submit-button";
 import type { SubmitStatus } from "./use-submit-transition";
 
-// 加一個語言要改三個地方,漏掉不會報錯,只會靜默少一塊功能:
+// 加一個語言要改三個地方,漏掉不會報錯只會靜默少功能:
 //   1. 這裡的 LANGUAGES —— 選單選項,load 給了才有編輯器高亮
-//   2. lib/detect-language.ts —— 貼上內容時的自動偵測(id 要跟這裡的 value 一致)
-//   3. lib/shiki.ts 的 bundledLanguages —— 分享頁的語法高亮,
-//      漏掉的話分享頁會靜默 fallback 成純文字
-// Mermaid 是例外:它在分享頁走渲染而不是高亮,所以不進 shiki(見 tessera#227)。
+//   2. lib/detect-language.ts —— 貼上自動偵測(id 要跟這裡的 value 一致)
+//   3. lib/shiki.ts 的 bundledLanguages —— 分享頁語法高亮,漏掉會靜默 fallback 成純文字
+// Mermaid 例外:分享頁走渲染而非高亮,不進 shiki(見 tessera#227)。
 //
-// 語法包用 load 動態載入,選到才抓:13 包靜態 import 會全部落進首頁的 chunk,
-// 而大部分人只會用到一兩種。
+// 語法包用 load 動態載入、選到才抓:13 包靜態 import 會全落進首頁 chunk,
+// 大部分人只用一兩種。
 const LANGUAGES: readonly {
   label: string;
   value: string;
@@ -194,7 +193,7 @@ export function CodeUploadForm({
   const [language, setLanguage] = useState("plaintext");
   const [code, setCode] = useState("");
   const [expanded, setExpanded] = useState(false);
-  // 使用者自己選過就永久停止猜測,免得再貼一次又被蓋掉。
+  // 使用者選過就永久停止猜測,免得再貼一次又被蓋掉。
   const [wasGuessed, setWasGuessed] = useState(false);
   const [userPickedLanguage, setUserPickedLanguage] = useState(false);
   const [mermaidPane, setMermaidPane] = useState<"edit" | "preview">("edit");
@@ -399,10 +398,7 @@ export function CodeUploadForm({
   );
 }
 
-/**
- * 載過的語法包留在模組層:切分頁時這個表單會 unmount,回來時直接拿得到,
- * 不會先閃一下沒上色的純文字。
- */
+/** 載過的語法包留在模組層:切分頁時表單會 unmount,回來時直接拿得到,不會先閃一下純文字。 */
 const loadedModes = new Map<string, Extension>();
 
 /** 目前語言的 CodeMirror 語法包;還在載、載失敗或這語言本來就沒有時回 undefined(=純文字)。 */
@@ -421,8 +417,7 @@ function useLanguageMode(language: string): Extension | undefined {
       try {
         loadedModes.set(language, await load());
       } catch {
-        // 抓不到語法包(離線、部署換版後舊 chunk 不在了)就留在純文字:
-        // 高亮只是輔助,不該擋住貼上跟送出。
+        // 抓不到語法包(離線、換版後舊 chunk 消失)就留純文字——高亮只是輔助,不該擋貼上送出。
         return;
       }
       if (!cancelled) {

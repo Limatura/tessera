@@ -8,17 +8,14 @@ import * as m from "@/paraglide/messages";
 /**
  * The instance's password rules, ticked off as they are met.
  *
- * This replaces a field error rather than sitting next to one. React Hook Form
- * surfaces a single message per field, which would name one unmet rule at a
- * time; someone missing both a digit and a symbol should learn that once, not
- * over two attempts. `invalid` only tints the list — the rules themselves are
- * shown from the start, since telling someone the rules up front beats
- * rejecting them after they have chosen.
+ * Replaces a field error rather than sitting next to one: React Hook Form
+ * surfaces one message per field, naming only one unmet rule at a time, but
+ * someone missing both a digit and a symbol should learn that in one pass.
+ * Rules show from the start; `invalid` only tints the list red.
  *
- * Two refusals are not rules to tick and appear only when they apply, as they
- * are typed: a password over the ceiling, and one found in a breach
- * (`breached`, from `usePasswordBreach`). Neither waits for `invalid`, since
- * each is already certain the moment it shows.
+ * Two refusals aren't rules to tick — over-ceiling length and a breach hit
+ * (`breached`, from `usePasswordBreach`) — and show as soon as they're true,
+ * without waiting for `invalid`.
  */
 export function PasswordRequirements({
   breached = false,
@@ -34,7 +31,7 @@ export function PasswordRequirements({
   value: string;
 }) {
   const rules = passwordRules(policy, value);
-  // The server counts characters, not UTF-16 code units.
+  // Server counts characters, not UTF-16 code units.
   const tooLong = [...value].length > PASSWORD_MAX_CEILING;
 
   return (

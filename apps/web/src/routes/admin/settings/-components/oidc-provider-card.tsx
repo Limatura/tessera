@@ -52,8 +52,8 @@ const ENCODERS = {
 /**
  * 任何標準 OIDC provider（Authentik、Authelia、Keycloak、Google...）。
  *
- * 沒有「啟用」開關 —— 空的 `issuer` 就是關閉，多一個布林只會多出「填了 issuer 但
- * 忘了打開」這種看起來設好了卻不動作的狀態。
+ * 沒有「啟用」開關：空的 `issuer` 就是關閉，多一個布林只會多出「填了 issuer
+ * 但忘了打開」這種看起來設好卻不動作的狀態。
  */
 export function OidcProviderCard({ settings }: { settings: Settings }) {
   return (
@@ -111,18 +111,16 @@ function OidcProviderFields({
   const scopes = useWatch({ control: form.control, name: "scopes" });
 
   /*
-   * 只有讀過 discovery 文件、而且對方宣告支援時才顯示 back-channel logout 的位址。
-   *
-   * 支援它的 provider 是少數（Keycloak、Authelia、Auth0，Authentik 要 2025.10
-   * 以後；Okta 自己另做一套，Google 跟 Synology 沒有），所以無條件顯示等於給
-   * 大多數人一個永遠用不到、又得自己判斷要不要填的欄位。沒讀過文件就當不知道，
-   * 不猜。
+   * 只有讀過 discovery 文件、且對方宣告支援時才顯示 back-channel logout 位址。
+   * 支援的 provider 是少數（Keycloak、Authelia、Auth0，Authentik 要 2025.10
+   * 以後；Okta 另做一套，Google、Synology 沒有），無條件顯示只是多數人用不到
+   * 的雜訊。沒讀過文件就當不知道，不猜。
    */
   const [backchannelLogout, setBackchannelLogout] = useState(false);
 
   /*
-   * shouldDirty：送出時只挑動過的欄位，沒標記的話帶入的值會留在畫面上卻存不下去
-   * —— 那比沒帶入更糟。shouldValidate 讓貼錯的網址當場顯示，不用等按儲存。
+   * shouldDirty：不標記的話帶入值會留在畫面上卻存不下去，比沒帶入更糟。
+   * shouldValidate：貼錯的網址當場顯示，不用等按儲存。
    */
   const handleApplyDiscovery = (values: {
     issuer: string;
@@ -285,10 +283,9 @@ function OidcProviderFields({
 }
 
 /**
- * `required_group` 留空是實質的安全問題，不只是「還沒填」。
- *
- * Provider 服務多個應用時，它認證的是「所有在它那裡有帳號的人」，不等於「該進這個
- * 站的人」—— 只設了 Google 又留空，結果是全世界任何 Google 帳號都能登入。
+ * `required_group` 留空是實質的安全問題，不只是「還沒填」：provider 服務多個
+ * 應用時認證的是「所有在它那裡有帳號的人」，不等於「該進這個站的人」——只設
+ * Google 又留空，等於全世界任何 Google 帳號都能登入。
  */
 function OpenToEveryoneWarning() {
   return (

@@ -16,11 +16,10 @@ const PREFIX_LENGTH = 5;
 const RANGE_STALE_MS = 1000 * 60 * 10;
 
 /**
- * Uppercase hex SHA-1, the spelling the range API answers in.
- *
- * `null` where the browser offers no `crypto.subtle`, which is any page
- * served over plain HTTP from somewhere other than localhost. The form then
- * goes without the warning and submitting is where the check happens.
+ * Uppercase hex SHA-1, the spelling the range API answers in. `null` where
+ * the browser offers no `crypto.subtle` — any page served over plain HTTP
+ * from somewhere other than localhost. The form then goes without the
+ * warning; submitting is where the check happens.
  */
 async function sha1(value: string): Promise<string | null> {
   if (!globalThis.crypto?.subtle) {
@@ -38,16 +37,15 @@ async function sha1(value: string): Promise<string | null> {
 
 /**
  * Whether `password` appears in a known breach, asked while it is typed.
- *
- * Only the first five characters of its SHA-1 go to the server, and the match
- * is made here, so the password stays in the browser until the form is sent.
- * Asked only once the instance's own rules pass: a password that is still too
+ * Only the first five characters of its SHA-1 go to the server, with the
+ * match made here, so the password stays in the browser until the form is
+ * sent. Asked only once the instance's own rules pass — a password still too
  * short will change before it matters, and every lookup counts against this
  * address's allowance.
  *
- * `true` means breached. `false` covers "not in the list", "not asked yet" and
- * "could not ask": this is advance notice, and the server checks again on
- * submit regardless.
+ * `true` means breached. `false` covers "not in the list", "not asked yet"
+ * and "could not ask": this is advance notice, and the server checks again
+ * on submit regardless.
  */
 export function usePasswordBreach(
   password: string,
@@ -57,15 +55,13 @@ export function usePasswordBreach(
     policy.checksBreaches &&
     [...password].length <= PASSWORD_MAX_CEILING &&
     passwordRules(policy, password).every((rule) => rule.satisfied);
-  // What was typed before the last pause. Only this is ever hashed and asked
-  // about, so a lookup waits for somebody to stop typing.
+  // What was typed before the last pause — only this is ever hashed and
+  // asked about, so a lookup waits for somebody to stop typing.
   const [settled] = useDebounce(password, DEBOUNCE_MS);
 
-  /*
-   * Kept with the password it was computed for, so an answer about what was
-   * typed a moment ago is never shown against what is typed now. The hash
-   * itself stays out of the query key: the cache holds only the prefix.
-   */
+  // Kept with the password it was computed for, so an answer about what was
+  // typed a moment ago is never shown against what is typed now. The hash
+  // itself stays out of the query key: the cache holds only the prefix.
   const [hashed, setHashed] = useState<{
     password: string;
     digest: string;

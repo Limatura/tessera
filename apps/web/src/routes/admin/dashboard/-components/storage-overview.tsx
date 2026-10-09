@@ -27,8 +27,8 @@ type Backend = components["schemas"]["BackendResponse"];
 /**
  * 全站內容總量對總量上限，加上內容實際放在哪裡。
  *
- * 各位置的分佈要 `/admin/storage/backends`（`settings:read`），儀表板本身只要
- * `stats:read`，所以沒有那個權限時只畫總量。
+ * 分佈那一塊要 `/admin/storage/backends`（`settings:read`），儀表板本身只要
+ * `stats:read`，沒有那個權限時只畫總量。
  */
 export function StorageOverview({
   canReadSettings,
@@ -90,9 +90,9 @@ function TotalUsage({ canReadSettings }: { canReadSettings: boolean }) {
 }
 
 /**
- * 沒設 `storage.max_total_bytes` 又開著訪客上傳（兩個都是預設值）= 對所有連得到的人
- * 開放的無限網路硬碟，第一個徵兆是磁碟滿了寫入開始失敗。只有沒設上限不必警告 ——
- * 全是自己人上傳的站台很正常。
+ * 沒設 `storage.max_total_bytes` 又開著訪客上傳（兩個都是預設值）等於對所有
+ * 連得到的人開放的無限網路硬碟，第一個徵兆就是磁碟滿了寫入開始失敗。只有沒
+ * 設上限不必警告——全是自己人上傳的站台很正常。
  */
 function NoQuotaWarning() {
   const settings = useSettings();
@@ -147,9 +147,10 @@ function Locations() {
 /**
  * 各 backend，再加上資料庫。
  *
- * 文字和小於 `share.inline_threshold_bytes` 的檔案存在資料庫，不在任何 backend 上，
- * 全站總量卻有算它們。沒有端點直接回報這個數字，用「總量 − 各 backend」推出來：
- * 進行中的上傳已寫進 backend 卻還沒算進總量，所以可能推出負數，那時當 0，不畫這一條。
+ * 文字和小於 `share.inline_threshold_bytes` 的檔案存在資料庫，不在任何
+ * backend 上，但算進全站總量。沒有端點直接回報這個數字，用「總量 − 各
+ * backend」推出來：進行中的上傳已寫進 backend 卻還沒算進總量，可能推出負數，
+ * 那時當 0，不畫這一條。
  */
 function buildLocations(
   backends: Backend[],
@@ -179,8 +180,8 @@ function buildLocations(
 }
 
 /**
- * 連不上的 backend 最要緊：上面的分享全都回 503，而其他欄位看起來都正常，不標出來
- * 就沒人會發現。其次是快滿的。
+ * 連不上的 backend 最要緊：上面的分享全回 503，但其他欄位看起來都正常，不標
+ * 出來沒人會發現。其次是快滿的。
  */
 function BackendNotices({ backends }: { backends: Backend[] }) {
   const unreachable = backends.filter((backend) => !backend.reachable);

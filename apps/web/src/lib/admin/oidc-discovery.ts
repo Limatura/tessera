@@ -4,15 +4,13 @@ import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 
 /**
- * 這次讀取的結論。
- *
- * 成功時帶回的是「要填進表單的值」，不是整份文件 —— 端點本身也只回這幾個欄位，
- * 其餘後端登入時自己會讀（見 `auth/oidc/discovery.rs`）。
+ * 這次讀取的結論：成功時是「要填進表單的值」，不是整份文件——端點本身也只回
+ * 這幾個欄位，其餘後端登入時自己會讀（見 `auth/oidc/discovery.rs`）。
  */
 export type ReadResult =
   | {
       ok: true;
-      /** 文件自稱的 issuer。這是權威來源，不是從網址推出來的。 */
+      /** 文件自稱的 issuer，是權威來源，不是從網址推出來的。 */
       issuer: string;
       /** 與 `scopes_supported` 對齊後的建議 scopes；provider 沒宣告就是 null。 */
       scopes: string[] | null;
@@ -28,24 +26,23 @@ const ALWAYS_REQUESTED = ["openid", "email"];
 /**
  * 這個站用得到、但表單預設沒有的 scope。
  *
- * 「必要群組」跟「群組 claim」兩個欄位都靠它 —— provider 支援卻沒要，群組
- * claim 根本不會出現在 token 裡，設了必要群組就是誰都進不來。
+ * 「必要群組」跟「群組 claim」都靠它 —— provider 支援卻沒要到，群組 claim
+ * 不會出現在 token 裡，設了必要群組就變成誰都進不來。
  */
 const USEFUL_IF_SUPPORTED = ["groups"];
 
 /**
  * 把想要的 scopes 收斂成這個 provider 真的認得的那些。
  *
- * Synology 的 `scopes_supported` 是 `["email", "groups", "openid"]` —— 沒有
- * `profile`，但表單預設就有。要一個 provider 沒宣告的 scope，輕則被忽略，重則
- * 整個授權請求被退回，而那時看到的只會是一個 `refused`。
+ * Synology 的 `scopes_supported` 是 `["email", "groups", "openid"]`——沒有
+ * `profile`，但表單預設有。要一個 provider 沒宣告的 scope，輕則被忽略，重則
+ * 整個授權請求被退回，只看到一個 `refused`。
  *
- * `openid` 跟 `email` 一律留著：後端不管表單填什麼都會補上它們，這裡拿掉只會
- * 讓畫面跟實際送出去的不一致。缺了它們是 provider 的問題，交給呼叫端去講。
+ * `openid`、`email` 一律留著：後端不管表單填什麼都會補上，這裡拿掉只會讓畫面
+ * 跟實際送出去的不一致。
  *
- * 反過來也會加：provider 支援 `groups` 而表單沒要的話就補上。這不是多此一舉
- * —— 少了它，「必要群組」設下去會變成誰都進不來，而錯誤只會是一個
- * `not_permitted`，看不出是 scope 沒要到。
+ * 反過來也會補：provider 支援 `groups` 而表單沒要就加上——少了它，「必要群組」
+ * 設下去會變成誰都進不來，錯誤只會是一個看不出所以然的 `not_permitted`。
  */
 export function reconcileScopes(
   wanted: string[],
@@ -68,17 +65,13 @@ export function reconcileScopes(
 }
 
 /**
- * 請伺服器讀一次 provider 的 discovery 文件。
+ * 請伺服器讀一次 provider 的 discovery 文件，不是瀏覽器自己抓：Discovery 規格
+ * 對瀏覽器讀取只寫 SHOULD，不少 provider（如 Synology DSM）沒開放跨來源讀取，
+ * 在瀏覽器裡永遠測不到——而那些正是自架站台最常接的。伺服器沒有 origin，CORS
+ * 不適用，而且它抓得到才真正代表登入路徑也抓得到。見 #303。
  *
- * # 為什麼不是瀏覽器自己抓
- *
- * Discovery 規格對瀏覽器讀取只寫 SHOULD，不少 provider（Synology DSM 就是一個）
- * 沒開放跨來源讀取，那在瀏覽器裡是永遠測不到的 —— 而那些正是自架站台最常接的。
- * 伺服器沒有 origin，CORS 不適用；而且它抓得到就代表登入路徑也抓得到，這件事
- * 瀏覽器本來就證明不了。見 #303。
- *
- * issuer 或 `.well-known` 位址都可以送，後端會自己處理字尾。回來的 `issuer`
- * 是文件自稱的那一個，是權威來源。
+ * issuer 或 `.well-known` 位址都可以送，後端會處理字尾；回來的 `issuer` 是
+ * 文件自稱的那一個，是權威來源。
  */
 export async function readDiscovery(
   url: string,
@@ -90,20 +83,16 @@ export async function readDiscovery(
   );
 
   if (error) {
-    /*
-     * `provider_unreachable` 的原因（連不上、issuer 對不起來、不接受 S256）只在
-     * server 的 message 裡，翻譯會把它原樣接在句尾。
-     */
+    // `provider_unreachable` 的原因（連不上、issuer 對不起來、不接受 S256）只在
+    // server 的 message 裡，翻譯會把它原樣接在句尾。
     return {
       ok: false,
       reason: apiErrorMessage(error, m.settings_oidc_discovery_unreadable()),
     };
   }
 
-  /*
-   * 欄位是必填的陣列，沒宣告的 provider 會拿到空陣列。空的要當成「沒宣告」而不是
-   * 「一個都不支援」—— 後者會把使用者填的 scopes 洗成只剩必要的那兩個。
-   */
+  // 欄位是必填陣列，沒宣告的 provider 會拿到空陣列——要當成「沒宣告」而不是
+  // 「一個都不支援」，後者會把使用者填的 scopes 洗成只剩必要的那兩個。
   const supportedScopes =
     data.scopes_supported.length > 0 ? data.scopes_supported : null;
 

@@ -1,7 +1,6 @@
-// 貼上程式碼時猜語言(tessera#228)。加語言就在 LANGUAGES 加一筆。
-// 這只是三處之一:另外兩處是 routes/-components/code-upload-form.tsx 的選單
-// 和 lib/shiki.ts 的 bundledLanguages(分享頁高亮)。
-// 注意 \s 會跨行,只想吃空白用 [ \t]。
+// 貼上程式碼時猜語言(tessera#228)。加語言就在 LANGUAGES 加一筆,同時補另外
+// 兩處:routes/-components/code-upload-form.tsx 的選單、lib/shiki.ts 的
+// bundledLanguages(分享頁高亮)。注意 \s 會跨行,只想吃空白用 [ \t]。
 
 const MIN_CHARS_TO_GUESS = 12;
 const DEFAULT_MIN_HINTS = 2;
@@ -18,8 +17,7 @@ interface LanguageRules {
 // 分數相同時排前面的贏,所以 TypeScript 要在 JavaScript 前、C++ 在 Java 前。
 const LANGUAGES: readonly LanguageRules[] = [
   {
-    // 圖表宣告只會出現在第一個非空行,而且是 mermaid 獨有的關鍵字。
-    // 放在最前面,免得 `graph TD` 這種內容被 yaml 或 markdown 搶走。
+    // mermaid 獨有關鍵字,放最前面,免得 `graph TD` 被 yaml 或 markdown 搶走。
     id: "mermaid",
     unique: [
       /^[ \t]*(?:graph|flowchart)[ \t]+(?:TB|TD|BT|RL|LR)\b/mu,
@@ -60,7 +58,7 @@ const LANGUAGES: readonly LanguageRules[] = [
       /^\s*class\s+\w+(?:\(.*\))?\s*:/mu,
       /^\s*(?:el)?if\s+.+:\s*$/mu,
       /\bself\b/u,
-      // 行尾不能有分號,免得搶走 C 家族的 printf("x");
+      // 行尾不能有分號,免得搶走 C 家族的 printf("x")
       /^[ \t]*print\s*\(.*\)\s*$/mu,
       /\bprint\s*\(\s*f?["']/u,
       /^[ \t]*@\w+\s*$/mu,
@@ -232,10 +230,7 @@ function scoreByHints(code: string): string | null {
   return bestId;
 }
 
-/**
- * 猜貼上內容的語言。沒有把握時回傳 null,
- * 呼叫端應該維持現在的選擇,而不是退回 plaintext。
- */
+/** 猜貼上內容的語言。沒把握回傳 null,呼叫端應維持現在的選擇,而不是退回 plaintext。 */
 export function detectLanguage(code: string): string | null {
   const trimmed = code.trim();
   if (trimmed.length < MIN_CHARS_TO_GUESS) {

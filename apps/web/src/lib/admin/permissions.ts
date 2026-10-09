@@ -16,11 +16,11 @@ export type { Account, Permission } from "@tessera/auth/permissions";
 /**
  * 內建角色的顯示名稱，跟著語系翻譯（#388）。自訂角色沒有翻譯，照原名顯示。
  *
- * 「沒有角色」跟 `guest` 在權限上都是空集合，差別只在語意：前者是操作者還沒處理，
- * 後者是操作者看過了、刻意選了限制最嚴的角色。畫面上分開顯示，否則「忘了指派」會被
- * 誤讀成「已經處理過」。
+ * 「沒有角色」跟 `guest` 權限上都是空集合，但語意不同：前者是操作者還沒處理，
+ * 後者是刻意選了限制最嚴的角色，畫面上要分開顯示，否則「忘了指派」會被誤讀成
+ * 「已經處理過」。
  *
- * 用函式而不是常數：訊息要在呼叫當下讀，才會是目前的語系。
+ * 用函式而不是常數，讓訊息在呼叫當下讀取，才會是目前的語系。
  */
 const ROLE_LABELS: Record<string, () => string> = {
   admin: m.role_admin,
@@ -44,12 +44,11 @@ export function accountRoleLabel(account: Account | null | undefined): string {
 }
 
 /**
- * 登入後往下找第一個進得去的頁面。
- *
- * 權限少的人進儀表板只會看到一片空白，所以每個畫面除了「需要什麼權限」還要有順序。
- * 這份是後台的路由表 —— 放在 `@tessera/auth` 的只有「哪些權限算後台入口」那份清單
- * (`ADMIN_ENTRY_PERMISSIONS`)，前台 Header 拿它決定要不要顯示後台連結。
- * 兩份要一起改：這裡漏掉的權限會讓有那個權限的人被 `requirePermission` 原地彈掉。
+ * 登入後往下找第一個進得去的頁面。權限少的人進儀表板只會看到一片空白，所以
+ * 每個畫面除了「需要什麼權限」還要有順序。這是後台的路由表 —— `@tessera/auth`
+ * 裡另有一份「哪些權限算後台入口」(`ADMIN_ENTRY_PERMISSIONS`)，給前台 Header
+ * 決定要不要顯示後台連結。兩份要一起改：這裡漏掉的權限會讓有那權限的人被
+ * `requirePermission` 原地彈掉。
  */
 const LANDING_ORDER = [
   { permission: PERMISSIONS.statsRead, to: "/admin/dashboard" },
@@ -59,10 +58,7 @@ const LANDING_ORDER = [
   { permission: PERMISSIONS.sharesReadAny, to: "/admin/all-shares" },
 ] as const;
 
-/**
- * 後台每一頁都要權限，一個權限都沒有的人在這裡沒有落腳處 —— 送回前台首頁，
- * 匿名上傳在那邊，不需要帳號也能用。
- */
+/** 後台每頁都要權限，一個權限都沒有的人在這裡沒有落腳處 —— 送回前台首頁，匿名上傳不需要帳號也能用。 */
 export function landingRoute(
   account: Account | null | undefined
 ): string | null {
@@ -74,8 +70,8 @@ export function landingRoute(
 
 /**
  * 後端建立內建角色時寫進資料庫的英文預設說明（見 server 的 roles / owner_role /
- * guest_role migration）。說明還是這份文字、或被清空時，畫面改顯示翻譯；
- * 操作者自己改過才照原文顯示。
+ * guest_role migration）。說明還是這份文字、或被清空時顯示翻譯；操作者改過才
+ * 照原文顯示。
  */
 const BUILTIN_ROLE_DESCRIPTIONS: Record<
   string,
@@ -231,11 +227,9 @@ export function permissionGroupLabel(resource: string): string {
 }
 
 /**
- * 畫面上要特別標出來的權限。
- *
- * server 的 `privileged` 標的是「會碰到別人的東西」，大部分權限都符合，全部標紅等於沒標
- * (#376)。這裡只挑授出去後最難收拾的：刪帳號、改角色（等於能給自己升權）、改全站設定、
- * 刪別人的分享。
+ * 畫面上要特別標出來的權限。server 的 `privileged` 標的是「會碰到別人的東西」，
+ * 大部分權限都符合，全部標紅等於沒標(#376)。這裡只挑授出去後最難收拾的：
+ * 刪帳號、改角色（等於能給自己升權）、改全站設定、刪別人的分享。
  */
 export const HIGH_RISK_PERMISSIONS: ReadonlySet<string> = new Set([
   PERMISSIONS.rolesWrite,

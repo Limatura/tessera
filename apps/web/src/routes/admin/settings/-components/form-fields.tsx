@@ -149,7 +149,6 @@ export function SealedField<TValues extends FieldValues>({
   );
 }
 
-/** 布林型 `Controller` 欄位。 */
 export function SwitchField<TValues extends FieldValues>({
   field,
   id,
@@ -176,7 +175,7 @@ export function SwitchField<TValues extends FieldValues>({
   );
 }
 
-/** 下拉選單型 `Controller` 欄位。選項的 value 直接就是 server 收的字串。 */
+/** 選項的 value 直接就是 server 收的字串。 */
 export function SelectField<TValues extends FieldValues>({
   field,
   fieldState,
