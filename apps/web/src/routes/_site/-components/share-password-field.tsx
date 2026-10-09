@@ -10,8 +10,8 @@ import { ChevronDown, Eye, EyeOff, Lock } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { apiErrorMessage } from "@/lib/api-error";
-import type { ShareSettings } from "@/lib/upload";
-import { updateShare } from "@/lib/upload";
+import type { ShareSettings } from "@/lib/upload/share-api";
+import { updateShare } from "@/lib/upload/share-api";
 import * as m from "@/paraglide/messages";
 
 interface SharePasswordFieldProps {

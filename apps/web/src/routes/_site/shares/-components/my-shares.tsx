@@ -10,7 +10,7 @@ import { cn } from "@tessera/ui/lib/utils";
 import { useState } from "react";
 
 import { SHARES_PAGE_SIZE, useMyShares } from "@/hooks/use-shares";
-import { toResult } from "@/lib/upload";
+import { toResult } from "@/lib/upload/share-api";
 import * as m from "@/paraglide/messages";
 
 import { ManageShareDialog } from "../../-components/manage-share-dialog";

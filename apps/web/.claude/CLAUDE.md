@@ -51,7 +51,7 @@ src/
 │   └── admin/             # AdminShell, sidebar, nav, pager — admin only
 ├── hooks/                 # Query hooks; admin ones under hooks/admin/
 ├── lib/                   # Utilities; admin ones under lib/admin/
-│   ├── upload.ts          # Upload orchestration
+│   ├── upload/            # Upload orchestration (see Upload Flow)
 │   ├── locale.ts          # Locale subscription + document application
 │   └── ...
 ├── paraglide/             # Generated i18n files (auto-created by Paraglide)
@@ -117,21 +117,15 @@ pnpm check-types          # Type check + build (catches routing issues)
 
 ## API Integration
 
-### Upload Flow (INCOMPLETE)
+### Upload Flow
 
-The `upload()` function in `src/lib/upload.ts` orchestrates file/snippet/link uploads, but the three implementations are stubbed:
+`src/lib/upload/` — import the file you need directly; `index.ts` is not a barrel.
 
-- `uploadFile()` — form-based file upload
-- `uploadPaste()` — JSON POST for code/text snippets
-- `uploadLink()` — JSON POST for URL redirects
+- `index.ts` — `upload(payload, { onProgress, signal })`, dispatching file / paste / link. A multi-file upload creates the share with the first file and attaches the rest one by one (in order, so progress is real); if any later file fails, the half-built share is deleted. A file larger than `max_upload_bytes` from `/capabilities` goes resumable instead of one `POST`.
+- `resumable.ts` — `POST /uploads` sessions: parts go straight to the store when the session says `direct`, and fall back to `PATCH` for the rest of the upload the first time a direct `PUT` fails (a bucket without CORS looks exactly like that). `runResumableUpload` takes its I/O injected so `resumable.test.ts` can drive that fallback.
+- `share-api.ts` — `createShare` (XHR, for progress), `updateShare`, `deleteShare`, `toResult`. Anonymous uploads authorize later changes with the `management_token` from the create response.
 
-Each should:
-
-1. Make a fetch/XHR request to the Tessera backend (endpoint TBD from OpenAPI schema)
-2. Track progress if `onProgress` is provided (XHR progress events)
-3. Handle `signal` for cancellation (AbortSignal)
-4. Return `{ fileName, shortUrl }` on success
-5. Throw on network/validation errors
+Retrieving a share (`/s/$code`) goes through `hooks/use-share.ts`: `useShare` is free to call, `useShareTicket` spends one retrieval, which is why it has no `queryOptions` to preload with.
 
 See `openapi.json` in the repo root for the exact endpoint signatures. The backend is co-located at `/` (same host/port in production).
 
@@ -190,17 +184,15 @@ Currently, the home page doesn't visibly differentiate between logged-in and ano
 
 ## Notes for Future Work
 
-1. **Upload implementations** are stubbed in `src/lib/upload.ts` and need completion — each function must wire to backend endpoints (see OpenAPI schema)
-2. **Share link retrieval** (`/s/$code/`) is currently a placeholder — needs to fetch content from backend and display it
-3. **Login flow** (`/login/`) has the form UI but needs backend auth endpoint integration:
+1. **Login flow** (`/login/`) has the form UI but needs backend auth endpoint integration:
    - Email/password authentication
    - Google OAuth flow (client ID, redirect handling)
    - Session management (cookie, token storage, or context threading)
-4. **Auth state management** — decide if user state should be:
+2. **Auth state management** — decide if user state should be:
    - Stored in Zustand (cross-route persistence)
    - Threaded through router context
    - Or derived from server state on each page load
-5. **Monorepo dependencies**: This app depends on shared packages (`@tessera/ui`, `@tessera/i18n`); changes to those require a rebuild here
+3. **Monorepo dependencies**: This app depends on shared packages (`@tessera/ui`, `@tessera/i18n`); changes to those require a rebuild here
 
 ## Admin Panel
 

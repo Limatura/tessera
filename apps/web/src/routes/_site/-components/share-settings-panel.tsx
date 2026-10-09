@@ -6,8 +6,8 @@ import { useState } from "react";
 
 import { useCapabilities } from "@/hooks/use-capabilities";
 import { apiErrorMessage } from "@/lib/api-error";
-import { updateShare } from "@/lib/upload";
-import type { ShareSettings } from "@/lib/upload";
+import { updateShare } from "@/lib/upload/share-api";
+import type { ShareSettings } from "@/lib/upload/share-api";
 import * as m from "@/paraglide/messages";
 
 import { ShareExpiryField } from "./share-expiry-field";
