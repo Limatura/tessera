@@ -3,7 +3,7 @@ import { Settings2 } from "lucide-react";
 import { useState } from "react";
 
 import { getLocale } from "@/lib/locale";
-import { minutesUntil } from "@/lib/upload";
+import { minutesUntil } from "@/lib/upload/share-api";
 import * as m from "@/paraglide/messages";
 import { useRecentSharesStore } from "@/stores/recent-shares";
 import type { RecentShare } from "@/stores/recent-shares";
