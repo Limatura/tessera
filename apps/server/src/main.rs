@@ -19,7 +19,8 @@ use tessera_server::{
     config::Config,
     db,
     db::repository::{
-        role::RoleRepository, storage_backend::StorageBackendRepository, user::UserRepository,
+        role::RoleRepository, setting::SettingRepository,
+        storage_backend::StorageBackendRepository, user::UserRepository,
     },
     maintenance,
     security::secret::Sealer,
@@ -112,6 +113,11 @@ async fn main() -> anyhow::Result<()> {
     // without it, and starting anyway would present them as gone, not locked.
     let sealer =
         Sealer::for_config(&config).context("the key for sealed settings is not usable")?;
+
+    // Before anything is built from the configuration, so the stores, the
+    // mailer and the first page all see what the panel saved.
+    let config = with_stored_settings(config, &db, &sealer).await?;
+
     let pool = open_stores(&config, &db, &sealer).await?;
     tracing::info!(backends = pool.open.len(), "storage backends open");
 
@@ -308,6 +314,38 @@ async fn watch_for_shutdown(token: CancellationToken) {
     }
 
     token.cancel();
+}
+
+/// Layers what the admin panel stored on top of the environment.
+///
+/// `PUT /admin/settings` swaps a change into the running process and writes it
+/// to the table, but without this nothing read the table back, so every change
+/// made in the panel was gone at the next restart while the panel kept showing
+/// it as saved.
+///
+/// A stored value this binary will not accept is dropped with a warning instead
+/// of stopping the process; see [`Config::load_with_overrides`].
+async fn with_stored_settings(
+    config: Config,
+    db: &sea_orm::DatabaseConnection,
+    sealer: &Sealer,
+) -> anyhow::Result<Config> {
+    let stored = SettingRepository::new(db.clone(), sealer.clone())
+        .all()
+        .await
+        .context("could not read the stored settings")?;
+    if stored.is_empty() {
+        return Ok(config);
+    }
+
+    let (config, rejected) =
+        Config::load_with_overrides(&stored).context("configuration is not usable")?;
+    for bad in rejected {
+        tracing::warn!(setting = %bad.key, reason = %bad.reason, "ignoring a stored setting");
+    }
+    tracing::info!(stored = stored.len(), "stored settings applied");
+    warn_about_settings_that_bite(&config);
+    Ok(config)
 }
 
 /// Says something about the settings that are legal, quiet and dangerous.
