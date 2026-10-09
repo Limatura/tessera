@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@tessera/ui/components/select";
 import { cn } from "@tessera/ui/lib/utils";
+import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/logo";
 import { getLocale, setLocale } from "@/lib/locale";
@@ -35,6 +36,23 @@ export function Header() {
   const { data: session } = useSession();
   const logout = useLogout();
   const navigate = useNavigate();
+
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+
+    // 初始化狀態
+    handleScroll();
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   // 後台每一頁都要權限，一頁都進不去的人點連結只會被 admin 的 route guard 原地送回來，
   // 所以入口乾脆不出現。真正的授權由 server 擋，這裡只是不要給進不去的門。
@@ -48,7 +66,12 @@ export function Header() {
   return (
     // 內容(上傳卡片、結果頁)會捲到 Header 底下,沒有底色的話文字會直接疊在按鈕上,
     // 所以給一層毛玻璃把後面的東西霧化掉。
-    <nav className="fixed z-50 w-full border-border/40 border-b bg-background/50 backdrop-blur-xl">
+    <nav
+      className={cn(
+        "fixed z-50 w-full transition-[background-color,backdrop-filter] duration-300",
+        isScrolled && "bg-background/50 backdrop-blur-xl"
+      )}
+    >
       {/* 手機寬度下 Logo(寬約 6 倍高)+ 語言 + 主題 + 登入加起來會超出視窗,把登入鈕擠出畫面,
           所以 Logo 在窄螢幕縮小、可再被壓縮,右側控制項固定不縮。 */}
       <div className="flex items-center justify-between gap-2 p-3 sm:p-4">

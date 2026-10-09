@@ -98,7 +98,7 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
   return (
     <motion.div
       animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: 0 }}
-      className="relative m-auto flex w-full max-w-sm flex-col items-center gap-6 text-center text-melt-foreground"
+      className="flex w-full max-w-sm flex-col items-center gap-6 text-center text-melt-foreground p-2"
       initial={{ opacity: 0, y: 12 }}
       transition={
         visible
@@ -110,7 +110,7 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
         QR 一律維持「深色碼、白底」:反色(亮碼暗底)有一部分掃描器讀不到。
         暗色模式下就讓這張白底自己當一張卡片,靠外圈的 ring 收邊,不要跟著變暗。
       */}
-      <div className="rounded-xl bg-white p-3 ring-1 ring-current/15 dark:shadow-black/40 dark:shadow-lg">
+      <div className="rounded-xl bg-white p-3 ring-1 ring-current/15 dark:shadow-black/40 dark:shadow-lg mt-24">
         <QRCodeSVG
           bgColor="#ffffff"
           fgColor="#0a0a0a"
