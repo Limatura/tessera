@@ -63,14 +63,13 @@ export function MermaidDiagram({
         </Button>
         {/* SVG 不能放進 <button>(巢狀互動元素不合法),所以放大只靠右上角
             那顆按鈕觸發,這層純粹是容器。 */}
-        {/* mermaid 會在 <svg> 上寫死 style="max-width: <圖寬>px",inline style
-            贏過 class,所以複雜的大圖會把卡片撐爆。用 [&_svg]:max-w-full! 的
-            !important 蓋掉它,再讓 SVG 自己縮到容器寬度(tessera#227)。
-            不要加 w-full:SVG 有自己的長寬比,強制撐滿寬度會讓寬圖(例如
-            participant 很多的 sequenceDiagram)被壓扁變形。max-w-full 就夠擋
-            溢出,真的塞不下時由外層 overflow-auto 捲動。 */}
+        {/* useMermaid 已把 SVG 的 width/height 改成原尺寸,這裡用寬高兩個 max
+            夾住:塞得下就原尺寸,塞不下就等比縮進框裡,看細節靠放大 dialog
+            (tessera#227)。不要用 w-full / h-auto:會把小圖撐大,直式流程圖
+            撐滿寬度後高度跟著爆掉。absolute inset-0 是為了給 max-h-full 一個
+            確定的高度,不然百分比高度在 flex 子元素裡不一定生效。 */}
         <div
-          className="flex max-h-full w-full items-center justify-center overflow-auto rounded-md border border-border/60 bg-muted/20 p-4 [&_svg]:h-auto! [&_svg]:max-w-full!"
+          className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/20 p-4 [&_svg]:max-h-full [&_svg]:max-w-full"
           // oxlint-disable-next-line react/no-danger -- SVG produced by mermaid with securityLevel "strict"
           dangerouslySetInnerHTML={{ __html: svg }}
         />

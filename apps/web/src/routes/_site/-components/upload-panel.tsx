@@ -50,13 +50,14 @@ export function UploadPanel() {
 
   const handleSubmitCode = (
     el: HTMLButtonElement | null,
-    payload: { content: string; language: string }
+    payload: { content: string; language: string; title?: string }
   ) => {
     start(el, (onProgress) =>
       upload(
         {
           content: payload.content,
           language: payload.language,
+          title: payload.title,
           type: "paste",
         },
         { onProgress }

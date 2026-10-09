@@ -202,7 +202,7 @@ function ZoomViewer({ svg }: { svg: string }) {
       ref={viewportRef}
     >
       <div
-        className="flex size-full items-center justify-center [&_svg]:h-auto! [&_svg]:max-w-none!"
+        className="flex size-full items-center justify-center [&_svg]:max-w-none [&_svg]:shrink-0"
         ref={contentRef}
         style={{
           transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,

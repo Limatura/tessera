@@ -1,110 +1,48 @@
+// 票券 icon(logo.svg)。右側撕下來的那塊跟著 --primary,換強調色時一起變。
+// 沒有底板,票面與上面的字/缺口用 foreground / background,亮暗模式自動對調。
 export function Logo({ className }: { className?: string }) {
   return (
     <svg
-      className={`logo-root ${className ?? ""}`}
-      fill="none"
-      viewBox="0 0 300 35"
+      className={className}
+      viewBox="0 0 512 512"
       xmlns="http://www.w3.org/2000/svg"
     >
+      <title>Tessera</title>
       <defs>
-        <linearGradient
-          gradientUnits="userSpaceOnUse"
-          id="logo-polish"
-          x1="0"
-          x2="300"
-          y1="0"
-          y2="0"
-        >
-          <stop
-            className="[stop-color:#b8b8b8] dark:[stop-color:#4a4a4a]"
-            offset="0%"
-          />
-          <stop
-            className="[stop-color:#6a6a6a] dark:[stop-color:#8a8a8a]"
-            offset="45%"
-          />
-          <stop
-            className="[stop-color:#0a0a0a] dark:[stop-color:#ffffff]"
-            offset="100%"
-          />
-        </linearGradient>
-        <linearGradient id="logo-shine" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
-          <stop offset="50%" stopColor="#ffffff" stopOpacity="1" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-        </linearGradient>
-        <mask
-          height="150"
-          id="logo-shape"
-          maskContentUnits="userSpaceOnUse"
-          maskUnits="userSpaceOnUse"
-          width="400"
-          x="-50"
-          y="-50"
-        >
-          <g fill="white">
-            <g transform="translate(0,-13.6) scale(0.972)">
-              <path d="M2 50 L5 50 L13 14 L10 14 Z" />
-              <path d="M11 50 L15 50 L23 14 L19 14 Z" />
-              <path d="M20 50 L25 50 L33 14 L28 14 Z" />
-              <path d="M29 50 L35 50 L43 14 L37 14 Z" />
-              <path d="M38 50 L54 50 L62 14 L46 14 Z" />
-            </g>
-            <text
-              fontFamily="var(--font-sans, sans-serif)"
-              fontSize="46"
-              fontWeight="700"
-              x="75"
-              y="34"
-            >
-              Tessera
-            </text>
-          </g>
-        </mask>
+        <clipPath id="logo-ticket">
+          <path d="M92 160 H420 A28 28 0 0 1 448 188 V222 A34 34 0 0 0 448 290 V324 A28 28 0 0 1 420 352 H92 A28 28 0 0 1 64 324 V290 A34 34 0 0 0 64 222 V188 A28 28 0 0 1 92 160 Z" />
+        </clipPath>
       </defs>
-      <g fill="url(#logo-polish)">
-        <g transform="translate(0,-13.6) scale(0.972)">
-          <path d="M2 50 L5 50 L13 14 L10 14 Z" />
-          <path d="M11 50 L15 50 L23 14 L19 14 Z" />
-          <path d="M20 50 L25 50 L33 14 L28 14 Z" />
-          <path d="M29 50 L35 50 L43 14 L37 14 Z" />
-          <path d="M38 50 L54 50 L62 14 L46 14 Z" />
+      <g transform="rotate(-12 256 256)">
+        <g clipPath="url(#logo-ticket)">
+          <rect
+            className="fill-foreground"
+            height="512"
+            width="340"
+            x="0"
+            y="0"
+          />
+          <rect
+            className="fill-primary"
+            height="512"
+            width="172"
+            x="340"
+            y="0"
+          />
         </g>
-        <text
-          fontFamily="var(--font-sans, sans-serif)"
-          fontSize="46"
-          fontWeight="700"
-          x="75"
-          y="34"
-        >
-          Tessera
-        </text>
+        <g className="fill-background">
+          <rect height="22" rx="8" width="16" x="332" y="175" />
+          <rect height="22" rx="8" width="16" x="332" y="214" />
+          <rect height="22" rx="8" width="16" x="332" y="253" />
+          <rect height="22" rx="8" width="16" x="332" y="292" />
+          <rect height="22" rx="8" width="16" x="332" y="331" />
+        </g>
+        <g className="fill-background">
+          <path d="M118 304 L156 208 H186 L148 304 Z" />
+          <path d="M170 304 L208 208 H238 L200 304 Z" />
+          <path d="M222 304 L260 208 H290 L252 304 Z" />
+        </g>
       </g>
-      <rect
-        className="logo-shine"
-        fill="url(#logo-shine)"
-        height="55"
-        mask="url(#logo-shape)"
-        width="140"
-        y="-10"
-      />
-      <style>{`
-        .logo-shine {
-          x: -160px;
-          animation: logo-shine-mount 1s ease-out 1;
-        }
-        .logo-root:hover .logo-shine {
-          animation: logo-shine-hover 1s ease-out 1;
-        }
-        @keyframes logo-shine-mount {
-          from { x: -160px; }
-          to { x: 300px; }
-        }
-        @keyframes logo-shine-hover {
-          from { x: -160px; }
-          to { x: 300px; }
-        }
-      `}</style>
     </svg>
   );
 }

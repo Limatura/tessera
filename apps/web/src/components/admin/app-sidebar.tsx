@@ -1,7 +1,6 @@
 import {
   IconDashboard,
   IconDatabase,
-  IconInnerShadowTop,
   IconKey,
   IconSettings,
   IconShieldLock,
@@ -23,6 +22,7 @@ import type * as React from "react";
 import type { NavEntry } from "@/components/admin/nav-main";
 import { NavMain } from "@/components/admin/nav-main";
 import { NavUser } from "@/components/admin/nav-user";
+import { Logo } from "@/components/logo";
 import type { Permission } from "@/lib/admin/permissions";
 import { PERMISSIONS, hasPermission } from "@/lib/admin/permissions";
 import * as m from "@/paraglide/messages";
@@ -93,7 +93,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Link aria-label={m.app_sidebar_home_aria()} to="/admin" />
               }
             >
-              <IconInnerShadowTop className="size-5!" />
+              <Logo className="size-7!" />
               <span className="text-base font-semibold">Tessera Admin</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

@@ -72,11 +72,9 @@ export function Header() {
         isScrolled && "bg-background/50 backdrop-blur-xl"
       )}
     >
-      {/* 手機寬度下 Logo(寬約 6 倍高)+ 語言 + 主題 + 登入加起來會超出視窗,把登入鈕擠出畫面,
-          所以 Logo 在窄螢幕縮小、可再被壓縮,右側控制項固定不縮。 */}
       <div className="flex items-center justify-between gap-2 p-3 sm:p-4">
-        <Link to="/" className="flex min-w-0 items-center">
-          <Logo className="h-4 max-w-full sm:h-6" />
+        <Link to="/" className="flex shrink-0 items-center">
+          <Logo className="size-8" />
         </Link>
         <div className="flex shrink-0 items-center gap-2">
           <Select

@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import type * as React from "react";
 
-import { pageVariants } from "@/lib/admin/motion";
+import { pageVariants } from "@/lib/motion";
 
 /**
  * 內容區換頁動畫。`transitionKey` 一變就重掛載並重播進場。

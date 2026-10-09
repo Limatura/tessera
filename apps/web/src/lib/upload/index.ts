@@ -23,6 +23,8 @@ export interface PasteUploadPayload {
   content: string;
   /** Present when submitted from the code tab; absent for plain text. */
   language?: string;
+  /** 貼上檔案時的檔名,存成分享標題。 */
+  title?: string;
 }
 
 export interface LinkUploadPayload {
@@ -207,7 +209,12 @@ function uploadPaste(
 ): Promise<UploadResultData> {
   return createShare(
     payload.content,
-    { language: payload.language },
+    {
+      language: payload.language,
+      title: payload.title
+        ? truncateChars(payload.title, MAX_TITLE_CHARS)
+        : undefined,
+    },
     options
   ).then(toResult);
 }
@@ -222,4 +229,12 @@ function uploadLink(
     ...toResult(share),
     fileName: payload.url,
   }));
+}
+
+/** 後端 title 上限 191 個字元(apps/server 的 MAX_TEXT_FIELD,按字元數算),超過整個請求會被拒。 */
+const MAX_TITLE_CHARS = 191;
+
+/** 照 code point 截斷,不切開 emoji 這類代理對。 */
+function truncateChars(text: string, max: number): string {
+  return [...text].slice(0, max).join("");
 }

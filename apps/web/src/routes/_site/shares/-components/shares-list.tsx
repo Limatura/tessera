@@ -1,7 +1,8 @@
-import { IconChevronRight } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
+import { cn } from "@tessera/ui/lib/utils";
 
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
+import { expiryLabel, isExpired } from "@/lib/expiry-label";
 import * as m from "@/paraglide/messages";
 
 import { ShareBadges } from "./share-fields";
@@ -9,11 +10,14 @@ import type { Share } from "./share-fields";
 import { ShareRowActions } from "./share-row-actions";
 
 /**
- * 窄螢幕的版面:一筆一列,整列都是連結(刪除鈕是列旁邊的獨立按鈕,不能放進 `<a>` 裡)。
+ * 窄螢幕的版面:一筆一張卡片。
  *
- * 表格那邊只有取件碼能點,在手機上那是一個很小的目標;這裡整列都能點,
- * 右邊的箭頭說明它會開到哪裡去。時間欄改成標籤＋值的兩欄,到期放第一個 ——
- * 在手機上回來看清單,多半是想知道哪些還活著。
+ * 之前一列塞了取件碼、標籤、三組日期、箭頭跟兩顆按鈕,日期被擠到每個都折成兩行。
+ * 現在只有一件事放大 —— 還能不能取、什麼時候到期(手機上回來看清單,多半是想知道這個),
+ * 建立、最後取件退到次要的一行。按鈕搬到右上角,不再佔掉內容的寬度。
+ *
+ * 整張卡片都是連結(用 `after:` 撐滿),按鈕用 `relative` 浮在上面,
+ * 因為 `<button>` 不能放進 `<a>` 裡。
  */
 export function SharesList({
   shares,
@@ -24,58 +28,77 @@ export function SharesList({
   onManage: (share: Share) => void;
   onDelete: (share: Share) => void;
 }) {
-  const formatDate = useDateTimeFormatter();
-
   return (
-    <ul className="divide-y overflow-hidden rounded-lg border">
+    <ul className="flex flex-col gap-3">
       {shares.map((share) => (
-        <li className="flex items-center" key={share.id}>
-          <Link
-            className="flex min-w-0 flex-1 items-center gap-3 p-4 outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-muted/60"
-            params={{ code: share.code }}
-            to="/s/$code"
-          >
-            <div className="min-w-0 flex-1 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="min-w-0 truncate font-medium font-mono text-base">
-                  {share.code}
-                </span>
-                <ShareBadges share={share} />
-              </div>
-              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-                <ShareField label={m.shares_col_expires()}>
-                  {share.expires_at
-                    ? formatDate(share.expires_at)
-                    : m.shares_never_expires()}
-                </ShareField>
-                <ShareField label={m.shares_col_accessed()}>
-                  {formatDate(share.last_accessed_at)}
-                </ShareField>
-                <ShareField label={m.shares_col_created()}>
-                  {formatDate(share.created_at)}
-                </ShareField>
-              </dl>
-            </div>
-            <IconChevronRight
-              aria-hidden
-              className="shrink-0 text-muted-foreground"
-              size={16}
-            />
-          </Link>
-          <div className="shrink-0 pr-2">
-            <ShareRowActions
-              onDelete={onDelete}
-              onManage={onManage}
-              share={share}
-            />
-          </div>
-        </li>
+        <ShareCard
+          key={share.id}
+          onDelete={onDelete}
+          onManage={onManage}
+          share={share}
+        />
       ))}
     </ul>
   );
 }
 
-function ShareField({
+function ShareCard({
+  share,
+  onManage,
+  onDelete,
+}: {
+  share: Share;
+  onManage: (share: Share) => void;
+  onDelete: (share: Share) => void;
+}) {
+  const formatDate = useDateTimeFormatter();
+  const expired = isExpired(share.expires_at);
+
+  return (
+    <li className="relative rounded-xl border bg-card transition-colors focus-within:ring-2 focus-within:ring-ring active:bg-muted/40">
+      <div className="flex items-start justify-between gap-2 p-4 pb-3">
+        <div className="flex min-w-0 flex-col gap-2">
+          <Link
+            className="truncate font-medium font-mono text-lg outline-none after:absolute after:inset-0 after:rounded-xl"
+            params={{ code: share.code }}
+            to="/s/$code"
+          >
+            {share.code}
+          </Link>
+          <ShareBadges share={share} />
+        </div>
+        <div className="relative z-10 -mt-2 -mr-2 shrink-0">
+          <ShareRowActions
+            onDelete={onDelete}
+            onManage={onManage}
+            share={share}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1 border-t px-4 py-3">
+        <p className={cn("font-medium text-sm", expired && "text-destructive")}>
+          {expiryLabel(share.expires_at)}
+          {share.expires_at && (
+            <span className="ml-2 font-normal text-muted-foreground text-xs tabular-nums">
+              {formatDate(share.expires_at)}
+            </span>
+          )}
+        </p>
+        <dl className="flex flex-wrap gap-x-4 gap-y-0.5 text-muted-foreground text-xs tabular-nums">
+          <Meta label={m.shares_col_created()}>
+            {formatDate(share.created_at)}
+          </Meta>
+          <Meta label={m.shares_col_accessed()}>
+            {formatDate(share.last_accessed_at)}
+          </Meta>
+        </dl>
+      </div>
+    </li>
+  );
+}
+
+function Meta({
   label,
   children,
 }: {
@@ -83,9 +106,9 @@ function ShareField({
   children: React.ReactNode;
 }) {
   return (
-    <>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-right tabular-nums">{children}</dd>
-    </>
+    <div className="flex gap-1.5">
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
   );
 }
