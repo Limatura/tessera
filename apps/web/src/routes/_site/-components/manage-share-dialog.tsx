@@ -11,9 +11,9 @@ import { toast } from "@tessera/ui/components/toast";
 import { Check, Copy, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import { useShare } from "@/hooks/use-share";
 import { apiErrorMessage } from "@/lib/api-error";
-import { useShare } from "@/lib/api/share";
-import { deleteShare, minutesUntil } from "@/lib/upload";
+import { deleteShare, minutesUntil } from "@/lib/upload/share-api";
 import * as m from "@/paraglide/messages";
 
 import { ShareSettingsPanel } from "./share-settings-panel";

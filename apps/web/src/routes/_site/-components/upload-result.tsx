@@ -17,8 +17,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 
 import { apiErrorMessage } from "@/lib/api-error";
-import { deleteShare } from "@/lib/upload";
-import type { UploadResultData } from "@/lib/upload";
+import { deleteShare } from "@/lib/upload/share-api";
+import type { UploadResultData } from "@/lib/upload/share-api";
 import * as m from "@/paraglide/messages";
 import { useRecentSharesStore } from "@/stores/recent-shares";
 
