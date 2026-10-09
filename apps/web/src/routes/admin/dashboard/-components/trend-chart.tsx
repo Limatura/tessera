@@ -34,7 +34,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { useStats, useStatsHistory } from "@/hooks/admin/use-admin";
+import { useStats, useStatsHistory } from "@/hooks/admin/use-stats";
 import { CHART_ANIMATION } from "@/lib/admin/motion";
 import { getLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";

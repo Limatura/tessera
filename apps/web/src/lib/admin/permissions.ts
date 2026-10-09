@@ -56,6 +56,7 @@ const LANDING_ORDER = [
   { permission: PERMISSIONS.invitesRead, to: "/admin/invites" },
   { permission: PERMISSIONS.rolesRead, to: "/admin/roles" },
   { permission: PERMISSIONS.sharesReadAny, to: "/admin/all-shares" },
+  { permission: PERMISSIONS.settingsRead, to: "/admin/settings" },
 ] as const;
 
 /** 後台每頁都要權限，一個權限都沒有的人在這裡沒有落腳處 —— 送回前台首頁，匿名上傳不需要帳號也能用。 */

@@ -21,7 +21,7 @@ import {
 } from "@tessera/ui/components/table";
 import { useState } from "react";
 
-import { usePermissions, useRoles } from "@/hooks/admin/use-admin";
+import { usePermissions, useRoles } from "@/hooks/admin/use-roles";
 import {
   HIGH_RISK_PERMISSIONS,
   PERMISSIONS,

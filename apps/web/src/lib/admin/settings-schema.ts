@@ -175,6 +175,23 @@ export type AccountSettingsValues = z.infer<typeof accountSettingsSchema>;
 
 // 登入方式：auth.oidc.* / auth.github.* / auth.discord.*
 
+/** 對應 server 的 `ProviderRegistration`：每家第三方登入要不要開新帳號。 */
+export const PROVIDER_REGISTRATION_MODES = [
+  "inherit",
+  "always",
+  "never",
+] as const;
+
+export type ProviderRegistrationMode =
+  (typeof PROVIDER_REGISTRATION_MODES)[number];
+
+/** 對應 server 的 `LinkByEmail`，只有 OIDC 有三段；GitHub / Discord 仍是開關。 */
+export const LINK_BY_EMAIL_MODES = [
+  "never",
+  "when_verified",
+  "always",
+] as const;
+
 const HTTPS_URL = /^https:\/\/[^\s/][^\s]*$/u;
 const ABSOLUTE_URL = /^https?:\/\/[^\s/][^\s]*$/u;
 
@@ -183,6 +200,8 @@ const ABSOLUTE_URL = /^https?:\/\/[^\s/][^\s]*$/u;
  * 只會讓「填了 issuer 但忘了打開」變成一種可能的狀態。
  */
 export const oidcSettingsSchema = z.object({
+  // auth.oidc.allow_registration
+  allowRegistration: z.enum(PROVIDER_REGISTRATION_MODES),
   // auth.oidc.client_id
   clientId: z.string(),
   // auth.oidc.client_secret（SEALED，留空 = 不改動）
@@ -201,8 +220,8 @@ export const oidcSettingsSchema = z.object({
     .refine((value) => !value.includes("/.well-known/"), {
       error: () => m.settings_schema_oidc_issuer_not_discovery_url(),
     }),
-  // auth.oidc.link_by_verified_email
-  linkByVerifiedEmail: z.boolean(),
+  // auth.oidc.link_by_email
+  linkByEmail: z.enum(LINK_BY_EMAIL_MODES),
   // auth.oidc.required_group —— 空字串 = 該 provider 認證過的任何人都能登入
   requiredGroup: z.string(),
   // auth.oidc.scopes —— server 是 string[]，表單用空白分隔的字串
@@ -216,6 +235,8 @@ export type OidcSettingsValues = z.infer<typeof oidcSettingsSchema>;
  * （GitHub Enterprise Server），Discord 的卡片不畫那一格也不送那個 key。
  */
 export const oauthSettingsSchema = z.object({
+  // auth.{github,discord}.allow_registration
+  allowRegistration: z.enum(PROVIDER_REGISTRATION_MODES),
   // auth.{github,discord}.base_url
   baseUrl: z
     .string()

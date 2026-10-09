@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** 後台列表一頁幾筆。server 的上限是 200,沒帶 `limit` 時只回 50 筆。 */
+export const PAGE_SIZE = 20;
+
 /**
  * 頁碼放 search 而不是路徑,重新整理跟複製網址都會回到同一頁。
  * 用 1-based 的 `page` 而不是 `offset`,網址對人來說才讀得懂。

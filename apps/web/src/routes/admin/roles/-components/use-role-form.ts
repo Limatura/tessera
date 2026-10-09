@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { modeOf, toBytes, toMib } from "@/components/admin/byte-limit-field";
 import type { ByteLimitMode } from "@/components/admin/byte-limit-field";
-import { useCreateRole, useUpdateRole } from "@/hooks/admin/use-admin";
+import { useCreateRole, useUpdateRole } from "@/hooks/admin/use-roles";
 import { hasDefaultRoleDescription } from "@/lib/admin/permissions";
 
 type Role = components["schemas"]["RoleResponse"];

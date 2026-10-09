@@ -14,7 +14,7 @@ import {
   useDeleteUser,
   useRemoveUserShares,
   useSetUserState,
-} from "@/hooks/admin/use-admin";
+} from "@/hooks/admin/use-users";
 import type { AdminUser } from "@/lib/admin/accounts";
 import { isDeletedAccount } from "@/lib/admin/accounts";
 import { apiErrorMessage } from "@/lib/api-error";

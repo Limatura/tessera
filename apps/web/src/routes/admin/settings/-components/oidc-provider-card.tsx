@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IconAlertTriangle } from "@tabler/icons-react";
+import { IconAlertOctagon, IconAlertTriangle } from "@tabler/icons-react";
 import type { components } from "@tessera/api/schema";
 import { FieldGroup, FieldSeparator } from "@tessera/ui/components/field";
 import { useState } from "react";
@@ -8,10 +8,14 @@ import { Controller, useWatch } from "react-hook-form";
 import { readSetting } from "@/hooks/admin/use-settings";
 import { useSettingsForm } from "@/hooks/admin/use-settings-form";
 import type { SettingsKeyMap } from "@/hooks/admin/use-settings-form";
-import { oidcSettingsSchema } from "@/lib/admin/settings-schema";
+import {
+  LINK_BY_EMAIL_MODES,
+  PROVIDER_REGISTRATION_MODES,
+  oidcSettingsSchema,
+} from "@/lib/admin/settings-schema";
 import type { OidcSettingsValues } from "@/lib/admin/settings-schema";
 import {
-  asBoolean,
+  asEnum,
   asScopes,
   asString,
   isSecretSet,
@@ -21,24 +25,29 @@ import * as m from "@/paraglide/messages";
 
 import {
   SealedField,
+  SelectField,
   SettingsNotice,
-  SwitchField,
   TextField,
 } from "./form-fields";
 import { OidcDiscoveryField } from "./oidc-discovery-field";
 import { ProviderCallbackUrls } from "./provider-callback-urls";
+import {
+  ProviderRegistrationNote,
+  providerRegistrationOptions,
+} from "./provider-registration-note";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
 const KEYS = {
+  allowRegistration: "auth.oidc.allow_registration",
   clientId: "auth.oidc.client_id",
   clientSecret: "auth.oidc.client_secret",
   displayName: "auth.oidc.display_name",
   groupClaim: "auth.oidc.group_claim",
   issuer: "auth.oidc.issuer",
-  linkByVerifiedEmail: "auth.oidc.link_by_verified_email",
+  linkByEmail: "auth.oidc.link_by_email",
   requiredGroup: "auth.oidc.required_group",
   scopes: "auth.oidc.scopes",
 } satisfies SettingsKeyMap<OidcSettingsValues>;
@@ -69,15 +78,21 @@ export function OidcProviderCard({ settings }: { settings: Settings }) {
 
 function initialValues(settings: Settings): OidcSettingsValues {
   return {
+    allowRegistration: asEnum(
+      readSetting(settings, KEYS.allowRegistration),
+      PROVIDER_REGISTRATION_MODES,
+      "inherit"
+    ),
     clientId: asString(readSetting(settings, KEYS.clientId), ""),
     // SEALED：讀不回值，永遠從空的開始。
     clientSecret: "",
     displayName: asString(readSetting(settings, KEYS.displayName), ""),
     groupClaim: asString(readSetting(settings, KEYS.groupClaim), "groups"),
     issuer: asString(readSetting(settings, KEYS.issuer), ""),
-    linkByVerifiedEmail: asBoolean(
-      readSetting(settings, KEYS.linkByVerifiedEmail),
-      false
+    linkByEmail: asEnum(
+      readSetting(settings, KEYS.linkByEmail),
+      LINK_BY_EMAIL_MODES,
+      "never"
     ),
     requiredGroup: asString(readSetting(settings, KEYS.requiredGroup), ""),
     scopes: asScopes(
@@ -109,6 +124,14 @@ function OidcProviderFields({
     name: "requiredGroup",
   });
   const scopes = useWatch({ control: form.control, name: "scopes" });
+  const allowRegistration = useWatch({
+    control: form.control,
+    name: "allowRegistration",
+  });
+  const linkByEmail = useWatch({ control: form.control, name: "linkByEmail" });
+
+  const configured = issuer.trim() !== "";
+  const noGroup = requiredGroup.trim() === "";
 
   /*
    * 只有讀過 discovery 文件、且對方宣告支援時才顯示 back-channel logout 位址。
@@ -119,15 +142,25 @@ function OidcProviderFields({
   const [backchannelLogout, setBackchannelLogout] = useState(false);
 
   /*
-   * shouldDirty：不標記的話帶入值會留在畫面上卻存不下去，比沒帶入更糟。
-   * shouldValidate：貼錯的網址當場顯示，不用等按儲存。
+   * 同理：讀過文件才知道它發不發 `email_verified`。沒讀過（null）就不提示 ——
+   * 沒宣告 claims_supported 的 provider 也可能照發。
+   */
+  const [claimsSupported, setClaimsSupported] = useState<string[] | null>(null);
+  const verifiedClaimMissing =
+    claimsSupported !== null && !claimsSupported.includes("email_verified");
+
+  /*
+   * shouldDirty：送出時只挑動過的欄位，沒標記的話帶入的值會留在畫面上卻存不下去
+   * —— 那比沒帶入更糟。shouldValidate 讓貼錯的網址當場顯示，不用等按儲存。
    */
   const handleApplyDiscovery = (values: {
     issuer: string;
     scopes?: string;
     backchannelLogout: boolean;
+    claimsSupported: string[] | null;
   }) => {
     setBackchannelLogout(values.backchannelLogout);
+    setClaimsSupported(values.claimsSupported);
     form.setValue("issuer", values.issuer, {
       shouldDirty: true,
       shouldValidate: true,
@@ -143,8 +176,26 @@ function OidcProviderFields({
   return (
     <form onSubmit={form.submit}>
       <FieldGroup>
-        {issuer.trim() !== "" && requiredGroup.trim() === "" && (
+        {/*
+          always + 沒填群組 由 ProviderRegistrationNote 給最高等級的警告，這裡
+          不重複；never 只有既有帳號能進，「任何人都能登入」就不成立。
+        */}
+        {configured && noGroup && allowRegistration === "inherit" && (
           <OpenToEveryoneWarning />
+        )}
+
+        {configured && (
+          <ProviderRegistrationNote
+            mode={allowRegistration}
+            openToWorld={
+              noGroup
+                ? {
+                    body: m.settings_oidc_card_open_registration_body(),
+                    title: m.settings_oidc_card_open_registration_title(),
+                  }
+                : undefined
+            }
+          />
         )}
 
         <OidcDiscoveryField
@@ -265,21 +316,69 @@ function OidcProviderFields({
 
         <Controller
           control={form.control}
-          name="linkByVerifiedEmail"
-          render={({ field }) => (
-            <SwitchField
-              description={m.settings_oidc_card_link_by_email_description()}
+          name="allowRegistration"
+          render={({ field, fieldState }) => (
+            <SelectField
+              description={m.settings_provider_registration_field_description()}
               field={field}
-              id="oidc-link-by-email"
-              label={m.settings_oidc_card_link_by_email_label()}
+              fieldState={fieldState}
+              id="oidc-allow-registration"
+              label={m.settings_provider_registration_field_label()}
+              options={providerRegistrationOptions()}
             />
           )}
         />
+
+        <Controller
+          control={form.control}
+          name="linkByEmail"
+          render={({ field, fieldState }) => (
+            <SelectField
+              description={m.settings_oidc_card_link_by_email_description()}
+              field={field}
+              fieldState={fieldState}
+              id="oidc-link-by-email"
+              label={m.settings_oidc_card_link_by_email_label()}
+              options={linkByEmailOptions()}
+            />
+          )}
+        />
+
+        {linkByEmail === "always" && (
+          <SettingsNotice
+            icon={<IconAlertOctagon />}
+            title={m.settings_oidc_card_link_always_warning_title()}
+            tone="danger"
+          >
+            {m.settings_oidc_card_link_always_warning_body()}
+          </SettingsNotice>
+        )}
+
+        {linkByEmail === "when_verified" && verifiedClaimMissing && (
+          <SettingsNotice
+            icon={<IconAlertTriangle />}
+            title={m.settings_oidc_card_link_unverified_warning_title()}
+            tone="warning"
+          >
+            {m.settings_oidc_card_link_unverified_warning_body()}
+          </SettingsNotice>
+        )}
 
         <SettingsFormFooter form={form} surface="card" />
       </FieldGroup>
     </form>
   );
+}
+
+function linkByEmailOptions() {
+  return [
+    { label: m.settings_oidc_card_link_by_email_never(), value: "never" },
+    {
+      label: m.settings_oidc_card_link_by_email_when_verified(),
+      value: "when_verified",
+    },
+    { label: m.settings_oidc_card_link_by_email_always(), value: "always" },
+  ];
 }
 
 /**

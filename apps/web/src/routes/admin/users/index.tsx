@@ -1,16 +1,5 @@
-import {
-  IconDots,
-  IconGauge,
-  IconPlayerPause,
-  IconPlayerPlay,
-  IconShieldCog,
-  IconTrash,
-  IconTrashX,
-} from "@tabler/icons-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSession } from "@tessera/auth/hooks";
-import { Badge } from "@tessera/ui/components/badge";
-import { Button } from "@tessera/ui/components/button";
 import {
   Card,
   CardAction,
@@ -19,44 +8,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@tessera/ui/components/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@tessera/ui/components/dropdown-menu";
 import { Label } from "@tessera/ui/components/label";
 import { Switch } from "@tessera/ui/components/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@tessera/ui/components/table";
 import { toast } from "@tessera/ui/components/toast";
-import { formatBytes } from "@tessera/ui/lib/format";
 import { useState } from "react";
 import { z } from "zod";
 
 import { Pager } from "@/components/admin/pager";
-import {
-  PAGE_SIZE,
-  useRoles,
-  useSetUserState,
-  useUsers,
-} from "@/hooks/admin/use-admin";
+import { useSetUserState, useUsers } from "@/hooks/admin/use-users";
 import type { AdminUser } from "@/lib/admin/accounts";
 import { isDeletedAccount } from "@/lib/admin/accounts";
-import { pageSearchSchema } from "@/lib/admin/page-search";
-import {
-  accountRoleLabel,
-  hasPermission,
-  isUnassigned,
-  PERMISSIONS,
-} from "@/lib/admin/permissions";
+import { PAGE_SIZE, pageSearchSchema } from "@/lib/admin/page-search";
+import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
@@ -64,6 +27,8 @@ import { SetUserRoleDialog } from "./-components/set-user-role-dialog";
 import type { UserAction } from "./-components/user-action-dialog";
 import { UserActionDialog } from "./-components/user-action-dialog";
 import { UserQuotaDialog } from "./-components/user-quota-dialog";
+import type { RowAbilities, RowAction } from "./-components/users-table";
+import { UsersTable } from "./-components/users-table";
 
 type Account = AdminUser;
 
@@ -84,21 +49,10 @@ export const Route = createFileRoute("/admin/users/")({
   validateSearch: usersSearchSchema,
 });
 
-/** 這列帳號上,目前登入的人能做哪些事。都不能做時整個選單不出現。 */
-interface RowAbilities {
-  setRole: boolean;
-  setQuota: boolean;
-  disable: boolean;
-  enable: boolean;
-  removeShares: boolean;
-  remove: boolean;
-}
-
 function UsersComponent() {
   const { page, deleted = false } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const users = useUsers((page - 1) * PAGE_SIZE, deleted);
-  const roles = useRoles();
   const { data: account } = useSession();
   const setUserState = useSetUserState();
 
@@ -150,16 +104,6 @@ function UsersComponent() {
     navigate({ search: { deleted: checked || undefined, page: 1 } });
   };
 
-  const handleEditRole = (user: Account) => {
-    setEditing(user);
-    setEditorOpen(true);
-  };
-
-  const handleEditQuota = (user: Account) => {
-    setQuotaFor(user);
-    setQuotaOpen(true);
-  };
-
   const handleEnable = (user: Account) => {
     setUserState.mutate(
       { id: user.id, state: "active" },
@@ -176,6 +120,28 @@ function UsersComponent() {
           }),
       }
     );
+  };
+
+  const handleRowAction = (user: Account, action: RowAction) => {
+    switch (action) {
+      case "setRole": {
+        setEditing(user);
+        setEditorOpen(true);
+        break;
+      }
+      case "setQuota": {
+        setQuotaFor(user);
+        setQuotaOpen(true);
+        break;
+      }
+      case "enable": {
+        handleEnable(user);
+        break;
+      }
+      default: {
+        setPending({ account: user, action });
+      }
+    }
   };
 
   return (
@@ -204,76 +170,11 @@ function UsersComponent() {
             <p className="text-sm text-destructive">{m.users_load_error()}</p>
           )}
           {users.data && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{m.users_col_account()}</TableHead>
-                  <TableHead>{m.users_col_email()}</TableHead>
-                  <TableHead>{m.users_col_role()}</TableHead>
-                  <TableHead className="text-right">
-                    {m.users_col_permission_count()}
-                  </TableHead>
-                  {hasActions && <TableHead className="w-12" />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.data.data.map((user) => {
-                  const menu = hasActions && (
-                    <TableCell>
-                      <UserRowMenu
-                        abilities={abilitiesFor(user)}
-                        onAction={(action) =>
-                          setPending({ account: user, action })
-                        }
-                        onEditQuota={() => handleEditQuota(user)}
-                        onEditRole={() => handleEditRole(user)}
-                        onEnable={() => handleEnable(user)}
-                        username={
-                          isDeletedAccount(user)
-                            ? m.users_deleted_account()
-                            : user.username
-                        }
-                      />
-                    </TableCell>
-                  );
-                  return isDeletedAccount(user) ? (
-                    <DeletedUserRow key={user.id} menu={menu} />
-                  ) : (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">
-                        {user.username}
-                        {user.state === "disabled" && (
-                          <Badge className="ml-2" variant="destructive">
-                            {m.users_state_disabled()}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {user.email}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={isUnassigned(user) ? "outline" : "secondary"}
-                        >
-                          {accountRoleLabel(user)}
-                        </Badge>
-                        {isUnassigned(user) && (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            {m.users_not_decided()}
-                          </span>
-                        )}
-                        <QuotaBadge quotaBytes={user.quota_bytes} />
-                        <FileLimitBadge maxFileBytes={user.max_file_bytes} />
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {user.permissions.length}
-                      </TableCell>
-                      {menu}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            <UsersTable
+              abilitiesFor={hasActions ? abilitiesFor : null}
+              onAction={handleRowAction}
+              users={users.data.data}
+            />
           )}
           {users.data && (
             <Pager
@@ -291,7 +192,6 @@ function UsersComponent() {
           account={editing}
           onOpenChange={setEditorOpen}
           open={editorOpen}
-          roles={roles.data ?? []}
         />
       )}
       {canSetState && (
@@ -311,135 +211,5 @@ function UsersComponent() {
         }}
       />
     </>
-  );
-}
-
-/** 殘骸那串 `gone-01K…` 對人沒有意義,只說它是什麼。 */
-function DeletedUserRow({ menu }: { menu: React.ReactNode }) {
-  return (
-    <TableRow className="text-muted-foreground">
-      <TableCell className="italic">{m.users_deleted_account()}</TableCell>
-      <TableCell>—</TableCell>
-      <TableCell>—</TableCell>
-      <TableCell className="text-right">—</TableCell>
-      {menu}
-    </TableRow>
-  );
-}
-
-/**
- * 帳號自己設了配額才顯示 —— 沒設（`null`）就是沿用角色，角色那欄已經說了。
- * `0` 是「這個帳號不限制」，跟沒設是兩回事，要看得出來。
- */
-function QuotaBadge({ quotaBytes }: { quotaBytes?: number | null }) {
-  if (quotaBytes === null || quotaBytes === undefined) {
-    return null;
-  }
-  return (
-    <Badge className="ml-2" variant="outline">
-      {quotaBytes === 0
-        ? m.users_quota_badge_unlimited()
-        : m.users_quota_badge({ amount: formatBytes(quotaBytes) })}
-    </Badge>
-  );
-}
-
-function FileLimitBadge({ maxFileBytes }: { maxFileBytes?: number | null }) {
-  if (maxFileBytes === null || maxFileBytes === undefined) {
-    return null;
-  }
-  return (
-    <Badge className="ml-2" variant="outline">
-      {maxFileBytes === 0
-        ? m.users_file_badge_unlimited()
-        : m.users_file_badge({ amount: formatBytes(maxFileBytes) })}
-    </Badge>
-  );
-}
-
-function UserRowMenu({
-  username,
-  abilities,
-  onEditRole,
-  onEditQuota,
-  onEnable,
-  onAction,
-}: {
-  username: string;
-  abilities: RowAbilities;
-  onEditRole: () => void;
-  onEditQuota: () => void;
-  onEnable: () => void;
-  onAction: (action: UserAction) => void;
-}) {
-  const { setRole, setQuota, disable, enable, removeShares, remove } =
-    abilities;
-  if (!(setRole || setQuota || disable || enable || removeShares || remove)) {
-    return null;
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={m.users_row_menu_aria({ username })}
-            size="icon"
-            type="button"
-            variant="ghost"
-          />
-        }
-      >
-        <IconDots />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-44">
-        {setRole && (
-          <DropdownMenuItem onClick={onEditRole}>
-            <IconShieldCog />
-            {m.users_menu_set_role()}
-          </DropdownMenuItem>
-        )}
-        {setQuota && (
-          <DropdownMenuItem onClick={onEditQuota}>
-            <IconGauge />
-            {m.users_menu_set_quota()}
-          </DropdownMenuItem>
-        )}
-        {disable && (
-          <DropdownMenuItem onClick={() => onAction("disable")}>
-            <IconPlayerPause />
-            {m.users_menu_disable()}
-          </DropdownMenuItem>
-        )}
-        {enable && (
-          <DropdownMenuItem onClick={onEnable}>
-            <IconPlayerPlay />
-            {m.users_menu_enable()}
-          </DropdownMenuItem>
-        )}
-        {(removeShares || remove) &&
-          (setRole || setQuota || disable || enable) && (
-            <DropdownMenuSeparator />
-          )}
-        {removeShares && (
-          <DropdownMenuItem
-            onClick={() => onAction("removeShares")}
-            variant="destructive"
-          >
-            <IconTrashX />
-            {m.users_menu_remove_shares()}
-          </DropdownMenuItem>
-        )}
-        {remove && (
-          <DropdownMenuItem
-            onClick={() => onAction("delete")}
-            variant="destructive"
-          >
-            <IconTrash />
-            {m.users_menu_delete()}
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

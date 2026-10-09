@@ -4,7 +4,6 @@ import * as m from "@/paraglide/messages";
 
 import { OauthProviderCard } from "./-components/oauth-provider-card";
 import { OidcProviderCard } from "./-components/oidc-provider-card";
-import { ProviderRegistrationNote } from "./-components/provider-registration-note";
 import { SettingsLoader } from "./-components/settings-loader";
 import { SettingsPage } from "./-components/settings-page";
 
@@ -27,7 +26,6 @@ function AuthProvidersRoute() {
       <SettingsLoader>
         {(settings) => (
           <>
-            <ProviderRegistrationNote />
             <OidcProviderCard settings={settings} />
             <OauthProviderCard
               baseUrlHint={m.settings_auth_providers_github_base_url_hint()}

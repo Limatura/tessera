@@ -2,15 +2,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { components } from "@tessera/api/schema";
 import { FieldGroup, FieldSeparator } from "@tessera/ui/components/field";
 import type * as React from "react";
-import { Controller } from "react-hook-form";
+import { Controller, useWatch } from "react-hook-form";
 
 import { readSetting } from "@/hooks/admin/use-settings";
 import { useSettingsForm } from "@/hooks/admin/use-settings-form";
 import type { SettingsKeyMap } from "@/hooks/admin/use-settings-form";
-import { oauthSettingsSchema } from "@/lib/admin/settings-schema";
+import {
+  oauthSettingsSchema,
+  PROVIDER_REGISTRATION_MODES,
+} from "@/lib/admin/settings-schema";
 import type { OauthSettingsValues } from "@/lib/admin/settings-schema";
 import {
   asBoolean,
+  asEnum,
   asScopes,
   asString,
   isSecretSet,
@@ -18,8 +22,17 @@ import {
 } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
-import { SealedField, SwitchField, TextField } from "./form-fields";
+import {
+  SealedField,
+  SelectField,
+  SwitchField,
+  TextField,
+} from "./form-fields";
 import { ProviderCallbackUrls } from "./provider-callback-urls";
+import {
+  ProviderRegistrationNote,
+  providerRegistrationOptions,
+} from "./provider-registration-note";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsCard } from "./settings-page";
 
@@ -64,6 +77,7 @@ export function OauthProviderCard({
         defaultValues={initialValues(settings, provider)}
         idPrefix={provider === "auth.github" ? "github" : "discord"}
         keys={keys}
+        providerName={title}
         publicUrl={asString(readSetting(settings, "server.public_url"), "")}
         scopesHint={scopesHint}
         secretIsSet={isSecretSet(settings, `${provider}.client_secret`)}
@@ -77,6 +91,7 @@ function keysFor(
   withBaseUrl: boolean
 ): SettingsKeyMap<OauthSettingsValues> {
   return {
+    allowRegistration: `${provider}.allow_registration`,
     // Discord 無視 base_url，那張卡不畫也不送 —— 送一個 provider 根本不看的值，
     // 只會讓下次有人來讀設定時以為它有作用。
     baseUrl: withBaseUrl ? `${provider}.base_url` : undefined,
@@ -93,6 +108,11 @@ function initialValues(
   provider: string
 ): OauthSettingsValues {
   return {
+    allowRegistration: asEnum(
+      readSetting(settings, `${provider}.allow_registration`),
+      PROVIDER_REGISTRATION_MODES,
+      "inherit"
+    ),
     baseUrl: asString(readSetting(settings, `${provider}.base_url`), ""),
     clientId: asString(readSetting(settings, `${provider}.client_id`), ""),
     // SEALED：讀不回值，永遠從空的開始。
@@ -117,10 +137,12 @@ function OauthProviderFields({
   baseUrlHint,
   secretIsSet,
   publicUrl,
+  providerName,
 }: {
   defaultValues: OauthSettingsValues;
   keys: SettingsKeyMap<OauthSettingsValues>;
   idPrefix: string;
+  providerName: string;
   scopesHint: string;
   baseUrlHint?: string;
   secretIsSet: boolean;
@@ -133,9 +155,30 @@ function OauthProviderFields({
     resolver: zodResolver(oauthSettingsSchema),
   });
 
+  const allowRegistration = useWatch({
+    control: form.control,
+    name: "allowRegistration",
+  });
+
   return (
     <form onSubmit={form.submit}>
       <FieldGroup>
+        {/*
+          GitHub / Discord 沒有群組可篩，provider 認證的就是它上面的每一個帳號，
+          所以選 always 一律是最高等級的警告。
+        */}
+        <ProviderRegistrationNote
+          mode={allowRegistration}
+          openToWorld={{
+            body: m.settings_provider_registration_world_body({
+              provider: providerName,
+            }),
+            title: m.settings_provider_registration_world_title({
+              provider: providerName,
+            }),
+          }}
+        />
+
         {/* idPrefix 就是路徑裡的那一段：`github` / `discord`。 */}
         <ProviderCallbackUrls provider={idPrefix} publicUrl={publicUrl} />
 
@@ -210,6 +253,21 @@ function OauthProviderFields({
               fieldState={fieldState}
               id={`${idPrefix}-display-name`}
               label={m.settings_oauth_card_display_name_label()}
+            />
+          )}
+        />
+
+        <Controller
+          control={form.control}
+          name="allowRegistration"
+          render={({ field, fieldState }) => (
+            <SelectField
+              description={m.settings_provider_registration_field_description()}
+              field={field}
+              fieldState={fieldState}
+              id={`${idPrefix}-allow-registration`}
+              label={m.settings_provider_registration_field_label()}
+              options={providerRegistrationOptions()}
             />
           )}
         />

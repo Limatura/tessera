@@ -40,6 +40,7 @@ export function OidcDiscoveryField({
     issuer: string;
     scopes?: string;
     backchannelLogout: boolean;
+    claimsSupported: string[] | null;
   }) => void;
 }) {
   const [value, setValue] = useState("");
@@ -64,6 +65,7 @@ export function OidcDiscoveryField({
     if (read.ok) {
       onApply({
         backchannelLogout: read.backchannelLogout,
+        claimsSupported: read.claimsSupported,
         issuer: read.issuer,
         // 沒宣告 scopes_supported 就不動使用者填的——沒宣告不代表不支援。
         scopes: read.scopes ? read.scopes.join(" ") : undefined,
