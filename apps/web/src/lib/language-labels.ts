@@ -18,6 +18,7 @@ export const LANGUAGE_LABELS = {
   rust: "Rust",
   shellscript: "Shell",
   sql: "SQL",
+  svg: "SVG",
   typescript: "TypeScript",
   yaml: "YAML",
 } as const satisfies Record<string, string>;

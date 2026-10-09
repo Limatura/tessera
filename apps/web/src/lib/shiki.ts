@@ -10,6 +10,7 @@ import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 // there even though the browser only fetches what it uses.
 // 加語言時這裡也要補一筆,否則分享頁會靜默 fallback 成純文字。另外兩處:
 // code-upload-form.tsx 的選單、detect-language.ts 的偵測規則。
+// svg 沒有自己的語法包,text-preview.tsx 高亮時轉成 xml。
 const bundledLanguages = {
   c: () => import("@shikijs/langs/c"),
   cpp: () => import("@shikijs/langs/cpp"),
@@ -26,6 +27,7 @@ const bundledLanguages = {
   shellscript: () => import("@shikijs/langs/shellscript"),
   sql: () => import("@shikijs/langs/sql"),
   typescript: () => import("@shikijs/langs/typescript"),
+  xml: () => import("@shikijs/langs/xml"),
   yaml: () => import("@shikijs/langs/yaml"),
 };
 

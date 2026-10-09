@@ -114,6 +114,7 @@ const LANGUAGE_ALIASES: Record<string, string> = {
   shell: "shellscript",
   shellscript: "shellscript",
   sql: "sql",
+  svg: "svg",
   ts: "typescript",
   tsx: "typescript",
   typescript: "typescript",

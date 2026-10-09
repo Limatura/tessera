@@ -29,6 +29,7 @@ import {
   EDITOR_DEBOUNCE_MS,
   MermaidDiagram,
 } from "@/components/mermaid/mermaid-diagram";
+import { SvgImage } from "@/components/svg-image";
 import { detectLanguage } from "@/lib/detect-language";
 import { LANGUAGE_LABELS } from "@/lib/language-labels";
 import { readPasteSource } from "@/lib/paste-source";
@@ -43,6 +44,7 @@ import type { SubmitStatus } from "./use-submit-transition";
 //   3. lib/shiki.ts 的 bundledLanguages —— 分享頁語法高亮,漏掉會靜默 fallback 成純文字
 //   4. lib/paste-source.ts 的 LANGUAGE_ALIASES —— 從 VS Code / 檔案貼上時直接認出語言
 // Mermaid 例外:分享頁走渲染而非高亮,不進 shiki(見 tessera#227)。
+// SVG 例外:shiki 用 xml 高亮(text-preview.tsx 的 HIGHLIGHT_ALIASES)。
 //
 // 語法包用 load 動態載入、選到才抓:13 包靜態 import 會全落進首頁 chunk,
 // 大部分人只用一兩種。
@@ -172,9 +174,19 @@ const LANGUAGES: readonly {
   // Mermaid 沒有 CodeMirror 語法包,編輯器維持純文字;
   // 分享頁會直接把它渲染成圖,不走 shiki(tessera#227)。
   { label: LANGUAGE_LABELS.mermaid, value: "mermaid" },
+  // 沒裝 @codemirror/lang-xml,借 HTML 的高亮;分享頁高亮走 shiki 的 xml。
+  {
+    label: LANGUAGE_LABELS.svg,
+    load: async () => {
+      const { html } = await import("@codemirror/lang-html");
+      return html();
+    },
+    value: "svg",
+  },
 ];
 
-const MERMAID = "mermaid";
+/** 可以畫出來的語言,編輯器旁邊多一個預覽(tessera#468)。 */
+const RENDERABLE = new Set(["mermaid", "svg"]);
 const EXPANDED_EDITOR_HEIGHT = "65vh";
 /** 貼上的檔案超過這個大小就不讀進編輯器:CodeMirror 塞太大的內容會卡。 */
 const MAX_PASTED_FILE_BYTES = 1_000_000;
@@ -201,7 +213,7 @@ export function CodeUploadForm({
   // 使用者選過就永久停止猜測,免得再貼一次又被蓋掉。
   const [wasGuessed, setWasGuessed] = useState(false);
   const [userPickedLanguage, setUserPickedLanguage] = useState(false);
-  const [mermaidPane, setMermaidPane] = useState<"edit" | "preview">("edit");
+  const [pane, setPane] = useState<"edit" | "preview">("edit");
   // paste 事件比 onChange 早觸發:先記下剪貼簿說的語言,onChange 再拿來用。
   const pastedLanguage = useRef<string | null>(null);
   // 貼上檔案時記下檔名,送出時存成分享標題;內容清空就跟著丟掉。
@@ -267,7 +279,7 @@ export function CodeUploadForm({
 
   const mode = useLanguageMode(language);
   const extensions = mode ? [mode] : [];
-  const isMermaid = language === MERMAID;
+  const isRenderable = RENDERABLE.has(language);
 
   const renderEditor = (height: string) => (
     <CodeEditor
@@ -281,14 +293,25 @@ export function CodeUploadForm({
     />
   );
 
-  const renderPreview = () => (
-    <MermaidDiagram
-      className="h-full min-h-0"
-      code={code}
-      debounceMs={EDITOR_DEBOUNCE_MS}
-      title={m.mermaid_diagram()}
-    />
-  );
+  const renderPreview = () =>
+    language === "svg" ? (
+      // 一定走 SvgImage(blob + <img>),不能塞進 DOM:SVG 裡的 script 會執行。
+      <SvgImage
+        alt={m.code_tab_preview()}
+        className="h-full min-h-0"
+        source={code}
+      />
+    ) : (
+      <MermaidDiagram
+        className="h-full min-h-0"
+        code={code}
+        debounceMs={EDITOR_DEBOUNCE_MS}
+        title={m.mermaid_diagram()}
+      />
+    );
+
+  const handlePaneChange = (value: unknown) =>
+    setPane(value === "preview" ? "preview" : "edit");
 
   const submitFrom = (origin: HTMLButtonElement | null) => {
     if (code.trim().length > 0) {
@@ -349,14 +372,27 @@ export function CodeUploadForm({
           </Button>
         </div>
       </div>
-      <CodeEditor
-        extensions={extensions}
-        height="300px"
-        onPasteCapture={handlePaste}
-        onChange={handleCodeChange}
-        placeholder={m.upload_code_placeholder()}
-        value={code}
-      />
+      {isRenderable ? (
+        <Tabs onValueChange={handlePaneChange} value={pane}>
+          <TabsList>
+            <TabsTrigger value="edit">{m.code_tab_edit()}</TabsTrigger>
+            <TabsTrigger value="preview">{m.code_tab_preview()}</TabsTrigger>
+          </TabsList>
+          <TabsContent className="min-w-0" keepMounted value="edit">
+            {renderEditor("300px")}
+          </TabsContent>
+          {/* flex-none:理由同下面 dialog 的預覽分頁。 */}
+          <TabsContent
+            className="h-[300px] min-w-0 flex-none"
+            keepMounted
+            value="preview"
+          >
+            {renderPreview()}
+          </TabsContent>
+        </Tabs>
+      ) : (
+        renderEditor("300px")
+      )}
       <div className="flex justify-end">
         <QuickSubmitButton
           label={m.upload_send_snippet()}
@@ -371,7 +407,7 @@ export function CodeUploadForm({
         {/* 並排時要更寬,不然編輯器跟圖各自都太窄。 */}
         <DialogContent
           className={
-            isMermaid
+            isRenderable
               ? "w-[95vw] max-w-6xl sm:max-w-6xl"
               : "w-[92vw] max-w-4xl sm:max-w-4xl"
           }
@@ -395,7 +431,7 @@ export function CodeUploadForm({
             </div>
             {renderLanguageSelect("code-language-expanded")}
           </div>
-          {isMermaid ? (
+          {isRenderable ? (
             <>
               {/* 寬螢幕:編輯器跟圖並排,邊改邊看。 */}
               <div className="hidden min-w-0 gap-3 sm:grid sm:grid-cols-2">
@@ -405,10 +441,8 @@ export function CodeUploadForm({
               {/* 窄螢幕塞不下兩欄,退回分頁。 */}
               <Tabs
                 className="min-w-0 sm:hidden"
-                onValueChange={(value) =>
-                  setMermaidPane(value === "preview" ? "preview" : "edit")
-                }
-                value={mermaidPane}
+                onValueChange={handlePaneChange}
+                value={pane}
               >
                 <TabsList>
                   <TabsTrigger value="edit">{m.code_tab_edit()}</TabsTrigger>
@@ -416,13 +450,14 @@ export function CodeUploadForm({
                     {m.code_tab_preview()}
                   </TabsTrigger>
                 </TabsList>
-                <TabsContent className="min-w-0" value="edit">
+                <TabsContent className="min-w-0" keepMounted value="edit">
                   {renderEditor(EXPANDED_EDITOR_HEIGHT)}
                 </TabsContent>
                 {/* flex-none:TabsContent 預設 flex-1(basis 0)會蓋過 h-[65vh],
                     預覽內層是 absolute 不撐高度,框會直接縮成 0。 */}
                 <TabsContent
                   className="h-[65vh] min-w-0 flex-none"
+                  keepMounted
                   value="preview"
                 >
                   {renderPreview()}

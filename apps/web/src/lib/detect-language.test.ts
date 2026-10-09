@@ -23,6 +23,14 @@ describe("detectLanguage", () => {
   describe.each([
     ["graph TD\n  A[Start] --> B{Choice}\n  B -->|yes| C[Do]\n", "mermaid"],
     ["flowchart LR\n  a --> b\n", "mermaid"],
+    [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle r="4"/></svg>',
+      "svg",
+    ],
+    [
+      '<?xml version="1.0"?>\n<!-- icon -->\n<svg width="10" height="10"></svg>',
+      "svg",
+    ],
     ["sequenceDiagram\n  Alice->>Bob: Hello\n  Bob-->>Alice: Hi\n", "mermaid"],
     ["classDiagram\n  Animal <|-- Duck\n", "mermaid"],
     ["stateDiagram-v2\n  [*] --> Still\n  Still --> Moving\n", "mermaid"],

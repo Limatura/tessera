@@ -1,4 +1,5 @@
 import { ImagePreview } from "@/routes/_site/s/$code/-components/file-previews/image-preview";
+import { SvgPreview } from "@/routes/_site/s/$code/-components/file-previews/svg-preview";
 import type { FilePreviewComponent } from "@/routes/_site/s/$code/-components/file-previews/types";
 
 interface FilePreviewRegistryEntry {
@@ -20,7 +21,13 @@ interface FilePreviewRegistryEntry {
 const REGISTRY: readonly FilePreviewRegistryEntry[] = [
   {
     Component: ImagePreview,
-    extensions: ["png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "bmp"],
+    extensions: ["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp"],
+  },
+  // SVG 不能直接 <img src=下載網址>:端點回 octet-stream + nosniff,點陣圖瀏覽器
+  // 會自己認格式,SVG 不會(tessera#467)。
+  {
+    Component: SvgPreview,
+    extensions: ["svg"],
   },
 ];
 

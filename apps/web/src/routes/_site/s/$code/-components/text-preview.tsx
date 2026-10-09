@@ -1,22 +1,30 @@
 import { Button } from "@tessera/ui/components/button";
 import { Skeleton } from "@tessera/ui/components/skeleton";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@tessera/ui/components/tabs";
 import { useTheme } from "@tessera/ui/components/theme-provider";
-import { cn } from "@tessera/ui/lib/utils";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { MermaidDiagram } from "@/components/mermaid/mermaid-diagram";
+import { SvgImage } from "@/components/svg-image";
 import * as m from "@/paraglide/messages";
 
 const MAX_PREVIEW_BYTES = 200_000;
-const MERMAID = "mermaid";
+/** 可以畫出來的語言:預設顯示畫好的樣子,另外可切回原始碼(tessera#468)。 */
+const RENDERABLE = new Set(["mermaid", "svg"]);
+/** 沒有自己 shiki 語法包的語言,借用相近的高亮。 */
+const HIGHLIGHT_ALIASES: Record<string, string> = { svg: "xml" };
 
 type PreviewState =
   | { status: "loading" }
   | { status: "too-large" }
   | { status: "error" }
-  // Mermaid 要渲染成圖,不上色,所以沒有 html。
-  | { status: "ready"; code: string; html: string | null };
+  | { status: "ready"; code: string; html: string };
 
 export function TextPreview({
   language,
@@ -28,7 +36,7 @@ export function TextPreview({
   url: string;
 }) {
   const { resolvedTheme } = useTheme();
-  const isMermaid = language === MERMAID;
+  const isRenderable = RENDERABLE.has(language ?? "");
   const tooLarge =
     sizeBytes !== null &&
     sizeBytes !== undefined &&
@@ -53,9 +61,12 @@ export function TextPreview({
           throw new Error(response.statusText);
         }
         const code = await response.text();
-        const html = isMermaid
-          ? null
-          : await highlight(code, language || "plaintext", theme);
+        const lang = language || "plaintext";
+        const html = await highlight(
+          code,
+          HIGHLIGHT_ALIASES[lang] ?? lang,
+          theme
+        );
         setState({ code, html, status: "ready" });
       } catch {
         if (!controller.signal.aborted) {
@@ -65,7 +76,7 @@ export function TextPreview({
     })();
 
     return () => controller.abort();
-  }, [url, language, resolvedTheme, tooLarge, isMermaid]);
+  }, [url, language, resolvedTheme, tooLarge]);
 
   const handleCopy = async () => {
     if (state.status !== "ready") {
@@ -90,38 +101,73 @@ export function TextPreview({
     );
   }
 
-  return (
+  const copyButton = (
+    <Button
+      aria-label={m.share_copy()}
+      onClick={handleCopy}
+      size="icon-sm"
+      type="button"
+      variant="secondary"
+    >
+      {copied ? <Check /> : <Copy />}
+    </Button>
+  );
+
+  const source = (
     <div className="group relative">
-      <Button
-        aria-label={m.share_copy()}
-        // Mermaid 的放大鈕佔了 right-2,複製往左讓一格。
-        className={cn(
-          "absolute top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
-          state.html === null ? "right-11" : "right-2"
-        )}
-        onClick={handleCopy}
-        size="icon-sm"
-        type="button"
-        variant="secondary"
-      >
-        {copied ? <Check /> : <Copy />}
-      </Button>
-      {state.html === null ? (
-        <MermaidDiagram
-          className="h-96"
-          code={state.code}
-          title={m.mermaid_diagram()}
-        />
-      ) : (
-        /* Shiki HTML-escapes the tokenized source when it serializes, so this
-           can't be used to inject markup — that's what makes it safe here. */
-        <div
-          className="max-h-96 overflow-auto rounded-md border border-border/60 text-xs [&_pre]:bg-transparent! [&_pre]:p-4"
-          // oxlint-disable-next-line react/no-danger -- trusted output of the Shiki highlighter, not user-supplied HTML
-          dangerouslySetInnerHTML={{ __html: state.html }}
-        />
+      {!isRenderable && (
+        <div className="absolute top-2 right-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          {copyButton}
+        </div>
       )}
+      {/* Shiki HTML-escapes the tokenized source when it serializes, so this
+          can't be used to inject markup — that's what makes it safe here. */}
+      <div
+        className="max-h-96 overflow-auto rounded-md border border-border/60 text-xs [&_pre]:bg-transparent! [&_pre]:p-4"
+        // oxlint-disable-next-line react/no-danger -- trusted output of the Shiki highlighter, not user-supplied HTML
+        dangerouslySetInnerHTML={{ __html: state.html }}
+      />
     </div>
+  );
+
+  if (!isRenderable) {
+    return source;
+  }
+
+  return (
+    <Tabs defaultValue="preview">
+      <div className="flex items-center justify-between gap-2">
+        <TabsList>
+          <TabsTrigger value="preview">{m.code_tab_preview()}</TabsTrigger>
+          <TabsTrigger value="source">{m.code_tab_edit()}</TabsTrigger>
+        </TabsList>
+        {copyButton}
+      </div>
+      <TabsContent keepMounted value="preview">
+        <RenderedPreview code={state.code} language={language ?? ""} />
+      </TabsContent>
+      <TabsContent keepMounted value="source">
+        {source}
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function RenderedPreview({
+  code,
+  language,
+}: {
+  code: string;
+  language: string;
+}) {
+  if (language === "svg") {
+    // 一定走 SvgImage(blob + <img>),不能塞進 DOM:SVG 裡的 script 會執行。
+    return (
+      <SvgImage alt={m.code_tab_preview()} className="max-h-96" source={code} />
+    );
+  }
+  return (
+    <MermaidDiagram className="h-96" code={code} title={m.mermaid_diagram()} />
   );
 }
 
