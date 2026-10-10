@@ -47,11 +47,11 @@
     "@vitest/coverage-v8": "catalog:",
     "husky": "9.1.7",
     "lint-staged": "^17.3.0",
-    "turbo": "^2.10.7",
+    "turbo": "^2.11.7",
     "typescript": "catalog:",
     "ultracite": "7.12.2",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
-  "packageManager": "pnpm@11.25.0"
+  "packageManager": "pnpm@12.10.1"
 }
