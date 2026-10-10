@@ -1475,6 +1475,21 @@ pub struct AdminShareResponse {
     pub created_at: String,
     /// When it stops being served, RFC 3339, or `null` if it never does.
     pub expires_at: Option<String>,
+    /// Whether the sweep has already removed what it held.
+    ///
+    /// Happens within the hour after a share expires or runs out of uses, and
+    /// from then on it takes no storage: `size_bytes` is what it held, not what
+    /// it occupies. A share switched off by the scanner keeps its content until
+    /// its row goes.
+    pub content_removed: bool,
+    /// When the sweep will remove the row itself, RFC 3339, or `null` while
+    /// the share has not ended.
+    ///
+    /// The moment it ended plus `share.retain_after_death_hours`: its expiry,
+    /// or its last retrieval for one that ran out of uses. The sweep runs
+    /// hourly, so the row goes within the hour after this.
+    #[schema(example = "2026-10-17T09:00:00Z")]
+    pub purges_at: Option<String>,
 }
 
 /// Why a share can or cannot be opened.
@@ -1525,6 +1540,7 @@ impl AdminShareResponse {
         content: &Content,
         owners: &std::collections::HashMap<tessera_core::UserId, tessera_core::Username>,
         now: OffsetDateTime,
+        retention: time::Duration,
     ) -> Self {
         let status = share.availability_at(now);
         let (scan_state, scan_detail) = weightiest_scan(content)
@@ -1554,6 +1570,10 @@ impl AdminShareResponse {
             scan_detail,
             created_at: format_timestamp(share.created_at),
             expires_at: share.expires_at.map(format_timestamp),
+            content_removed: content.is_removed(),
+            purges_at: share
+                .died_at(now)
+                .map(|died| format_timestamp(died.saturating_add(retention))),
         }
     }
 }
@@ -1633,14 +1653,16 @@ pub async fn list_shares(
     owner_ids.dedup();
     let owners = state.users.usernames_of(&owner_ids).await?;
     let now = OffsetDateTime::now_utc();
+    let retention =
+        time::Duration::try_from(state.config().share.retention()).unwrap_or(time::Duration::MAX);
 
     Ok(Json(AdminSharePage {
         data: shares
             .iter()
             .filter_map(|share| {
-                contents
-                    .get(&share.id)
-                    .map(|content| AdminShareResponse::build(share, content, &owners, now))
+                contents.get(&share.id).map(|content| {
+                    AdminShareResponse::build(share, content, &owners, now, retention)
+                })
             })
             .collect(),
         meta: crate::api::shares::PageMeta {
