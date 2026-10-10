@@ -16,7 +16,6 @@ import {
   subscribeToLocale,
 } from "@/lib/locale";
 import { requirePasswordChanged } from "@/lib/route-guard";
-import * as m from "@/paraglide/messages";
 
 import "../index.css";
 
@@ -41,23 +40,6 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   beforeLoad: ({ context, location }) =>
     requirePasswordChanged(context.queryClient, location),
   component: RootComponent,
-  head: () => ({
-    links: [
-      {
-        href: "/favicon.ico",
-        rel: "icon",
-      },
-    ],
-    meta: [
-      {
-        title: m.app_name(),
-      },
-      {
-        content: m.app_description(),
-        name: "description",
-      },
-    ],
-  }),
 });
 
 function RootComponent() {

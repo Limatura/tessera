@@ -1,7 +1,5 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-  "app_name": "Tessera",
-  "app_description": "ファイル、コード、リンクを安全かつ一時的に共有する",
   "common_language": "言語",
   "common_switch_language": "言語を切り替える",
   "status_receiving_open": "受け取りスペースが開いています",
