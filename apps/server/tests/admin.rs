@@ -1545,6 +1545,62 @@ async fn an_administrator_can_remove_a_share_nobody_owns() {
     );
 }
 
+/// A share whose object is already gone can still be removed.
+///
+/// The sweep reaps a dead share's content days before its row, and the row
+/// keeps the keys. Deleting by hand in that window must not fail on them.
+#[tokio::test]
+async fn a_share_whose_content_is_already_gone_can_be_removed() {
+    use object_store::ObjectStoreExt as _;
+
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=reaped.bin")
+                    .header(header::COOKIE, &admin),
+                Body::from(b"reaped".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let share_id = created["id"].as_str().expect("an id").to_owned();
+    let id: tessera_core::ShareId = share_id.parse().expect("an id");
+
+    for (_, key) in app.state.shares.objects_of(id).await.expect("its objects") {
+        app.seeded_store()
+            .delete(&object_store::path::Path::from(key))
+            .await
+            .expect("could not remove the object by hand");
+    }
+
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/shares/{share_id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+    assert!(
+        app.state
+            .shares
+            .find_by_id(id)
+            .await
+            .expect("a lookup")
+            .is_none(),
+        "the row went too"
+    );
+}
+
 /// The listing tells an anonymous upload apart from one whose owner is gone.
 ///
 /// Both have no reachable account, and collapsing them would throw away which
