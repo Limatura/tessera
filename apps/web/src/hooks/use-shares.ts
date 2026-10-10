@@ -7,6 +7,9 @@ import {
 } from "@tanstack/react-query";
 import { api } from "@tessera/api";
 
+import { rejectAll } from "@/lib/bulk-delete";
+import type { BulkDeleteResult } from "@/lib/bulk-delete";
+
 /** 一頁幾筆。server 的上限是 200,這裡挑一個表格看得完的數字。 */
 export const SHARES_PAGE_SIZE = 20;
 
@@ -41,22 +44,32 @@ export function useMyShares(offset: number) {
 }
 
 /**
- * 刪自己的分享。登入者是擁有者就夠,不需要管理 token(那是匿名上傳用的)。
- * 刪完整個 `MY_SHARES_KEY` 前綴都失效:總數變了,後面每一頁的內容也會往前補。
+ * 刪自己的分享,一次一份或多份,一個請求。回傳哪些刪掉了、哪些沒有 ——
+ * 部分失敗時對話框留著沒刪掉的那幾份。別人的、不存在的 server 一律回 `not_found`。
+ * 只要刪掉任何一份,整個 `MY_SHARES_KEY` 前綴都失效:總數變了,後面每一頁的內容也會往前補。
  */
-export function useDeleteMyShare() {
+export function useDeleteMyShares() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (code: string) => {
-      const { error } = await api.DELETE("/api/v1/shares/{code}", {
-        params: { path: { code } },
+    mutationFn: async (codes: readonly string[]): Promise<BulkDeleteResult> => {
+      const { data, error } = await api.DELETE("/api/v1/shares", {
+        body: { codes: [...codes] },
       });
       if (error) {
-        throw error;
+        return rejectAll(codes, error);
       }
+      return {
+        done: data.deleted,
+        failed: data.failed.map(({ code, error: reason }) => ({
+          error: { code: reason },
+          item: code,
+        })),
+      };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: MY_SHARES_KEY });
+    onSuccess: ({ done }) => {
+      if (done.length > 0) {
+        queryClient.invalidateQueries({ queryKey: MY_SHARES_KEY });
+      }
     },
   });
 }

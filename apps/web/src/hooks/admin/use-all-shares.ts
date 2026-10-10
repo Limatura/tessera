@@ -9,6 +9,8 @@ import { api } from "@tessera/api";
 
 import { MY_SHARES_KEY } from "@/hooks/use-shares";
 import { PAGE_SIZE } from "@/lib/admin/page-search";
+import { rejectAll } from "@/lib/bulk-delete";
+import type { BulkDeleteResult } from "@/lib/bulk-delete";
 
 import { adminKeys } from "./keys";
 
@@ -51,20 +53,30 @@ export function useRecentShares() {
   return useQuery(recentSharesQueryOptions);
 }
 
-export function useDeleteShare() {
+/** 後台刪任何人的分享,一次一份或多份,一個請求。跟 `useDeleteMyShares` 一樣回傳成功與失敗兩堆。 */
+export function useDeleteShares() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await api.DELETE("/api/v1/admin/shares/{id}", {
-        params: { path: { id } },
+    mutationFn: async (ids: readonly string[]): Promise<BulkDeleteResult> => {
+      const { data, error } = await api.DELETE("/api/v1/admin/shares", {
+        body: { ids: [...ids] },
       });
       if (error) {
-        throw error;
+        return rejectAll(ids, error);
       }
+      return {
+        done: data.deleted,
+        failed: data.failed.map(({ id, error: reason }) => ({
+          error: { code: reason },
+          item: id,
+        })),
+      };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: adminKeys.shares() });
-      queryClient.invalidateQueries({ queryKey: MY_SHARES_KEY });
+    onSuccess: ({ done }) => {
+      if (done.length > 0) {
+        queryClient.invalidateQueries({ queryKey: adminKeys.shares() });
+        queryClient.invalidateQueries({ queryKey: MY_SHARES_KEY });
+      }
     },
   });
 }

@@ -1,4 +1,3 @@
-import type { components } from "@tessera/api/schema";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -9,54 +8,70 @@ import {
 } from "@tessera/ui/components/alert-dialog";
 import { Button } from "@tessera/ui/components/button";
 
-import { useDeleteMyShare } from "@/hooks/use-shares";
-import { apiErrorMessage } from "@/lib/api-error";
+import { useDeleteMyShares } from "@/hooks/use-shares";
+import { settledErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 
 import type { Share } from "./share-fields";
 
-type ErrorBody = components["schemas"]["ErrorBody"];
-
-/** 刪除自己的分享前的確認。以取件碼辨認是哪一份,因為「我的分享」沒有別的名字。 */
+/**
+ * 刪除自己的分享前的確認,單筆跟批次共用。單筆以取件碼辨認是哪一份,
+ * 因為「我的分享」沒有別的名字;批次只講份數。
+ *
+ * 部分失敗時不關:刪掉的那幾份由 `onDeleted` 通知外面拿掉,`shares` 只剩沒刪掉的,
+ * 再按一次刪除就是重試那幾份。
+ */
 export function DeleteShareDialog({
-  share,
+  shares,
   onOpenChange,
+  onDeleted,
 }: {
-  share: Share | null;
+  shares: Share[];
   onOpenChange: (open: boolean) => void;
+  onDeleted: (codes: string[]) => void;
 }) {
-  const deleteShare = useDeleteMyShare();
-  const error = deleteShare.error as Partial<ErrorBody> | null;
+  const deleteShares = useDeleteMyShares();
+  const failed = deleteShares.data?.failed ?? [];
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-      deleteShare.reset();
+      deleteShares.reset();
     }
     onOpenChange(open);
   };
 
   const handleConfirm = () => {
-    if (share) {
-      deleteShare.mutate(share.code, {
-        onSuccess: () => handleOpenChange(false),
-      });
-    }
+    deleteShares.mutate(
+      shares.map((share) => share.code),
+      {
+        onSuccess: ({ done, failed: left }) => {
+          onDeleted(done);
+          if (left.length === 0) {
+            handleOpenChange(false);
+          }
+        },
+      }
+    );
   };
 
+  const [only] = shares;
+
   return (
-    <AlertDialog onOpenChange={handleOpenChange} open={share !== null}>
+    <AlertDialog onOpenChange={handleOpenChange} open={shares.length > 0}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {m.shares_delete_dialog_title({ code: share?.code ?? "" })}
+            {shares.length === 1 && only
+              ? m.shares_delete_dialog_title({ code: only.code })
+              : m.shares_bulk_delete_title({ count: shares.length })}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {m.shares_delete_dialog_description()}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error && (
+        {failed.length > 0 && (
           <p className="text-destructive text-sm" role="alert">
-            {apiErrorMessage(error, m.shares_delete_dialog_error())}
+            {settledErrorMessage(failed, m.shares_delete_dialog_error())}
           </p>
         )}
         <AlertDialogFooter>
@@ -68,12 +83,12 @@ export function DeleteShareDialog({
             {m.common_cancel()}
           </Button>
           <Button
-            disabled={deleteShare.isPending}
+            disabled={deleteShares.isPending}
             onClick={handleConfirm}
             type="button"
             variant="destructive"
           >
-            {deleteShare.isPending ? m.common_deleting() : m.common_delete()}
+            {deleteShares.isPending ? m.common_deleting() : m.common_delete()}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

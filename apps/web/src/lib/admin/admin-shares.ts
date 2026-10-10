@@ -1,4 +1,5 @@
 import type { components } from "@tessera/api/schema";
+import { formatBytes } from "@tessera/ui/lib/format";
 
 import { isDeletedUsername } from "@/lib/admin/accounts";
 import * as m from "@/paraglide/messages";
@@ -29,4 +30,22 @@ export function ownerLabel(share: AdminShare): string {
     return m.all_shares_owner_deleted();
   }
   return ownerUsername;
+}
+
+/**
+ * 過期、次數用完:正常生命週期走完,檔案下一次清掃就刪,紀錄再留一段時間。
+ * `disabled`(掃毒擋下)不算 —— 那是要有人處理的事,不該跟著退成背景,
+ * 它的檔案也要等保留期滿才刪。
+ */
+export function isDeadShare(share: AdminShare): boolean {
+  return share.status === "expired" || share.status === "exhausted";
+}
+
+/**
+ * 大小欄。內容被清掃刪掉後 `size_bytes` 還是原本的大小,直接顯示會像還佔著空間;
+ * 改說「已清除」,原本多大放括號裡 —— 看得出清掉的是什麼規模的東西。
+ */
+export function sizeLabel(share: AdminShare): string {
+  const size = formatBytes(share.size_bytes);
+  return share.content_removed ? m.all_shares_size_removed({ size }) : size;
 }
