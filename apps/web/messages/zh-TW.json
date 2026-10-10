@@ -439,6 +439,8 @@
   "dashboard_storage_database": "資料庫",
   "dashboard_storage_description": "全站內容總量，以及內容實際放在哪裡",
   "dashboard_storage_locations": "內容存放位置",
+  "dashboard_storage_location_of_capacity": "已用掉容量的 {percent}%",
+  "dashboard_storage_location_of_total": "佔全站內容的 {percent}% · 未設容量上限",
   "dashboard_storage_manage": "管理",
   "dashboard_storage_no_quota_warning": "訪客上傳開著，又沒有設內容總量上限 —— 任何連得到這台的人都能把磁碟塞滿。",
   "dashboard_storage_set_quota": "設定上限",

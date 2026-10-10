@@ -439,6 +439,8 @@
   "dashboard_storage_database": "データベース",
   "dashboard_storage_description": "インスタンス全体の総量と、コンテンツの実際の保存場所",
   "dashboard_storage_locations": "コンテンツの保存場所",
+  "dashboard_storage_location_of_capacity": "容量の {percent}% を使用",
+  "dashboard_storage_location_of_total": "全コンテンツの {percent}% · 容量制限なし",
   "dashboard_storage_manage": "管理",
   "dashboard_storage_no_quota_warning": "ゲストアップロードが有効で、コンテンツ総量上限もありません —— このインスタンスに到達できる誰もがディスクを埋められます。",
   "dashboard_storage_set_quota": "上限を設定",
