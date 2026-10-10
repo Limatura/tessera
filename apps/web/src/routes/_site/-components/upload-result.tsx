@@ -11,7 +11,7 @@ import {
 } from "@tessera/ui/components/alert-dialog";
 import { Button } from "@tessera/ui/components/button";
 import { toast } from "@tessera/ui/components/toast";
-import { Check, Copy, RotateCcw, Trash2 } from "lucide-react";
+import { Check, Copy, RotateCcw, Share2, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
@@ -42,6 +42,7 @@ interface UploadResultProps {
 export function UploadResult({ onReset, result, visible }: UploadResultProps) {
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const canShare = typeof navigator !== "undefined" && "share" in navigator;
   const remember = useRecentSharesStore((state) => state.remember);
   const updateRecent = useRecentSharesStore((state) => state.update);
   const forgetRecent = useRecentSharesStore((state) => state.forget);
@@ -76,6 +77,28 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
     await navigator.clipboard.writeText(result.shortUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleShare = async () => {
+    if (!navigator.share) {
+      return;
+    }
+
+    try {
+      await navigator.share({
+        title: result.fileName,
+        url: result.shortUrl,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      toast.add({
+        description: apiErrorMessage(error, m.common_try_again()),
+        title: m.upload_result_share_failed(),
+        type: "error",
+      });
+    }
   };
 
   const handleDelete = async () => {
@@ -128,7 +151,20 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
         <span className="flex-1 truncate text-left font-mono text-xs">
           {result.shortUrl}
         </span>
+        {canShare && (
+          <Button
+            aria-label={m.upload_result_share()}
+            className="shrink-0 text-current hover:bg-current/10 hover:text-current"
+            onClick={handleShare}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <Share2 />
+          </Button>
+        )}
         <Button
+          aria-label={m.share_copy()}
           className="shrink-0 text-current hover:bg-current/10 hover:text-current"
           onClick={handleCopy}
           size="icon-sm"
