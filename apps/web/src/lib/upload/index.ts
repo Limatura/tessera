@@ -74,9 +74,17 @@ async function uploadFile(
     throw new Error("No file selected");
   }
 
+  // 資料夾的名字存成分享標題:分享頁與壓縮檔下載名都從這裡來,
+  // 不然會顯示資料夾裡的某一個檔案。
+  const folderName = deriveFolderName(files);
   let share = await uploadOneFile(
     first.file,
-    { filename: first.path || first.file.name },
+    {
+      filename: first.path || first.file.name,
+      title: folderName
+        ? truncateChars(folderName, MAX_TITLE_CHARS)
+        : undefined,
+    },
     {
       onProgress: (percent) => reportProgress(0, percent),
       signal: options.signal,
@@ -114,7 +122,6 @@ async function uploadFile(
     ...share,
     management_token: managementToken ?? null,
   });
-  const folderName = deriveFolderName(files);
   return folderName ? { ...result, fileName: folderName } : result;
 }
 

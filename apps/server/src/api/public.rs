@@ -856,11 +856,14 @@ async fn serve(
         if let Ok(value) = HeaderValue::from_str(format.media_type()) {
             content_type = value;
         }
-        if let Ok(value) = HeaderValue::from_str(&format!(
-            "attachment; filename=\"{}.{}\"",
-            share.code,
-            format.extension()
-        )) {
+        // Named for the title (a folder upload stores the folder's name there),
+        // else the code. Encrypted shares are never packed, so the title here
+        // is always plaintext.
+        let stem = last_component(share.title.as_deref().map(str::trim))
+            .map_or_else(|| share.code.to_string(), str::to_owned);
+        if let Ok(value) =
+            HeaderValue::from_str(&attachment(&format!("{stem}.{}", format.extension())))
+        {
             disposition = value;
         }
     }
