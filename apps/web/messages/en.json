@@ -1102,6 +1102,7 @@
   "manage_share_delete_confirm": "This can't be undone.",
   "manage_share_done": "Done",
   "manage_share_forget": "Remove from list",
+  "manage_share_forget_hint": "Only removes it from this browser's list; it does not delete the file.",
   "manage_share_gone": "This share has expired, run out, or been deleted.",
   "recent_shares_title": "Recent uploads",
   "recent_shares_hint": "Saved in this browser only",
