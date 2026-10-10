@@ -39,7 +39,8 @@ function resolvePreviewPlan(data: PublicShare): PreviewPlan {
   if (data.kind === "text") {
     return { type: "text" };
   }
-  if (isLastRetrieval(data)) {
+  // 多檔分享下載的是壓縮檔,拿第一個檔案出來預覽會誤導成「這就是分享內容」
+  if (isLastRetrieval(data) || data.files.length > 1) {
     return { type: "none" };
   }
   const filename = data.files[0]?.filename;
