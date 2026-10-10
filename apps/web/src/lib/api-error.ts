@@ -1,5 +1,7 @@
+import type { components } from "@tessera/api/schema";
 import { createApiErrorMessage } from "@tessera/i18n";
 
+import type { BulkDeleteResult } from "@/lib/bulk-delete";
 import {
   api_error_account_exists,
   api_error_archive_too_large_for_zip,
@@ -106,6 +108,7 @@ import {
   api_error_value_too_long,
   api_error_value_too_short,
   api_error_verification_link_unusable,
+  shares_bulk_delete_failed,
 } from "@/paraglide/messages";
 
 export { apiErrorCode } from "@tessera/i18n";
@@ -223,3 +226,21 @@ export const apiErrorMessage = createApiErrorMessage({
   api_error_value_too_short,
   api_error_verification_link_unusable,
 });
+
+/**
+ * 批次刪除有幾份沒刪掉時的那一句話。只失敗一份時講 server 給的原因;
+ * 好幾份各有各的原因,只講份數。
+ */
+export function settledErrorMessage(
+  failed: BulkDeleteResult["failed"],
+  fallback: string
+): string {
+  const [first] = failed;
+  if (failed.length === 1 && first) {
+    return apiErrorMessage(
+      first.error as Partial<components["schemas"]["ErrorBody"]>,
+      fallback
+    );
+  }
+  return shares_bulk_delete_failed({ count: failed.length });
+}

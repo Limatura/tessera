@@ -9,6 +9,9 @@ import { buttonVariants } from "@tessera/ui/components/button";
 import { cn } from "@tessera/ui/lib/utils";
 import { useState } from "react";
 
+import { DeadSharesNote } from "@/components/dead-shares-note";
+import { SelectAllRow, SelectionBar } from "@/components/selection-bar";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import {
   MY_SHARES_KEY,
   SHARES_PAGE_SIZE,
@@ -20,6 +23,7 @@ import * as m from "@/paraglide/messages";
 import { ManageShareDialog } from "../../-components/manage-share-dialog";
 import type { ManagedShare } from "../../-components/manage-share-dialog";
 import { DeleteShareDialog } from "./delete-share-dialog";
+import { shareState } from "./share-fields";
 import type { Share } from "./share-fields";
 import { SharesList } from "./shares-list";
 import { SharesTable } from "./shares-table";
@@ -33,14 +37,34 @@ import { SharesTable } from "./shares-table";
 export function MyShares({ page }: { page: number }) {
   const offset = (page - 1) * SHARES_PAGE_SIZE;
   const shares = useMyShares(offset);
-  const [deleting, setDeleting] = useState<Share | null>(null);
+  const [deleting, setDeleting] = useState<Share[]>([]);
   const [managing, setManaging] = useState<ManagedShare | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
   const queryClient = useQueryClient();
+  const rows = shares.data?.data ?? [];
+  const selection = useRowSelection(
+    rows.map((share) => share.code),
+    page
+  );
 
   // 期限、次數一改,列表上的「到期」那欄就舊了;刪掉的話總數跟分頁也變了。
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: MY_SHARES_KEY });
+
+  const deadCodes = rows
+    .filter((share) => shareState(share) !== "live")
+    .map((share) => share.code);
+
+  const handleDeleteSelected = () =>
+    setDeleting(rows.filter((share) => selection.isSelected(share.code)));
+
+  // 刪掉的從選取跟對話框裡拿掉;沒刪掉的留著,對話框裡剩下的就是要重試的那幾份。
+  const handleDeleted = (codes: string[]) => {
+    selection.deselect(codes);
+    setDeleting((current) =>
+      current.filter((share) => !codes.includes(share.code))
+    );
+  };
 
   const handleManage = (share: Share) => {
     setManaging(toManaged(share));
@@ -57,7 +81,6 @@ export function MyShares({ page }: { page: number }) {
     return <p className="text-destructive text-sm">{m.shares_error()}</p>;
   }
 
-  const rows = shares.data.data;
   const { total } = shares.data.meta;
 
   // 刪掉最後一頁的最後一筆,這一頁就空了 —— 退回現在的最後一頁,而不是顯示「還沒有任何分享」。
@@ -81,31 +104,49 @@ export function MyShares({ page }: { page: number }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      className={cn(
+        "space-y-4",
+        selection.selected.length > 0 && "max-md:pb-20"
+      )}
+    >
+      <SelectionBar
+        deadIds={deadCodes}
+        onDelete={handleDeleteSelected}
+        selection={selection}
+      />
       <div className="md:hidden">
+        <SelectAllRow deadIds={deadCodes} selection={selection} />
         <SharesList
-          onDelete={setDeleting}
+          onDelete={(share) => setDeleting([share])}
           onManage={handleManage}
+          selection={selection}
           shares={rows}
         />
       </div>
       <div className="hidden md:block">
         <SharesTable
-          onDelete={setDeleting}
+          onDelete={(share) => setDeleting([share])}
           onManage={handleManage}
+          selection={selection}
           shares={rows}
         />
       </div>
 
+      {deadCodes.length > 0 && (
+        <DeadSharesNote>{m.shares_dead_note()}</DeadSharesNote>
+      )}
+
       <SharesPagination offset={offset} page={page} total={total} />
 
       <DeleteShareDialog
+        onDeleted={handleDeleted}
         onOpenChange={(open) => {
           if (!open) {
-            setDeleting(null);
+            setDeleting([]);
           }
         }}
-        share={deleting}
+        shares={deleting}
       />
 
       <ManageShareDialog

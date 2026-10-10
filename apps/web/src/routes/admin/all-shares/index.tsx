@@ -1,7 +1,5 @@
-import { IconTrash } from "@tabler/icons-react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useSession } from "@tessera/auth/hooks";
-import { Button } from "@tessera/ui/components/button";
 import {
   Card,
   CardContent,
@@ -9,28 +7,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@tessera/ui/components/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@tessera/ui/components/table";
-import { formatBytes } from "@tessera/ui/lib/format";
+import { cn } from "@tessera/ui/lib/utils";
 import { useState } from "react";
 
 import { Pager } from "@/components/admin/pager";
-import { ShareStatusBadge } from "@/components/admin/share-status-badge";
+import { DeadSharesNote } from "@/components/dead-shares-note";
+import { SelectAllRow, SelectionBar } from "@/components/selection-bar";
 import { useAllShares } from "@/hooks/admin/use-all-shares";
-import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
-import { ownerLabel, shareLabel } from "@/lib/admin/admin-shares";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { isDeadShare } from "@/lib/admin/admin-shares";
 import type { AdminShare } from "@/lib/admin/admin-shares";
 import { PAGE_SIZE, pageSearchSchema } from "@/lib/admin/page-search";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
+import { AllSharesList } from "./-components/all-shares-list";
+import { AllSharesTable } from "./-components/all-shares-table";
 import { DeleteShareDialog } from "./-components/delete-share-dialog";
 
 /**
@@ -53,11 +46,42 @@ function AllSharesComponent() {
   const { page } = Route.useSearch();
   const shares = useAllShares((page - 1) * PAGE_SIZE);
   const { data: account } = useSession();
-  const formatDate = useDateTimeFormatter();
-  const [deleting, setDeleting] = useState<AdminShare | null>(null);
+  const [deleting, setDeleting] = useState<AdminShare[]>([]);
 
   const canDelete = hasPermission(account, PERMISSIONS.sharesDeleteAny);
-  const rows = shares.data?.data;
+  const rows = shares.data?.data ?? [];
+  const selection = useRowSelection(
+    rows.map((share) => share.id),
+    page
+  );
+  // 不能刪就不給勾:勾了也沒有能做的事。
+  const rowSelection = canDelete ? selection : null;
+
+  const deadIds = rows.filter(isDeadShare).map((share) => share.id);
+
+  const handleDeleteSelected = () =>
+    setDeleting(rows.filter((share) => selection.isSelected(share.id)));
+
+  // 刪掉的從選取跟對話框裡拿掉;沒刪掉的留著,對話框裡剩下的就是要重試的那幾份。
+  const handleDeleted = (ids: string[]) => {
+    selection.deselect(ids);
+    setDeleting((current) =>
+      current.filter((share) => !ids.includes(share.id))
+    );
+  };
+
+  // 整頁勾起來刪掉,最後一頁就空了 —— 退回現在的最後一頁,而不是顯示「沒有分享」。
+  if (shares.data && rows.length === 0 && page > 1) {
+    return (
+      <Navigate
+        replace
+        search={{
+          page: Math.max(1, Math.ceil(shares.data.meta.total / PAGE_SIZE)),
+        }}
+        to="/admin/all-shares"
+      />
+    );
+  }
 
   return (
     <>
@@ -72,7 +96,12 @@ function AllSharesComponent() {
               : m.all_shares_card_description_empty()}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent
+          className={cn(
+            "space-y-4",
+            selection.selected.length > 0 && "max-md:pb-24"
+          )}
+        >
           {shares.isPending && (
             <p className="text-sm text-muted-foreground">
               {m.common_loading()}
@@ -83,68 +112,41 @@ function AllSharesComponent() {
               {m.all_shares_load_error()}
             </p>
           )}
-          {rows?.length === 0 && (
+          {shares.data && rows.length === 0 && (
             <p className="text-sm text-muted-foreground">
               {m.all_shares_empty()}
             </p>
           )}
-          {rows && rows.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{m.all_shares_col_content()}</TableHead>
-                  <TableHead>{m.all_shares_col_owner()}</TableHead>
-                  <TableHead className="text-right">
-                    {m.all_shares_col_size()}
-                  </TableHead>
-                  <TableHead className="text-right">
-                    {m.all_shares_col_served()}
-                  </TableHead>
-                  <TableHead>{m.all_shares_col_created()}</TableHead>
-                  <TableHead>{m.all_shares_col_status()}</TableHead>
-                  {canDelete && <TableHead className="w-12" />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((share) => (
-                  <TableRow key={share.id}>
-                    <TableCell className="max-w-64 truncate font-medium">
-                      {shareLabel(share)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {ownerLabel(share)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatBytes(share.size_bytes)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {formatBytes(share.bytes_served)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(share.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <ShareStatusBadge status={share.status} />
-                    </TableCell>
-                    {canDelete && (
-                      <TableCell>
-                        <Button
-                          aria-label={m.all_shares_delete_aria({
-                            label: shareLabel(share),
-                          })}
-                          onClick={() => setDeleting(share)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <IconTrash />
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          {rows.length > 0 && (
+            <>
+              {rowSelection && (
+                <SelectionBar
+                  deadIds={deadIds}
+                  onDelete={handleDeleteSelected}
+                  selection={rowSelection}
+                />
+              )}
+              <div className="md:hidden">
+                {rowSelection && (
+                  <SelectAllRow deadIds={deadIds} selection={rowSelection} />
+                )}
+                <AllSharesList
+                  onDelete={(share) => setDeleting([share])}
+                  selection={rowSelection}
+                  shares={rows}
+                />
+              </div>
+              <div className="hidden md:block">
+                <AllSharesTable
+                  onDelete={(share) => setDeleting([share])}
+                  selection={rowSelection}
+                  shares={rows}
+                />
+              </div>
+            </>
+          )}
+          {deadIds.length > 0 && (
+            <DeadSharesNote>{m.all_shares_dead_note()}</DeadSharesNote>
           )}
           {shares.data && (
             <Pager
@@ -159,13 +161,13 @@ function AllSharesComponent() {
 
       {canDelete && (
         <DeleteShareDialog
-          label={deleting ? shareLabel(deleting) : ""}
+          onDeleted={handleDeleted}
           onOpenChange={(open) => {
             if (!open) {
-              setDeleting(null);
+              setDeleting([]);
             }
           }}
-          share={deleting}
+          shares={deleting}
         />
       )}
     </>
