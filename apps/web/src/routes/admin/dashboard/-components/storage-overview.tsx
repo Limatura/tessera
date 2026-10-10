@@ -19,8 +19,8 @@ import { useStats } from "@/hooks/admin/use-stats";
 import { useStorageBackends } from "@/hooks/admin/use-storage-backends";
 import * as m from "@/paraglide/messages";
 
-import { StorageLocationChart } from "./storage-location-chart";
-import type { StorageLocation } from "./storage-location-chart";
+import { StorageLocations } from "./storage-locations";
+import type { StorageLocation } from "./storage-locations";
 import { UsageBar, usagePercent, WARN_PERCENT } from "./usage-bar";
 
 type Backend = components["schemas"]["BackendResponse"];
@@ -133,7 +133,7 @@ function Locations() {
       {backends.data && (
         <>
           <BackendNotices backends={backends.data} />
-          <StorageLocationChart
+          <StorageLocations
             locations={buildLocations(backends.data, stats.data?.stored_bytes)}
           />
           <p className="text-muted-foreground text-xs">
@@ -159,7 +159,12 @@ function buildLocations(
 ): StorageLocation[] {
   const locations: StorageLocation[] = backends.map((backend) => ({
     capacityBytes: backend.capacity_bytes ?? null,
+    directAccess: backend.direct_access,
+    isDefault: backend.is_default,
+    kind: "backend",
     name: backend.name,
+    reachable: backend.reachable,
+    readOnly: backend.read_only,
     usedBytes: backend.used_bytes,
   }));
   if (storedBytes === undefined) {
@@ -173,6 +178,7 @@ function buildLocations(
   if (inDatabase > 0) {
     locations.push({
       capacityBytes: null,
+      kind: "database",
       name: m.dashboard_storage_database(),
       usedBytes: inDatabase,
     });
