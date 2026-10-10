@@ -343,7 +343,7 @@ fn account_routes() -> OpenApiRouter<AppState> {
 /// more lines to scan past in [`versioned_routes`].
 fn share_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
-        .routes(routes!(shares::list, shares::create))
+        .routes(routes!(shares::list, shares::create, shares::delete_many))
         .routes(routes!(shares::describe, shares::patch, shares::delete))
         .routes(routes!(shares::unlock))
         .routes(routes!(shares::record_event))
@@ -378,7 +378,7 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::update_role, admin::delete_role))
         .routes(routes!(admin::list_permissions))
         .routes(routes!(admin::set_user_roles))
-        .routes(routes!(admin::list_shares))
+        .routes(routes!(admin::list_shares, admin::delete_shares))
         .routes(routes!(admin::delete_share))
         .routes(routes!(admin::share_access_log))
         .merge(backend_routes())

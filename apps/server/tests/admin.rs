@@ -3540,6 +3540,20 @@ async fn upload_with(app: &TestApp, cookie: &str, query: &str) -> serde_json::Va
     .await
 }
 
+/// Uploads a share as `cookie`'s account and returns its code and id.
+#[expect(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn upload_as(app: &TestApp, cookie: &str) -> (String, String) {
+    let share = upload_with(app, cookie, "?filename=a.bin").await;
+    (
+        share["code"].as_str().expect("a code").to_owned(),
+        share["id"].as_str().expect("an id").to_owned(),
+    )
+}
+
 /// An expired share's row goes `share.retain_after_death_hours` after its
 /// expiry; a live one has no such date.
 #[tokio::test]
@@ -3613,4 +3627,126 @@ async fn the_listing_says_when_a_used_up_shares_content_is_gone() {
     let row = rows.first().expect("the row");
     assert_eq!(row["content_removed"], true, "{row}");
     assert!(!row["purges_at"].is_null(), "{row}");
+}
+
+/// A batch delete removes the caller's own shares and reports the rest one by
+/// one, someone else's answering like one that does not exist.
+#[tokio::test]
+async fn a_batch_delete_removes_only_the_callers_shares() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let (alice, _) = register(&app, "alice").await;
+    let (bob, _) = register(&app, "bob").await;
+    let (a1, _) = upload_as(&app, &alice).await;
+    let (a2, _) = upload_as(&app, &alice).await;
+    let (b1, _) = upload_as(&app, &bob).await;
+
+    let result = body_json(
+        expect_status(
+            app.json(
+                Method::DELETE,
+                "/api/v1/shares",
+                Auth::Cookie(&alice),
+                &serde_json::json!({ "codes": [a1, a2, b1, "ZZZZZZZZ", a1] }),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(result["deleted"], serde_json::json!([a1, a2]));
+    assert_eq!(
+        result["failed"],
+        serde_json::json!([
+            { "code": b1, "error": "not_found" },
+            { "code": "ZZZZZZZZ", "error": "not_found" },
+        ])
+    );
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{a1}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{b1}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::OK,
+        "someone else's share is untouched"
+    );
+
+    let too_many: Vec<String> = (0..201).map(|n| format!("{n:08}")).collect();
+    expect_status(
+        app.json(
+            Method::DELETE,
+            "/api/v1/shares",
+            Auth::Cookie(&alice),
+            &serde_json::json!({ "codes": too_many }),
+        )
+        .await,
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+    expect_status(
+        app.json(
+            Method::DELETE,
+            "/api/v1/shares",
+            Auth::None,
+            &serde_json::json!({ "codes": [] }),
+        )
+        .await,
+        StatusCode::UNAUTHORIZED,
+    )
+    .await;
+}
+
+/// The administrative batch removes anyone's shares; an ordinary account may
+/// not use it.
+#[tokio::test]
+async fn an_administrator_batch_deletes_anyones_shares() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (alice, _) = register(&app, "alice").await;
+    let (a1, a1_id) = upload_as(&app, &alice).await;
+    let (_a2, a2_id) = upload_as(&app, &alice).await;
+
+    expect_status(
+        app.json(
+            Method::DELETE,
+            "/api/v1/admin/shares",
+            Auth::Cookie(&alice),
+            &serde_json::json!({ "ids": [a1_id] }),
+        )
+        .await,
+        StatusCode::FORBIDDEN,
+    )
+    .await;
+
+    let result = body_json(
+        expect_status(
+            app.json(
+                Method::DELETE,
+                "/api/v1/admin/shares",
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "ids": [a1_id, a2_id, "not-an-id"] }),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(result["deleted"], serde_json::json!([a1_id, a2_id]));
+    assert_eq!(
+        result["failed"],
+        serde_json::json!([{ "id": "not-an-id", "error": "not_found" }])
+    );
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{a1}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::NOT_FOUND
+    );
 }
