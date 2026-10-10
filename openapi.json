@@ -827,6 +827,131 @@
         },
         "type": "object"
       },
+      "DeleteAnyShareFailure": {
+        "description": "One share an administrative batch delete could not remove.",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorCode",
+            "description": "Why: `not_found` when no share has it."
+          },
+          "id": {
+            "description": "The identifier, as it was sent.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "error"
+        ],
+        "type": "object"
+      },
+      "DeleteAnySharesRequest": {
+        "additionalProperties": false,
+        "description": "Body of `DELETE /admin/shares`.",
+        "properties": {
+          "ids": {
+            "description": "Share identifiers, at most 200.",
+            "example": [
+              "01K1ZQK9V8QF5S3T4M2N6P7R8S"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
+      "DeleteAnySharesResponse": {
+        "description": "What an administrative batch delete did, share by share.",
+        "properties": {
+          "deleted": {
+            "description": "The identifiers that were deleted, as they were sent.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "failed": {
+            "description": "The identifiers that were not, and why.",
+            "items": {
+              "$ref": "#/components/schemas/DeleteAnyShareFailure"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "deleted",
+          "failed"
+        ],
+        "type": "object"
+      },
+      "DeleteShareFailure": {
+        "description": "One share a batch delete could not remove.",
+        "properties": {
+          "code": {
+            "description": "The code, as it was sent.",
+            "type": "string"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorCode",
+            "description": "Why: `not_found` for a code that is not one of the caller's shares,\nwhether it exists or not, as the single delete answers."
+          }
+        },
+        "required": [
+          "code",
+          "error"
+        ],
+        "type": "object"
+      },
+      "DeleteSharesRequest": {
+        "additionalProperties": false,
+        "description": "Body of `DELETE /shares`.",
+        "properties": {
+          "codes": {
+            "description": "Retrieval codes of the caller's own shares, at most 200.",
+            "example": [
+              "K3P9XQ2M",
+              "7RT2W9HD"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "codes"
+        ],
+        "type": "object"
+      },
+      "DeleteSharesResponse": {
+        "description": "What a batch delete did, share by share.\n\nNever all-or-nothing. A client keeps the ones that failed selected so they\ncan be retried, and only the ones listed in `deleted` are gone.",
+        "properties": {
+          "deleted": {
+            "description": "The codes that were deleted, as they were sent.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "failed": {
+            "description": "The codes that were not, and why.",
+            "items": {
+              "$ref": "#/components/schemas/DeleteShareFailure"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "deleted",
+          "failed"
+        ],
+        "type": "object"
+      },
       "DiscoveryProbeRequest": {
         "additionalProperties": false,
         "description": "Body of `POST /admin/settings/oidc/discovery`.",
@@ -3590,6 +3715,81 @@
       }
     },
     "/api/v1/admin/shares": {
+      "delete": {
+        "description": "Each one as `DELETE /admin/shares/{id}` would, and logged the same way. One\nthat fails does not stop the rest.\n\n# Errors\n\n`400` for more than 200 identifiers, `401` when nothing was signed in, `403`\nwhen the caller may not delete every share or used a bearer token, `404`\nwhen this instance has no administration. Problems with individual shares\nare in the body.",
+        "operationId": "delete_any_shares",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAnySharesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteAnySharesResponse"
+                }
+              }
+            },
+            "description": "What happened to each share"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "More than 200 identifiers"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not delete every share, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Removes several shares at once, whoever uploaded them.",
+        "tags": [
+          "admin"
+        ]
+      },
       "get": {
         "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller may not read every\nshare or used a bearer token, `404` when this instance has no\nadministration.",
         "operationId": "list_all_shares",
@@ -5907,6 +6107,74 @@
       }
     },
     "/api/v1/shares": {
+      "delete": {
+        "description": "Each one exactly as `DELETE /shares/{code}` would: its objects first, each\nfrom the backend holding it, then its row. One that fails does not stop the\nrest. Repeated codes are deleted once.\n\nSigned in only: a management token belongs to one share, so there is\nnothing for a batch to check it against.\n\n# Errors\n\n`400` for more than 200 codes, `401` when nothing was signed in, `403`\nwhen the credential does not carry `shares:delete`. Problems with\nindividual shares are in the body, not the status.",
+        "operationId": "delete_shares",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteSharesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteSharesResponse"
+                }
+              }
+            },
+            "description": "What happened to each share"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "More than 200 codes"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The credential does not carry `shares:delete`"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Deletes several of the caller's shares in one request.",
+        "tags": [
+          "shares"
+        ]
+      },
       "get": {
         "description": "# Why this is paged\n\nOne person's shares are bounded by what one person uploaded, which holds for\nthe web page and not for a script. An account with fifty thousand shares made\nevery visit read fifty thousand rows and build fifty thousand responses.\n\n# Errors\n\n`401` when nothing was signed in.",
         "operationId": "list_shares",
