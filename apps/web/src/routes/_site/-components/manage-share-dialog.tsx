@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@tessera/ui/components/dialog";
 import { toast } from "@tessera/ui/components/toast";
-import { Check, Copy, QrCode, Trash2 } from "lucide-react";
+import { Check, Copy, QrCode, Share2, Trash2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -17,6 +17,7 @@ import { useShare } from "@/hooks/use-share";
 import { apiErrorMessage } from "@/lib/api-error";
 import { deleteShare, minutesUntil } from "@/lib/upload/share-api";
 import * as m from "@/paraglide/messages";
+import { useShareStore } from "@/stores/share";
 
 import { ShareSettingsPanel } from "./share-settings-panel";
 import type { ShareSettingsSnapshot } from "./share-settings-panel";
@@ -316,11 +317,27 @@ function GoneShareContent({ share, onClose, onForget }: ContentProps) {
 function ShareHeader({ share }: { share: ManagedShare }) {
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const canShare = useShareStore((state) => state.canShare);
+  const shareNative = useShareStore((state) => state.share);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(share.shortUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleShare = async () => {
+    const outcome = await shareNative({
+      title: share.title,
+      url: share.shortUrl,
+    });
+    if (outcome.status === "failed") {
+      toast.add({
+        description: apiErrorMessage(outcome.error, m.common_try_again()),
+        title: m.upload_result_share_failed(),
+        type: "error",
+      });
+    }
   };
 
   return (
@@ -340,6 +357,18 @@ function ShareHeader({ share }: { share: ManagedShare }) {
         >
           {copied ? <Check /> : <Copy />}
         </Button>
+        {canShare && (
+          <Button
+            aria-label={m.upload_result_share()}
+            className="shrink-0"
+            onClick={handleShare}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <Share2 />
+          </Button>
+        )}
         <Button
           aria-label={m.manage_share_qr()}
           aria-pressed={showQr}

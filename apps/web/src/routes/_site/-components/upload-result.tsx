@@ -21,6 +21,7 @@ import { deleteShare } from "@/lib/upload/share-api";
 import type { UploadResultData } from "@/lib/upload/share-api";
 import * as m from "@/paraglide/messages";
 import { useRecentSharesStore } from "@/stores/recent-shares";
+import { useShareStore } from "@/stores/share";
 
 import { ShareSettingsPanel, expiresAtFrom } from "./share-settings-panel";
 import type { ShareSettingsSnapshot } from "./share-settings-panel";
@@ -42,10 +43,11 @@ interface UploadResultProps {
 export function UploadResult({ onReset, result, visible }: UploadResultProps) {
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const canShare = typeof navigator !== "undefined" && "share" in navigator;
   const remember = useRecentSharesStore((state) => state.remember);
   const updateRecent = useRecentSharesStore((state) => state.update);
   const forgetRecent = useRecentSharesStore((state) => state.forget);
+  const canShare = useShareStore((state) => state.canShare);
+  const share = useShareStore((state) => state.share);
 
   // 匿名上傳的管理 token 只在這個畫面拿得到,關掉就沒了 —— 記進這台瀏覽器的
   // 「最近上傳」,之後還能從首頁回來改(#364)。登入者的分享沒有 token,歸帳號管。
@@ -80,21 +82,13 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
   };
 
   const handleShare = async () => {
-    if (!navigator.share) {
-      return;
-    }
-
-    try {
-      await navigator.share({
-        title: result.fileName,
-        url: result.shortUrl,
-      });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
+    const outcome = await share({
+      title: result.fileName,
+      url: result.shortUrl,
+    });
+    if (outcome.status === "failed") {
       toast.add({
-        description: apiErrorMessage(error, m.common_try_again()),
+        description: apiErrorMessage(outcome.error, m.common_try_again()),
         title: m.upload_result_share_failed(),
         type: "error",
       });
