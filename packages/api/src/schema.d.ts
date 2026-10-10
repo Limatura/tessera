@@ -1976,6 +1976,15 @@ export interface components {
              *     and an abandoned one all send some other amount.
              */
             bytes_served: number;
+            /**
+             * @description Whether the sweep has already removed what it held.
+             *
+             *     Happens within the hour after a share expires or runs out of uses, and
+             *     from then on it takes no storage: `size_bytes` is what it held, not what
+             *     it occupies. A share switched off by the scanner keeps its content until
+             *     its row goes.
+             */
+            content_removed: boolean;
             /** @description When it was uploaded, RFC 3339. */
             created_at: string;
             /** @description When it stops being served, RFC 3339, or `null` if it never does. */
@@ -2018,6 +2027,16 @@ export interface components {
              * @example alice
              */
             owner_username?: string | null;
+            /**
+             * @description When the sweep will remove the row itself, RFC 3339, or `null` while
+             *     the share has not ended.
+             *
+             *     The moment it ended plus `share.retain_after_death_hours`: its expiry,
+             *     or its last retrieval for one that ran out of uses. The sweep runs
+             *     hourly, so the row goes within the hour after this.
+             * @example 2026-10-17T09:00:00Z
+             */
+            purges_at?: string | null;
             /**
              * @description The threat the scanner named for `infected`, or why it was `skipped`
              *     (`encrypted` or `too_large`). `null` otherwise.

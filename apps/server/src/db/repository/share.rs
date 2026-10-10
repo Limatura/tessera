@@ -740,6 +740,25 @@ impl Share {
         }
     }
 
+    /// When this share ended, in the sense the sweep uses to decide when its
+    /// row goes; `None` while it has not.
+    ///
+    /// The same two rules as `ShareRepository::dead_before`: past its expiry,
+    /// or out of uses since its last retrieval. Switched off is not on its
+    /// own an ending; such a share is swept once it also expires.
+    #[must_use]
+    pub fn died_at(&self, now: OffsetDateTime) -> Option<OffsetDateTime> {
+        let expired = self.expires_at.filter(|at| *at <= now);
+        let exhausted = self
+            .is_exhausted()
+            .then_some(self.last_accessed_at)
+            .flatten();
+        match (expired, exhausted) {
+            (Some(a), Some(b)) => Some(Ord::min(a, b)),
+            (one, other) => one.or(other),
+        }
+    }
+
     fn from_model(model: share::Model) -> Result<Self, CorruptRow> {
         let id = model.id.clone();
         let fail = move |source| CorruptRow { id, source };
@@ -1928,7 +1947,8 @@ impl ShareRepository {
 
     /// A share is dead when it has run out of time, or out of uses and has not
     /// been touched since. Written once so the sweep and the count that warns
-    /// about it cannot describe different sets.
+    /// about it cannot describe different sets. [`Share::died_at`] says the
+    /// same thing about one share, for a screen that wants the date.
     fn dead_before(cutoff: OffsetDateTime) -> sea_orm::Condition {
         use sea_orm::Condition;
         let expired = share::Column::ExpiresAt

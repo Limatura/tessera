@@ -3502,19 +3502,33 @@ async fn a_role_given_by_name_is_refused_as_malformed() {
     assert_eq!(refused["details"]["rule"], "not_an_identifier");
 }
 
-/// Uploads a share as `cookie`'s account and returns its code and id.
+/// Reads the administrative share listing.
 #[expect(
     clippy::expect_used,
     clippy::indexing_slicing,
     reason = "test fixture; a panic is how it reports"
 )]
-async fn upload_as(app: &TestApp, cookie: &str) -> (String, String) {
-    let share = body_json(
+async fn admin_share_rows(app: &TestApp, cookie: &str) -> Vec<serde_json::Value> {
+    let page = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(cookie))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    page["data"].as_array().expect("rows").clone()
+}
+
+/// Uploads a share as `cookie`'s account with `query`, returning the response.
+async fn upload_with(app: &TestApp, cookie: &str, query: &str) -> serde_json::Value {
+    body_json(
         expect_status(
             app.send(
                 Request::builder()
                     .method(Method::POST)
-                    .uri("/api/v1/shares?filename=a.bin")
+                    .uri(format!("/api/v1/shares{query}"))
                     .header(header::COOKIE, cookie),
                 Body::from(b"bytes".to_vec()),
             )
@@ -3523,11 +3537,96 @@ async fn upload_as(app: &TestApp, cookie: &str) -> (String, String) {
         )
         .await,
     )
-    .await;
+    .await
+}
+
+/// Uploads a share as `cookie`'s account and returns its code and id.
+#[expect(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn upload_as(app: &TestApp, cookie: &str) -> (String, String) {
+    let share = upload_with(app, cookie, "?filename=a.bin").await;
     (
         share["code"].as_str().expect("a code").to_owned(),
         share["id"].as_str().expect("an id").to_owned(),
     )
+}
+
+/// An expired share's row goes `share.retain_after_death_hours` after its
+/// expiry; a live one has no such date.
+#[tokio::test]
+async fn the_listing_says_when_an_expired_share_goes() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let retention = time::Duration::try_from(app.state.config().share.retention())
+        .expect("a retention that fits");
+    upload_with(&app, &admin, "?filename=live.bin").await;
+    let expired = upload_with(&app, &admin, "?filename=expired.bin").await;
+    let expired_at = OffsetDateTime::now_utc() - time::Duration::hours(2);
+    app.state
+        .shares
+        .update_settings(
+            tessera_core::ShareId::parse(expired["id"].as_str().expect("an id")).expect("an id"),
+            tessera_server::db::repository::share::Change::Set(Some(expired_at)),
+            tessera_server::db::repository::share::Change::Keep,
+            tessera_server::db::repository::share::Change::Keep,
+            OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("expire it");
+
+    let rows = admin_share_rows(&app, &admin).await;
+    let row = |name: &str| {
+        rows.iter()
+            .find(|row| row["filename"] == name)
+            .cloned()
+            .expect("the row")
+    };
+    let live = row("live.bin");
+    assert_eq!(live["content_removed"], false);
+    assert!(live["purges_at"].is_null());
+
+    let expired = row("expired.bin");
+    assert_eq!(expired["status"], "expired");
+    let purges_at = OffsetDateTime::parse(
+        expired["purges_at"].as_str().expect("a date"),
+        &time::format_description::well_known::Rfc3339,
+    )
+    .expect("RFC 3339");
+    assert!(
+        (purges_at - (expired_at + retention)).abs() < time::Duration::seconds(1),
+        "{expired}"
+    );
+}
+
+/// A share that ran out of uses has a removal date from its last retrieval,
+/// and once the sweep has run its content is reported as removed.
+#[tokio::test]
+async fn the_listing_says_when_a_used_up_shares_content_is_gone() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let once = upload_with(&app, &admin, "?filename=once.bin&max_uses=1").await;
+    let code = once["code"].as_str().expect("a code").to_owned();
+    expect_status(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let rows = admin_share_rows(&app, &admin).await;
+    let row = rows.first().expect("the row");
+    assert_eq!(row["status"], "exhausted");
+    assert!(!row["purges_at"].is_null(), "{row}");
+    assert_eq!(row["content_removed"], false, "not swept yet");
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+    let rows = admin_share_rows(&app, &admin).await;
+    let row = rows.first().expect("the row");
+    assert_eq!(row["content_removed"], true, "{row}");
+    assert!(!row["purges_at"].is_null(), "{row}");
 }
 
 /// A batch delete removes the caller's own shares and reports the rest one by

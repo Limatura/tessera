@@ -439,6 +439,8 @@
   "dashboard_storage_database": "Database",
   "dashboard_storage_description": "Total content on this instance, and where it actually lives",
   "dashboard_storage_locations": "Where content lives",
+  "dashboard_storage_location_of_capacity": "{percent}% of its capacity",
+  "dashboard_storage_location_of_total": "{percent}% of all content · no capacity limit",
   "dashboard_storage_manage": "Manage",
   "dashboard_storage_no_quota_warning": "Guest uploads are on and there is no total content limit — anyone who can reach this instance can fill the disk.",
   "dashboard_storage_set_quota": "Set a limit",

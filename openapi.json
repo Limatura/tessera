@@ -209,6 +209,10 @@
             "minimum": 0,
             "type": "integer"
           },
+          "content_removed": {
+            "description": "Whether the sweep has already removed what it held.\n\nHappens within the hour after a share expires or runs out of uses, and\nfrom then on it takes no storage: `size_bytes` is what it held, not what\nit occupies. A share switched off by the scanner keeps its content until\nits row goes.",
+            "type": "boolean"
+          },
           "created_at": {
             "description": "When it was uploaded, RFC 3339.",
             "type": "string"
@@ -258,6 +262,14 @@
               "null"
             ]
           },
+          "purges_at": {
+            "description": "When the sweep will remove the row itself, RFC 3339, or `null` while\nthe share has not ended.\n\nThe moment it ended plus `share.retain_after_death_hours`: its expiry,\nor its last retrieval for one that ran out of uses. The sweep runs\nhourly, so the row goes within the hour after this.",
+            "example": "2026-10-17T09:00:00Z",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "scan_detail": {
             "description": "The threat the scanner named for `infected`, or why it was `skipped`\n(`encrypted` or `too_large`). `null` otherwise.",
             "example": "Eicar-Test-Signature",
@@ -294,7 +306,8 @@
           "bytes_redirected",
           "active",
           "status",
-          "created_at"
+          "created_at",
+          "content_removed"
         ],
         "type": "object"
       },
