@@ -1102,6 +1102,7 @@
   "manage_share_delete_confirm": "刪除後無法復原。",
   "manage_share_done": "完成",
   "manage_share_forget": "從清單移除",
+  "manage_share_forget_hint": "只會從這個瀏覽器的清單移除，不會刪除檔案。",
   "manage_share_gone": "這個分享已經過期、用完或被刪除了。",
   "recent_shares_title": "最近上傳",
   "recent_shares_hint": "只存在這個瀏覽器",

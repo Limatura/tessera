@@ -1102,6 +1102,7 @@
   "manage_share_delete_confirm": "削除すると元に戻せません。",
   "manage_share_done": "完了",
   "manage_share_forget": "一覧から外す",
+  "manage_share_forget_hint": "このブラウザの一覧から外すだけで、ファイルは削除されません。",
   "manage_share_gone": "この共有は期限切れ、回数切れ、または削除済みです。",
   "recent_shares_title": "最近のアップロード",
   "recent_shares_hint": "このブラウザにのみ保存",

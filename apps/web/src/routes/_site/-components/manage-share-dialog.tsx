@@ -8,8 +8,10 @@ import {
   DialogTitle,
 } from "@tessera/ui/components/dialog";
 import { toast } from "@tessera/ui/components/toast";
-import { Check, Copy, Trash2 } from "lucide-react";
+import { Check, Copy, QrCode, Trash2 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { useShare } from "@/hooks/use-share";
 import { apiErrorMessage } from "@/lib/api-error";
@@ -140,6 +142,7 @@ function ManageShareContent({
   onForget,
 }: ContentProps) {
   const [confirming, setConfirming] = useState(false);
+  const [confirmingForget, setConfirmingForget] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
@@ -159,6 +162,86 @@ function ManageShareContent({
     }
   };
 
+  const footerActions: ReactNode = (() => {
+    if (confirming) {
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm">{m.manage_share_delete_confirm()}</span>
+          <Button
+            disabled={deleting}
+            onClick={handleDelete}
+            size="sm"
+            type="button"
+            variant="destructive"
+          >
+            {m.upload_result_delete()}
+          </Button>
+          <Button
+            disabled={deleting}
+            onClick={() => setConfirming(false)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            {m.common_cancel()}
+          </Button>
+        </div>
+      );
+    }
+
+    if (confirmingForget) {
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm">{m.manage_share_forget_hint()}</span>
+          <Button
+            onClick={() => {
+              onForget?.(share.code);
+              onClose();
+            }}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {m.manage_share_forget()}
+          </Button>
+          <Button
+            onClick={() => setConfirmingForget(false)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            {m.common_cancel()}
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-wrap items-center gap-1">
+        <Button
+          className="text-destructive hover:text-destructive"
+          onClick={() => setConfirming(true)}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          <Trash2 />
+          {m.manage_share_delete()}
+        </Button>
+        {onForget && (
+          <Button
+            onClick={() => setConfirmingForget(true)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            {m.manage_share_forget()}
+          </Button>
+        )}
+      </div>
+    );
+  })();
+
   return (
     <>
       <ShareHeader share={share} />
@@ -173,55 +256,7 @@ function ManageShareContent({
       </div>
 
       <DialogFooter className="sm:justify-between">
-        {confirming ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm">{m.manage_share_delete_confirm()}</span>
-            <Button
-              disabled={deleting}
-              onClick={handleDelete}
-              size="sm"
-              type="button"
-              variant="destructive"
-            >
-              {m.upload_result_delete()}
-            </Button>
-            <Button
-              disabled={deleting}
-              onClick={() => setConfirming(false)}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              {m.common_cancel()}
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-1">
-            <Button
-              className="text-destructive hover:text-destructive"
-              onClick={() => setConfirming(true)}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <Trash2 />
-              {m.manage_share_delete()}
-            </Button>
-            {onForget && (
-              <Button
-                onClick={() => {
-                  onForget(share.code);
-                  onClose();
-                }}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                {m.manage_share_forget()}
-              </Button>
-            )}
-          </div>
-        )}
+        {footerActions}
         <Button onClick={onClose} type="button">
           {m.manage_share_done()}
         </Button>
@@ -232,23 +267,44 @@ function ManageShareContent({
 
 /** 分享已經過期、用完或被刪掉:沒什麼能改的,只剩把它從清單拿掉。 */
 function GoneShareContent({ share, onClose, onForget }: ContentProps) {
+  const [confirmingForget, setConfirmingForget] = useState(false);
+
   return (
     <>
       <ShareHeader share={share} />
       <p className="text-muted-foreground text-sm">{m.manage_share_gone()}</p>
       <DialogFooter>
-        {onForget && (
-          <Button
-            onClick={() => {
-              onForget(share.code);
-              onClose();
-            }}
-            type="button"
-            variant="outline"
-          >
-            {m.manage_share_forget()}
-          </Button>
-        )}
+        {onForget &&
+          (confirmingForget ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm">{m.manage_share_forget_hint()}</span>
+              <Button
+                onClick={() => {
+                  onForget(share.code);
+                  onClose();
+                }}
+                type="button"
+                variant="outline"
+              >
+                {m.manage_share_forget()}
+              </Button>
+              <Button
+                onClick={() => setConfirmingForget(false)}
+                type="button"
+                variant="ghost"
+              >
+                {m.common_cancel()}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              onClick={() => setConfirmingForget(true)}
+              type="button"
+              variant="outline"
+            >
+              {m.manage_share_forget()}
+            </Button>
+          ))}
         <Button onClick={onClose} type="button">
           {m.manage_share_done()}
         </Button>
@@ -259,6 +315,7 @@ function GoneShareContent({ share, onClose, onForget }: ContentProps) {
 
 function ShareHeader({ share }: { share: ManagedShare }) {
   const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(share.shortUrl);
@@ -283,7 +340,29 @@ function ShareHeader({ share }: { share: ManagedShare }) {
         >
           {copied ? <Check /> : <Copy />}
         </Button>
+        <Button
+          aria-label={m.manage_share_qr()}
+          aria-pressed={showQr}
+          className="shrink-0"
+          onClick={() => setShowQr((prev) => !prev)}
+          size="icon-sm"
+          type="button"
+          variant={showQr ? "secondary" : "ghost"}
+        >
+          <QrCode />
+        </Button>
       </DialogDescription>
+      {showQr && (
+        // 深色碼、白底,暗色模式也一樣:反色的 QR 有些掃描器讀不到。
+        <div className="mx-auto mt-2 w-fit rounded-xl bg-white p-3 ring-1 ring-foreground/10">
+          <QRCodeSVG
+            bgColor="#ffffff"
+            fgColor="#0a0a0a"
+            size={160}
+            value={share.shortUrl}
+          />
+        </div>
+      )}
     </DialogHeader>
   );
 }
