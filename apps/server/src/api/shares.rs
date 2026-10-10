@@ -956,6 +956,10 @@ pub(crate) fn batch_of(values: Vec<String>, field: &str) -> Result<Vec<String>> 
 /// Not from the backend new uploads go to: asking a store for a key it never
 /// had returns "not found", and the bytes would stay orphaned where they are.
 ///
+/// An object that is already gone counts as removed, as it does in the sweep:
+/// a share whose content the sweep reaped keeps its keys until its row goes,
+/// and retrying would not make the object exist.
+///
 /// # Errors
 ///
 /// [`Error::Unavailable`] when a backend holding one did not open, or the
@@ -963,7 +967,10 @@ pub(crate) fn batch_of(values: Vec<String>, field: &str) -> Result<Vec<String>> 
 pub(crate) async fn remove_objects(state: &AppState, share: ShareId) -> Result<()> {
     for (backend, key) in state.shares.objects_of(share).await? {
         let store = state.backend(&backend).ok_or(Error::Unavailable)?;
-        store.delete(&ObjectPath::from(key.as_str())).await?;
+        match store.delete(&ObjectPath::from(key.as_str())).await {
+            Ok(()) | Err(object_store::Error::NotFound { .. }) => {}
+            Err(error) => return Err(error.into()),
+        }
     }
     Ok(())
 }

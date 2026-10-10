@@ -1908,7 +1908,7 @@ pub async fn delete_shares(
             Ok(()) => deleted.push(id),
             Err(error) => {
                 if error.code() != ErrorCode::NotFound {
-                    tracing::warn!(share = id, error = %error, "a share in a batch delete was not removed");
+                    tracing::warn!(share = id, error = ?error, "a share in a batch delete was not removed");
                 }
                 failed.push(DeleteAnyShareFailure {
                     id,
