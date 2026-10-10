@@ -3503,6 +3503,11 @@ async fn a_role_given_by_name_is_refused_as_malformed() {
 }
 
 /// Uploads a share as `cookie`'s account and returns its code and id.
+#[expect(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    reason = "test fixture; a panic is how it reports"
+)]
 async fn upload_as(app: &TestApp, cookie: &str) -> (String, String) {
     let share = body_json(
         expect_status(
