@@ -1,21 +1,26 @@
-<div align="center">
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Limatura/tessera/main/apps/web/public/favicon.svg" alt="Tessera logo" width="104" height="104" />
+</p>
 
-# <img src="apps/web/public/favicon.svg" alt="Tessera logo" width="48" /> Tessera
+<h1 align="center">Tessera</h1>
 
-### 自架、閱後即焚的檔案快遞。
+<h3 align="center">自架、閱後即焚的檔案快遞。</h3>
 
-**上傳檔案、分享取件碼，剩下的交給時間處理。**
+<p align="center"><strong>上傳檔案、分享取件碼，剩下的交給時間處理。</strong></p>
 
-[English](README.md) · [繁體中文](README.zh-TW.md)
+<p align="center">
+  <a href="README.md">English</a> · <a href="README.zh-TW.md">繁體中文</a>
+</p>
 
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-e74c3c?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
-![Backend: Rust](https://img.shields.io/badge/Backend-Rust-f39c12?style=for-the-badge&logo=rust&logoColor=white)
-![Self-hosted](https://img.shields.io/badge/Deploy-Self--hosted-27ae60?style=for-the-badge&logo=homeassistant&logoColor=white)
-![Ephemeral sharing](https://img.shields.io/badge/Sharing-Ephemeral-8e44ad?style=for-the-badge&logo=clockify&logoColor=white)
-![Docker](https://img.shields.io/badge/Deploy-Docker-2496ed?style=for-the-badge&logo=docker&logoColor=white)
-![S3 compatible](https://img.shields.io/badge/Storage-S3--compatible-16a085?style=for-the-badge&logo=amazons3&logoColor=white)
-
-</div>
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Limatura/tessera?style=flat-square&label=license&color=e74c3c&logo=gnu&logoColor=white" alt="License: AGPL-3.0" /></a>
+  <a href="https://github.com/Limatura/tessera/stargazers"><img src="https://img.shields.io/github/stars/Limatura/tessera?style=flat-square&color=f1c40f&logo=github&label=stars" alt="GitHub stars" /></a>
+  <a href="https://github.com/Limatura/tessera/network/members"><img src="https://img.shields.io/github/forks/Limatura/tessera?style=flat-square&color=8e44ad&logo=github&label=forks" alt="GitHub forks" /></a>
+  <img src="https://img.shields.io/badge/backend-Rust-f39c12?style=flat-square&logo=rust&logoColor=white" alt="Backend: Rust" />
+  <img src="https://img.shields.io/badge/deploy-self--hosted-27ae60?style=flat-square&logo=docker&logoColor=white" alt="Self-hosted" />
+  <img src="https://img.shields.io/badge/sharing-ephemeral-8e44ad?style=flat-square&logo=clockify&logoColor=white" alt="Ephemeral sharing" />
+  <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat-square&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
+</p>
 
 ---
 
