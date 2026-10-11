@@ -137,22 +137,28 @@ tessera-server settings reset-all
 
 ```text
 apps/
-├── server/       Rust API、ストレージ、認証、内蔵 SPA
-├── web/          React + TanStack Router アプリと /admin
-├── tui/          ターミナルクライアント
+├── server/       Rust API、認証、ストレージ、内蔵 SPA
+├── web/          React + TanStack Router Web アプリと /admin
+├── tui/          対話型ターミナル UI
+├── cli/          コマンドラインクライアント
 ├── extension/    ブラウザー拡張機能
-└── fumadocs/     ドキュメントサイト
+├── dev/          外部サービスのローカル開発用スタブ
+└── docs/         ドキュメントサイト（Git submodule）
 packages/
-├── ui/           共通 shadcn/ui コンポーネント
-├── i18n/         共通多言語ツール
-└── config/       共通 TypeScript 設定
+├── api/          OpenAPI から生成される TypeScript クライアントと schema
+├── auth/         共通認証 hooks と権限ユーティリティ
+├── config/       共通 TypeScript 設定
+├── crypto/       ブラウザー側のエンドツーエンド暗号化ユーティリティ
+├── env/          サーバーと Web の環境変数検証
+├── i18n/         共通多言語ユーティリティ
+└── ui/           共通 UI コンポーネントとスタイル
 crates/
-└── tessera-core/ フレームワーク非依存のドメインロジック
+├── tessera-core/   フレームワーク非依存のドメインルール
+└── tessera-crypto/ Rust とブラウザーで共有する E2E 暗号化形式
 openapi.json      自動生成される API 契約
 ```
 
-Rust workspace では、ドメインルールを HTTP 層や永続化層から意図的に分離しています。ルートの `openapi.json` は handler から生成されるため、**手動で編集しないでください**。
-
+Rust workspace では、ドメインルールと暗号化ロジックを HTTP 層・永続化層から分離しています。ルートの `openapi.json` はサーバー handler から生成されるため、**手動で編集しないでください**。
 ## 🧑‍💻 開発
 
 ```bash
