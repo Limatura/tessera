@@ -32,7 +32,7 @@ Upload a file or a note, receive a retrieval code, and let the payload expire wh
 
 ## ✨ Why Tessera?
 
-| | |
+| **Feature** | **Description** |
 |---|---|
 | 🕶️ **Anonymous sharing** | Send files or notes with a retrieval code, without turning sharing into a permanent account-based workflow. |
 | ⏳ **Self-destructing payloads** | Set expiry and retrieval limits so shared content does not need to live forever. |
