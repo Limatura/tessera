@@ -24,7 +24,6 @@
   <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
 </p>
 
-
 <p align="center"><a href="#-快速开始">🚀 快速开始</a> · <a href="#-系统架构">🧱 系统架构</a> · <a href="#-支持的存储后端">📦 存储后端</a> · <a href="apps/fumadocs">📚 文档</a></p>
 
 ---
@@ -36,7 +35,7 @@ Tessera 是一个**匿名文件与文本分享服务**，适合希望快速交�
 ## ✨ 为什么选择 Tessera？
 
 | 功能 | 说明 |
-|---|---|
+| --- | --- |
 | 🕶️ **匿名分享** | 通过取件码交付文件或笔记，无需将分享流程绑定到永久账号。 |
 | ⏳ **自动过期** | 设置有效期限与取件次数，避免分享内容无限期留存。 |
 | 📦 **灵活的存储方式** | 默认使用本地磁盘，也支持 S3 兼容存储、Azure Blob 等后端。 |
@@ -45,7 +44,6 @@ Tessera 是一个**匿名文件与文本分享服务**，适合希望快速交�
 | 🪶 **单文件部署** | 前端直接嵌入 Rust 服务器，无需额外的 Node.js runtime 或反向代理。 |
 | 📜 **API 契约优先** | OpenAPI 由服务器 handler 生成，并由 CI 检查是否同步更新。 |
 
-
 ## 🔄 分享流程：从上传到过期
 
 让内容短暂流转，而不是留下另一个永久链接。
@@ -53,7 +51,6 @@ Tessera 是一个**匿名文件与文本分享服务**，适合希望快速交�
 <p align="center">
   <img src="docs/images/sharing-lifecycle.zh-CN.svg" alt="Tessera 分享流程" width="100%" />
 </p>
-
 
 ## 🚀 快速开始
 
@@ -70,8 +67,7 @@ docker run --rm -p 8787:8787 -v tessera-data:/data tessera
 
 构建镜像时会编译前端并将其嵌入服务器。持久化 volume 用于保留容器替换后仍需存在的数据。
 
-> [!IMPORTANT]
-> 首次启动时，Tessera 会创建管理员账号，并且**只在服务器日志中显示一次密码**。请务必妥善保存。
+> [!IMPORTANT] 首次启动时，Tessera 会创建管理员账号，并且**只在服务器日志中显示一次密码**。请务必妥善保存。
 
 ### 从源码运行
 
@@ -83,7 +79,7 @@ pnpm --filter web build
 pnpm server:dev
 ```
 
-然后访问 **http://127.0.0.1:8787**。
+然后访问 **http://127.0.0.1:8787** 。
 
 ## 🧱 系统架构
 
@@ -92,12 +88,13 @@ pnpm server:dev
 </p>
 
 所有业务逻辑均由后端负责。客户端通过 API 与服务器通信，因此集成工具无需重新实现服务器端规则。
+
 ## 🗄️ 支持的存储后端
 
 Tessera 默认使用本地 `blobs` 目录，也可以通过管理后台或 CLI 在运行期间添加后端。
 
 | 存储后端 | 状态／备注 |
-|---|---|
+| --- | --- |
 | 本地文件系统 | 默认选项，无需额外的对象存储服务 |
 | S3 兼容存储 | 已测试 Garage、RustFS、MinIO、SeaweedFS、VersityGW 和 s3proxy |
 | Azure Blob Storage | 使用 Azurite 测试 |
@@ -157,6 +154,7 @@ Rust crates/
 └── tessera-crypto/ Rust 与浏览器共用的端到端加密格式
 openapi.json      自动生成的 API 契约
 ```
+
 ## 🧑‍💻 开发
 
 ```bash
