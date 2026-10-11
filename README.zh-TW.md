@@ -1,6 +1,6 @@
 <div align="center">
 
-# ◈ Tessera
+# <img src="apps/web/public/favicon.svg" alt="Tessera logo" width="48" /> Tessera
 
 ### 自架、閱後即焚的檔案快遞。
 
