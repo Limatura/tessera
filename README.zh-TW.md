@@ -50,25 +50,9 @@ Tessera 是一套**匿名檔案與文字分享服務**，適合想快速交付�
 
 讓內容短暫流轉，而不是留下另一個永久連結。
 
-```mermaid
-flowchart TD
-    A(["📤 上傳檔案或筆記"]) --> B["⚙️ 設定有效期限與取件次數"]
-    B --> C["🔑 取得取件碼"]
-    C --> D["📨 分享取件碼"]
-    D --> E{"收件者能否取件？"}
-    E -->|可以| F["📥 取回內容"]
-    E -->|不行| G["🚫 已到期或取件額度用完"]
-    F --> H{"期限到期或額度用完？"}
-    H -->|還沒| D
-    H -->|是| G
-
-    classDef action fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
-    classDef decision fill:#fff3cd,stroke:#f39c12,color:#0a0605,stroke-width:2px
-    classDef done fill:#e8daef,stroke:#8e44ad,color:#0a0605,stroke-width:2px
-    class A,B,C,D,F action
-    class E,H decision
-    class G done
-```
+<p align="center">
+  <img src="docs/images/sharing-lifecycle.svg" alt="Tessera sharing lifecycle" width="100%" />
+</p>
 
 
 ## 🚀 快速開始
@@ -103,41 +87,11 @@ pnpm server:dev
 
 ## 🧱 系統架構
 
-```mermaid
-flowchart TB
-    subgraph Clients["用戶端"]
-        WEB["Web 介面"]
-        TUI["終端機 TUI"]
-        EXT["瀏覽器擴充"]
-    end
-
-    subgraph App["TESSERA · RUST 伺服器"]
-        API["HTTP API · 認證 · 業務邏輯"]
-        SPA["內嵌 React SPA"]
-    end
-
-    subgraph Data["資料持久化"]
-        DB[("SQLite · PostgreSQL · MySQL")]
-        STORE[("本機 · S3 相容 · Azure · WebDAV")]
-    end
-
-    WEB --> API
-    TUI --> API
-    EXT --> API
-    API --- SPA
-    API --> DB
-    API --> STORE
-
-    classDef client fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
-    classDef server fill:#0a0605,stroke:#d94f2b,color:#f5efe9,stroke-width:2px
-    classDef data fill:#f5efe9,stroke:#8e44ad,color:#0a0605,stroke-width:2px
-    class WEB,TUI,EXT client
-    class API,SPA server
-    class DB,STORE data
-```
+<p align="center">
+  <img src="docs/images/architecture.svg" alt="Tessera system architecture" width="100%" />
+</p>
 
 所有業務邏輯都由後端負責。用戶端透過 API 與伺服器溝通，因此整合工具不需要自行重寫伺服器端的規則。
-
 ## 🗄️ 支援的儲存後端
 
 Tessera 預設使用本機的 `blobs` 目錄，也可以透過管理後台或 CLI 在執行期間新增後端。
