@@ -8,9 +8,12 @@
 
 [English](README.md) · [繁體中文](README.zh-TW.md)
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge)](LICENSE)
-![Rust](https://img.shields.io/badge/backend-Rust-orange?style=for-the-badge&logo=rust)
-![Self-hosted](https://img.shields.io/badge/deploy-self--hosted-7c3aed?style=for-the-badge)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-d94f2b?style=for-the-badge&labelColor=0a0605)](LICENSE)
+![Backend: Rust](https://img.shields.io/badge/Backend-Rust-f5efe9?style=for-the-badge&labelColor=0a0605&logo=rust&logoColor=d94f2b)
+![Self-hosted](https://img.shields.io/badge/Deploy-Self--hosted-d94f2b?style=for-the-badge&labelColor=0a0605)
+![Ephemeral sharing](https://img.shields.io/badge/Sharing-Ephemeral-f5efe9?style=for-the-badge&labelColor=0a0605)
+![Docker](https://img.shields.io/badge/Deploy-Docker-d94f2b?style=for-the-badge&labelColor=0a0605&logo=docker&logoColor=f5efe9)
+![S3 compatible](https://img.shields.io/badge/Storage-S3--compatible-f5efe9?style=for-the-badge&labelColor=0a0605)
 
 </div>
 
