@@ -1,6 +1,6 @@
 <div align="center">
 
-# ◈ Tessera
+# <img src="apps/web/public/favicon.svg" alt="Tessera logo" width="48" /> Tessera
 
 ### The self-hosted, self-destructing file courier.
 
