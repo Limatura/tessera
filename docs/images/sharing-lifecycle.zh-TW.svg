@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
+<title id="title">Tessera 分享生命週期</title><desc id="desc">上傳內容、設定期限與取件次數、取得取件碼並分享；收件者取件後，內容會在到期或達到次數上限時失效。</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17100e"/><stop offset="1" stop-color="#0a0605"/></linearGradient>
+  <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#d94f2b"/></marker>
+  <style>.eyebrow{font:700 13px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:3px;fill:#d94f2b}.title{font:800 27px ui-sans-serif,system-ui,sans-serif;fill:#f5efe9}.desc{font:500 14px ui-sans-serif,system-ui,sans-serif;fill:#bfb2aa}.step{font:700 11px ui-monospace,monospace;letter-spacing:1.5px;fill:#d94f2b}.label{font:700 17px ui-sans-serif,system-ui,sans-serif;fill:#f5efe9}.small{font:500 12px ui-sans-serif,system-ui,sans-serif;fill:#bfb2aa}</style>
+</defs>
+<rect width="1200" height="430" rx="24" fill="url(#bg)"/><circle cx="1090" cy="60" r="140" fill="#d94f2b" opacity=".06"/>
+<text x="52" y="51" class="eyebrow">TESSERA / 分享流程</text><text x="52" y="91" class="title">讓分享從一開始就有期限。</text><text x="52" y="119" class="desc">不必管理永久連結，只需要取件碼、收件者與明確的使用限制。</text>
+<g fill="none" stroke="#d94f2b" stroke-width="2.5" marker-end="url(#arrow)">
+<path d="M206 228 H237"/><path d="M392 228 H423"/><path d="M578 228 H609"/><path d="M764 228 H795"/><path d="M950 228 H981"/>
+</g>
+<g>
+  <rect x="52" y="163" width="154" height="130" rx="15" fill="#211714" stroke="#513026" stroke-width="1.5"/><circle cx="82" cy="194" r="17" fill="#d94f2b"/><text x="82" y="200" text-anchor="middle" font-size="17" fill="#fff">↑</text><text x="72" y="237" class="step">01 / 上傳</text><text x="72" y="261" class="label">上傳內容</text><text x="72" y="281" class="small">檔案或筆記</text>
+  <rect x="238" y="163" width="154" height="130" rx="15" fill="#211714" stroke="#513026" stroke-width="1.5"/><circle cx="268" cy="194" r="17" fill="#f39c12"/><text x="268" y="200" text-anchor="middle" font-size="17" fill="#0a0605">◷</text><text x="258" y="237" class="step">02 / 設定限制</text><text x="258" y="261" class="label">設定規則</text><text x="258" y="281" class="small">有效期限與取件次數</text>
+  <rect x="424" y="163" width="154" height="130" rx="15" fill="#211714" stroke="#513026" stroke-width="1.5"/><circle cx="454" cy="194" r="17" fill="#8e44ad"/><text x="454" y="200" text-anchor="middle" font-size="17" fill="#fff">#</text><text x="444" y="237" class="step">03 / 取件碼</text><text x="444" y="261" class="label">取得取件碼</text><text x="444" y="281" class="small">短取件碼</text>
+  <rect x="610" y="163" width="154" height="130" rx="15" fill="#211714" stroke="#513026" stroke-width="1.5"/><circle cx="640" cy="194" r="17" fill="#16a085"/><text x="640" y="200" text-anchor="middle" font-size="17" fill="#fff">↗</text><text x="630" y="237" class="step">04 / 分享</text><text x="630" y="261" class="label">分享取件碼</text><text x="630" y="281" class="small">透過其他管道傳送</text>
+  <rect x="796" y="163" width="154" height="130" rx="15" fill="#211714" stroke="#513026" stroke-width="1.5"/><circle cx="826" cy="194" r="17" fill="#3498db"/><text x="826" y="200" text-anchor="middle" font-size="17" fill="#fff">↓</text><text x="816" y="237" class="step">05 / 取件</text><text x="816" y="261" class="label">收取內容</text><text x="816" y="281" class="small">收件者取得內容</text>
+  <rect x="982" y="163" width="166" height="130" rx="15" fill="#f5efe9"/><circle cx="1012" cy="194" r="17" fill="#d94f2b"/><text x="1012" y="200" text-anchor="middle" font-size="17" fill="#fff">✓</text><text x="1002" y="237" font-family="ui-monospace,monospace" font-size="11" font-weight="700" letter-spacing="1.5" fill="#d94f2b">06 / 到期</text><text x="1002" y="261" font-family="ui-sans-serif,system-ui,sans-serif" font-size="17" font-weight="700" fill="#0a0605">自動清理</text><text x="1002" y="281" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#62534c">到期或次數用盡</text>
+</g>
+<path d="M1050 307 V340 H316 V307" fill="none" stroke="#d94f2b" stroke-opacity=".5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<text x="600" y="369" text-anchor="middle" font-family="ui-monospace,monospace" font-size="12" letter-spacing="2" fill="#d94f2b">短暫分享，設計如此</text>
+<text x="600" y="397" text-anchor="middle" class="desc">內容依有效期限與取件次數限制管理，而不是永久網址。</text>
+</svg>
