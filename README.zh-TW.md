@@ -24,8 +24,7 @@
   <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
 </p>
 
-
-<p align="center"><a href="#-快速開始">🚀 快速開始</a> · <a href="#-系統架構">🧱 系統架構</a> · <a href="#-支援的儲存後端">📦 儲存後端</a> · <a href="apps/fumadocs">📚 文件</a></p>
+<p align="center"><a href="#-快速開始">🚀 快速開始</a> · <a href="#-系統架構">🧱 系統架構</a> · <a href="#%EF%B8%8F-支援的儲存後端">📦 儲存後端</a> · <a href="apps/fumadocs">📚 文件</a></p>
 
 ---
 
@@ -36,7 +35,7 @@ Tessera 是一套**匿名檔案與文字分享服務**，適合想快速交付�
 ## ✨ 為什麼選 Tessera？
 
 | **功能** | **說明** |
-|---|---|
+| --- | --- |
 | 🕶️ **匿名分享** | 透過取件碼交付檔案或筆記，不必把分享流程綁定成永久帳號工作流。 |
 | ⏳ **自動到期** | 設定有效期限與取件次數，避免分享內容無限期留存。 |
 | 📦 **彈性的儲存方式** | 預設使用本機磁碟，也可加入支援的 S3 相容、Azure Blob 等儲存後端。 |
@@ -45,7 +44,6 @@ Tessera 是一套**匿名檔案與文字分享服務**，適合想快速交付�
 | 🪶 **單一執行檔部署** | 前端直接內嵌在 Rust 伺服器中，應用程式本身不需要額外的 Node.js runtime 或反向代理。 |
 | 📜 **API 契約優先** | OpenAPI 由伺服器 handler 產生，並由 CI 檢查是否同步更新。 |
 
-
 ## 🔄 分享流程：從上傳到到期
 
 讓內容短暫流轉，而不是留下另一個永久連結。
@@ -53,7 +51,6 @@ Tessera 是一套**匿名檔案與文字分享服務**，適合想快速交付�
 <p align="center">
   <img src="docs/images/sharing-lifecycle.zh-TW.svg" alt="Tessera 分享流程" width="100%" />
 </p>
-
 
 ## 🚀 快速開始
 
@@ -70,8 +67,7 @@ docker run --rm -p 8787:8787 -v tessera-data:/data tessera
 
 建置 image 時就會編譯前端並內嵌進伺服器。持久化 volume 則用來保留容器替換後仍需存在的資料。
 
-> [!IMPORTANT]
-> 第一次啟動時，Tessera 會建立管理員帳號，並且**只在伺服器 log 中顯示一次密碼**。請務必安全保存。
+> [!IMPORTANT] 第一次啟動時，Tessera 會建立管理員帳號，並且**只在伺服器 log 中顯示一次密碼**。請務必安全保存。
 
 ### 從原始碼執行
 
@@ -83,7 +79,7 @@ pnpm --filter web build
 pnpm server:dev
 ```
 
-接著前往 **http://127.0.0.1:8787**。
+接著前往 **http://127.0.0.1:8787** 。
 
 ## 🧱 系統架構
 
@@ -92,12 +88,13 @@ pnpm server:dev
 </p>
 
 所有業務邏輯都由後端負責。用戶端透過 API 與伺服器溝通，因此整合工具不需要自行重寫伺服器端的規則。
+
 ## 🗄️ 支援的儲存後端
 
 Tessera 預設使用本機的 `blobs` 目錄，也可以透過管理後台或 CLI 在執行期間新增後端。
 
 | 儲存後端 | 狀態／備註 |
-|---|---|
+| --- | --- |
 | 本機檔案系統 | 預設選項，不需要額外的物件儲存服務 |
 | S3 相容儲存 | 包含已測試的 Garage、RustFS、MinIO、SeaweedFS、VersityGW 與 s3proxy |
 | Azure Blob Storage | 以 Azurite 進行測試 |
@@ -157,6 +154,7 @@ Rust crates/
 └── tessera-crypto/ Rust 與瀏覽器共用的端對端加密格式
 openapi.json      自動產生的 API 契約
 ```
+
 ## 🧑‍💻 開發
 
 ```bash

@@ -24,8 +24,7 @@
   <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
 </p>
 
-
-<p align="center"><a href="#-get-started">🚀 Quick start</a> · <a href="#-how-it-fits-together">🧱 Architecture</a> · <a href="#-storage-options">📦 Storage</a> · <a href="apps/fumadocs">📚 Documentation</a></p>
+<p align="center"><a href="#-get-started">🚀 Quick start</a> · <a href="#-how-it-fits-together">🧱 Architecture</a> · <a href="#%EF%B8%8F-storage-options">📦 Storage</a> · <a href="apps/fumadocs">📚 Documentation</a></p>
 
 ---
 
@@ -36,7 +35,7 @@ Upload a file or a note, receive a retrieval code, and let the payload expire wh
 ## ✨ Why Tessera?
 
 | **Feature** | **Description** |
-|---|---|
+| --- | --- |
 | 🕶️ **Anonymous sharing** | Send files or notes with a retrieval code, without turning sharing into a permanent account-based workflow. |
 | ⏳ **Self-destructing payloads** | Set expiry and retrieval limits so shared content does not need to live forever. |
 | 📦 **Storage that fits your setup** | Start with local disk, then add supported S3-compatible, Azure Blob, or other backends. |
@@ -45,7 +44,6 @@ Upload a file or a note, receive a retrieval code, and let the payload expire wh
 | 🪶 **Single-binary deployment** | The frontend is embedded in the Rust server—no separate Node.js runtime or reverse proxy is required by the app itself. |
 | 📜 **API-first contract** | OpenAPI is generated from the server handlers and checked in CI. |
 
-
 ## 🔄 From upload to expiry
 
 A short-lived handoff, not another permanent link.
@@ -53,7 +51,6 @@ A short-lived handoff, not another permanent link.
 <p align="center">
   <img src="docs/images/sharing-lifecycle.svg" alt="Tessera sharing lifecycle" width="100%" />
 </p>
-
 
 ## 🚀 Get started
 
@@ -70,8 +67,7 @@ Open **http://localhost:8787**.
 
 The image build compiles the frontend and embeds it into the server. The persistent volume keeps the instance data across container replacement.
 
-> [!IMPORTANT]
-> On first startup, Tessera creates an administrator and prints the password **once in the server log**. Save it somewhere secure.
+> [!IMPORTANT] On first startup, Tessera creates an administrator and prints the password **once in the server log**. Save it somewhere secure.
 
 ### Run from source
 
@@ -92,12 +88,13 @@ Then visit **http://127.0.0.1:8787**.
 </p>
 
 The server owns the business logic. Clients communicate with it through the API, so integrations do not need to reimplement server-side rules.
+
 ## 🗄️ Storage options
 
 Tessera starts with a local `blobs` directory and can add backends at runtime from the admin panel or CLI.
 
 | Backend | Status / notes |
-|---|---|
+| --- | --- |
 | Local filesystem | Default; no object-storage service required |
 | S3-compatible storage | Includes tested integrations such as Garage, RustFS, MinIO, SeaweedFS, VersityGW, and s3proxy |
 | Azure Blob Storage | Tested against Azurite |
@@ -157,6 +154,7 @@ crates/
 └── tessera-crypto/ End-to-end encryption format shared by Rust and browser
 openapi.json      Generated API contract
 ```
+
 ## 🧑‍💻 Development
 
 ```bash

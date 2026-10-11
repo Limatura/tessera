@@ -10,6 +10,8 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "check-types": "turbo run check-types",
+    "commit": "pnpm cz",
+    "cz": "cross-env NODE_OPTIONS=\"--experimental-transform-types --disable-warning=ExperimentalWarning\" czg",
     "test": "vp test run",
     "test:coverage": "vp test run --coverage",
     "dev:web": "turbo run dev -F web",
@@ -42,9 +44,14 @@
     "@tessera/env": "workspace:*"
   },
   "devDependencies": {
+    "@changesets/cli": "^3.0.3",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
     "@tessera/config": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
+    "cross-env": "^10.1.0",
+    "czg": "^1.14.0",
     "husky": "9.1.7",
     "lint-staged": "^17.3.0",
     "turbo": "^2.11.7",
