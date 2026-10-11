@@ -136,7 +136,7 @@ tessera-server settings reset-all
 ## 🧰 專案結構
 
 ```text
-apps/
+應用程式 apps/
 ├── server/       Rust API、認證、儲存與內嵌 SPA
 ├── web/          React + TanStack Router 網頁應用與 /admin
 ├── tui/          互動式終端機介面
@@ -144,7 +144,7 @@ apps/
 ├── extension/    瀏覽器擴充功能
 ├── dev/          本機外部服務替身，供開發測試
 └── docs/         文件網站（Git submodule）
-packages/
+共用套件 packages/
 ├── api/          由 OpenAPI 產生的 TypeScript 用戶端與 schema
 ├── auth/         共用認證 hooks 與權限工具
 ├── config/       共用 TypeScript 設定
@@ -152,13 +152,11 @@ packages/
 ├── env/          伺服器與網頁環境變數驗證
 ├── i18n/         共用多語系工具
 └── ui/           共用 UI 元件與樣式
-crates/
+Rust crates/
 ├── tessera-core/   與框架無關的領域規則
 └── tessera-crypto/ Rust 與瀏覽器共用的端對端加密格式
 openapi.json      自動產生的 API 契約
 ```
-
-Rust workspace 將領域規則與加密邏輯同 HTTP、資料持久化層分離。根目錄的 `openapi.json` 由伺服器 handler 產生，**請勿手動修改**。
 ## 🧑‍💻 開發
 
 ```bash
