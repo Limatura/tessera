@@ -74,24 +74,37 @@ pnpm server:dev
 
 ## 🧱 系统架构
 
-```text
-                    ┌─────────────────────────────┐
-                    │           客户端            │
-                    │   Web · TUI · 浏览器扩展    │
-                    └──────────────┬──────────────┘
-                                   │ HTTP API
-                    ┌──────────────▼──────────────┐
-                    │       tessera-server        │
-                    │   Rust · API · 认证 · 后台  │
-                    │          内嵌 SPA           │
-                    └─────────┬──────────┬────────┘
-                              │          │
-                    ┌─────────▼───┐  ┌───▼────────────┐
-                    │   SQL 数据库 │  │    文件存储    │
-                    │ SQLite /    │  │ 本地 / S3 /    │
-                    │ PostgreSQL /│  │ Azure / WebDAV │
-                    │ MySQL       │  │                │
-                    └─────────────┘  └────────────────┘
+```mermaid
+flowchart TB
+    subgraph Clients["客户端"]
+        WEB["Web 界面"]
+        TUI["终端 TUI"]
+        EXT["浏览器扩展"]
+    end
+
+    subgraph App["TESSERA · RUST 服务器"]
+        API["HTTP API · 认证 · 业务逻辑"]
+        SPA["内嵌 React SPA"]
+    end
+
+    subgraph Data["数据持久化"]
+        DB[("SQLite · PostgreSQL · MySQL")]
+        STORE[("本地 · S3 兼容 · Azure · WebDAV")]
+    end
+
+    WEB --> API
+    TUI --> API
+    EXT --> API
+    API --- SPA
+    API --> DB
+    API --> STORE
+
+    classDef client fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
+    classDef server fill:#0a0605,stroke:#d94f2b,color:#f5efe9,stroke-width:2px
+    classDef data fill:#f5efe9,stroke:#8e44ad,color:#0a0605,stroke-width:2px
+    class WEB,TUI,EXT client
+    class API,SPA server
+    class DB,STORE data
 ```
 
 所有业务逻辑均由后端负责。客户端通过 API 与服务器通信，因此集成工具无需重新实现服务器端规则。
