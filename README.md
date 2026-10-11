@@ -50,25 +50,9 @@ Upload a file or a note, receive a retrieval code, and let the payload expire wh
 
 A short-lived handoff, not another permanent link.
 
-```mermaid
-flowchart TD
-    A(["📤 Upload a file or note"]) --> B["⚙️ Set expiry and retrieval limit"]
-    B --> C["🔑 Get a retrieval code"]
-    C --> D["📨 Share the code"]
-    D --> E{"Can the recipient retrieve it?"}
-    E -->|Yes| F["📥 Retrieve the payload"]
-    E -->|No| G["🚫 Expired or limit reached"]
-    F --> H{"Expiry or retrieval limit reached?"}
-    H -->|Not yet| D
-    H -->|Yes| G
-
-    classDef action fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
-    classDef decision fill:#fff3cd,stroke:#f39c12,color:#0a0605,stroke-width:2px
-    classDef done fill:#e8daef,stroke:#8e44ad,color:#0a0605,stroke-width:2px
-    class A,B,C,D,F action
-    class E,H decision
-    class G done
-```
+<p align="center">
+  <img src="docs/images/sharing-lifecycle.svg" alt="Tessera sharing lifecycle" width="100%" />
+</p>
 
 
 ## 🚀 Get started
@@ -103,41 +87,11 @@ Then visit **http://127.0.0.1:8787**.
 
 ## 🧱 How it fits together
 
-```mermaid
-flowchart TB
-    subgraph Clients["CLIENTS"]
-        WEB["Web UI"]
-        TUI["Terminal UI"]
-        EXT["Browser Extension"]
-    end
-
-    subgraph App["TESSERA · RUST SERVER"]
-        API["HTTP API · Auth · Business Logic"]
-        SPA["Embedded React SPA"]
-    end
-
-    subgraph Data["PERSISTENCE"]
-        DB[("SQLite · PostgreSQL · MySQL")]
-        STORE[("Local · S3-compatible · Azure · WebDAV")]
-    end
-
-    WEB --> API
-    TUI --> API
-    EXT --> API
-    API --- SPA
-    API --> DB
-    API --> STORE
-
-    classDef client fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
-    classDef server fill:#0a0605,stroke:#d94f2b,color:#f5efe9,stroke-width:2px
-    classDef data fill:#f5efe9,stroke:#8e44ad,color:#0a0605,stroke-width:2px
-    class WEB,TUI,EXT client
-    class API,SPA server
-    class DB,STORE data
-```
+<p align="center">
+  <img src="docs/images/architecture.svg" alt="Tessera system architecture" width="100%" />
+</p>
 
 The server owns the business logic. Clients communicate with it through the API, so integrations do not need to reimplement server-side rules.
-
 ## 🗄️ Storage options
 
 Tessera starts with a local `blobs` directory and can add backends at runtime from the admin panel or CLI.
