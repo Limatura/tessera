@@ -24,6 +24,9 @@
   <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
 </p>
 
+
+<p align="center"><a href="#-get-started">🚀 Quick start</a> · <a href="#-how-it-fits-together">🧱 Architecture</a> · <a href="#-storage-options">📦 Storage</a> · <a href="apps/fumadocs">📚 Documentation</a></p>
+
 ---
 
 Tessera is an **anonymous file and note sharing service** built for people who want to hand something over without creating another permanent link.
@@ -41,6 +44,32 @@ Upload a file or a note, receive a retrieval code, and let the payload expire wh
 | 🛠️ **Operator console** | Manage instance settings and storage backends from `/admin`. |
 | 🪶 **Single-binary deployment** | The frontend is embedded in the Rust server—no separate Node.js runtime or reverse proxy is required by the app itself. |
 | 📜 **API-first contract** | OpenAPI is generated from the server handlers and checked in CI. |
+
+
+## 🔄 From upload to expiry
+
+A short-lived handoff, not another permanent link.
+
+```mermaid
+flowchart TD
+    A(["📤 Upload a file or note"]) --> B["⚙️ Set expiry and retrieval limit"]
+    B --> C["🔑 Get a retrieval code"]
+    C --> D["📨 Share the code"]
+    D --> E{"Can the recipient retrieve it?"}
+    E -->|Yes| F["📥 Retrieve the payload"]
+    E -->|No| G["🚫 Expired or limit reached"]
+    F --> H{"Expiry or retrieval limit reached?"}
+    H -->|Not yet| D
+    H -->|Yes| G
+
+    classDef action fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
+    classDef decision fill:#fff3cd,stroke:#f39c12,color:#0a0605,stroke-width:2px
+    classDef done fill:#e8daef,stroke:#8e44ad,color:#0a0605,stroke-width:2px
+    class A,B,C,D,F action
+    class E,H decision
+    class G done
+```
+
 
 ## 🚀 Get started
 
