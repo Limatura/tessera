@@ -136,7 +136,7 @@ tessera-server settings reset-all
 ## 🧰 プロジェクト構成
 
 ```text
-apps/
+アプリ apps/
 ├── server/       Rust API、認証、ストレージ、内蔵 SPA
 ├── web/          React + TanStack Router Web アプリと /admin
 ├── tui/          対話型ターミナル UI
@@ -144,7 +144,7 @@ apps/
 ├── extension/    ブラウザー拡張機能
 ├── dev/          外部サービスのローカル開発用スタブ
 └── docs/         ドキュメントサイト（Git submodule）
-packages/
+共有パッケージ packages/
 ├── api/          OpenAPI から生成される TypeScript クライアントと schema
 ├── auth/         共通認証 hooks と権限ユーティリティ
 ├── config/       共通 TypeScript 設定
@@ -152,13 +152,11 @@ packages/
 ├── env/          サーバーと Web の環境変数検証
 ├── i18n/         共通多言語ユーティリティ
 └── ui/           共通 UI コンポーネントとスタイル
-crates/
+Rust crates/
 ├── tessera-core/   フレームワーク非依存のドメインルール
 └── tessera-crypto/ Rust とブラウザーで共有する E2E 暗号化形式
 openapi.json      自動生成される API 契約
 ```
-
-Rust workspace では、ドメインルールと暗号化ロジックを HTTP 層・永続化層から分離しています。ルートの `openapi.json` はサーバー handler から生成されるため、**手動で編集しないでください**。
 ## 🧑‍💻 開発
 
 ```bash
