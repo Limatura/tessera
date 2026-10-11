@@ -51,7 +51,7 @@ Tessera 是一个**匿名文件与文本分享服务**，适合希望快速交�
 让内容短暂流转，而不是留下另一个永久链接。
 
 <p align="center">
-  <img src="docs/images/sharing-lifecycle.svg" alt="Tessera sharing lifecycle" width="100%" />
+  <img src="docs/images/sharing-lifecycle.zh-CN.svg" alt="Tessera 分享流程" width="100%" />
 </p>
 
 
@@ -88,7 +88,7 @@ pnpm server:dev
 ## 🧱 系统架构
 
 <p align="center">
-  <img src="docs/images/architecture.svg" alt="Tessera system architecture" width="100%" />
+  <img src="docs/images/architecture.zh-CN.svg" alt="Tessera 系统架构" width="100%" />
 </p>
 
 所有业务逻辑均由后端负责。客户端通过 API 与服务器通信，因此集成工具无需重新实现服务器端规则。
