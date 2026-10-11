@@ -24,6 +24,9 @@
   <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
 </p>
 
+
+<p align="center"><a href="#-快速開始">🚀 快速開始</a> · <a href="#-系統架構">🧱 系統架構</a> · <a href="#-支援的儲存後端">📦 儲存後端</a> · <a href="apps/fumadocs">📚 文件</a></p>
+
 ---
 
 Tessera 是一套**匿名檔案與文字分享服務**，適合想快速交付內容、又不想留下永久分享連結的情境。
@@ -41,6 +44,32 @@ Tessera 是一套**匿名檔案與文字分享服務**，適合想快速交付�
 | 🛠️ **管理後台** | 在 `/admin` 管理實例設定與儲存後端。 |
 | 🪶 **單一執行檔部署** | 前端直接內嵌在 Rust 伺服器中，應用程式本身不需要額外的 Node.js runtime 或反向代理。 |
 | 📜 **API 契約優先** | OpenAPI 由伺服器 handler 產生，並由 CI 檢查是否同步更新。 |
+
+
+## 🔄 分享流程：從上傳到到期
+
+讓內容短暫流轉，而不是留下另一個永久連結。
+
+```mermaid
+flowchart TD
+    A(["📤 上傳檔案或筆記"]) --> B["⚙️ 設定有效期限與取件次數"]
+    B --> C["🔑 取得取件碼"]
+    C --> D["📨 分享取件碼"]
+    D --> E{"收件者能否取件？"}
+    E -->|可以| F["📥 取回內容"]
+    E -->|不行| G["🚫 已到期或取件額度用完"]
+    F --> H{"期限到期或額度用完？"}
+    H -->|還沒| D
+    H -->|是| G
+
+    classDef action fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
+    classDef decision fill:#fff3cd,stroke:#f39c12,color:#0a0605,stroke-width:2px
+    classDef done fill:#e8daef,stroke:#8e44ad,color:#0a0605,stroke-width:2px
+    class A,B,C,D,F action
+    class E,H decision
+    class G done
+```
+
 
 ## 🚀 快速開始
 
