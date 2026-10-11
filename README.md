@@ -137,22 +137,28 @@ tessera-server settings reset-all
 
 ```text
 apps/
-├── server/       Rust API, storage, auth, embedded SPA
-├── web/          React + TanStack Router application and /admin
-├── tui/          Terminal client
+├── server/       Rust API, auth, storage, and embedded SPA
+├── web/          React + TanStack Router web app and /admin
+├── tui/          Interactive terminal UI
+├── cli/          Command-line client
 ├── extension/    Browser extension
-└── fumadocs/     Documentation site
+├── dev/          Local stand-ins for external services
+└── docs/         Documentation site (Git submodule)
 packages/
-├── ui/           Shared shadcn/ui primitives
+├── api/          Generated OpenAPI TypeScript client and schema
+├── auth/         Shared authentication hooks and permissions
+├── config/       Shared TypeScript configuration
+├── crypto/       Browser-side end-to-end encryption utilities
+├── env/          Validated server and web environment variables
 ├── i18n/         Shared localization utilities
-└── config/       Shared TypeScript configuration
+└── ui/           Shared UI components and styles
 crates/
-└── tessera-core/ Framework-independent domain logic
+├── tessera-core/  Framework-independent domain rules
+└── tessera-crypto/ End-to-end encryption format shared by Rust and browser
 openapi.json      Generated API contract
 ```
 
-The Rust workspace deliberately separates domain rules from the HTTP and persistence layers. The OpenAPI document is generated from handlers; **do not edit it by hand**.
-
+The Rust workspace separates domain rules and cryptography from the HTTP and persistence layers. The OpenAPI document is generated from server handlers; **do not edit it by hand**.
 ## 🧑‍💻 Development
 
 ```bash
