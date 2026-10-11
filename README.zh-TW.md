@@ -1,114 +1,183 @@
-# tessera
+<div align="center">
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+# ◈ Tessera
 
-[English](README.md) | **繁體中文**
+### 自架、閱後即焚的檔案快遞。
 
-匿名檔案快遞。上傳一個檔案或一段筆記,拿到一組取件碼,payload 會在過期或取件次數用完之後自我銷毀。
+**上傳檔案、分享取件碼，剩下的交給時間處理。**
 
-自架、單一執行檔。前端已內嵌其中,不需要在前面架任何東西,也不需要額外跑什麼服務。
+[English](README.md) · [繁體中文](README.zh-TW.md)
 
-## 執行方式
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge)](LICENSE)
+![Rust](https://img.shields.io/badge/backend-Rust-orange?style=for-the-badge&logo=rust)
+![Self-hosted](https://img.shields.io/badge/deploy-self--hosted-7c3aed?style=for-the-badge)
+
+</div>
+
+---
+
+Tessera 是一套**匿名檔案與文字分享服務**，適合想快速交付內容、又不想留下永久分享連結的情境。
+
+上傳檔案或筆記，取得取件碼；當內容到期或取件次數用完，就不再需要繼續保留。你可以自行架設、掌握資料存放位置，並以**內嵌前端的單一執行檔**運行服務。
+
+## ✨ 為什麼選 Tessera？
+
+| | |
+|---|---|
+| 🕶️ **匿名分享** | 透過取件碼交付檔案或筆記，不必把分享流程綁定成永久帳號工作流。 |
+| ⏳ **自動到期** | 設定有效期限與取件次數，避免分享內容無限期留存。 |
+| 📦 **彈性的儲存方式** | 預設使用本機磁碟，也可加入支援的 S3 相容、Azure Blob 等儲存後端。 |
+| 🧩 **多種用戶端，共用 API** | 網頁、終端機用戶端與瀏覽器擴充功能共用同一套 API。 |
+| 🛠️ **管理後台** | 在 `/admin` 管理實例設定與儲存後端。 |
+| 🪶 **單一執行檔部署** | 前端直接內嵌在 Rust 伺服器中，應用程式本身不需要額外的 Node.js runtime 或反向代理。 |
+| 📜 **API 契約優先** | OpenAPI 由伺服器 handler 產生，並由 CI 檢查是否同步更新。 |
+
+## 🚀 快速開始
+
+### 使用 Docker
+
+在 repository 根目錄執行：
 
 ```bash
 docker build -f apps/server/Dockerfile -t tessera .
-docker run -p 8787:8787 -v tessera-data:/data tessera
+docker run --rm -p 8787:8787 -v tessera-data:/data tessera
 ```
 
-image 建置時就會把前端一起編譯進去,所以這就是全部步驟——沒有額外階段,主機上除了 Docker 也不用裝任何東西。
+接著開啟 **http://localhost:8787**。
 
-或是從原始碼跑:
+建置 image 時就會編譯前端並內嵌進伺服器。持久化 volume 則用來保留容器替換後仍需存在的資料。
+
+> [!IMPORTANT]
+> 第一次啟動時，Tessera 會建立管理員帳號，並且**只在伺服器 log 中顯示一次密碼**。請務必安全保存。
+
+### 從原始碼執行
+
+需求：Rust toolchain 與 pnpm。
 
 ```bash
 pnpm install
-pnpm --filter web build      # SPA 會從 apps/web/dist 內嵌進去
-pnpm server:dev              # http://127.0.0.1:8787
+pnpm --filter web build
+pnpm server:dev
 ```
 
-第一次啟動會建立一個管理員帳號,密碼只會印在 log 裡一次。
+接著前往 **http://127.0.0.1:8787**。
 
-## 這裡有什麼
+## 🧱 系統架構
 
-```
-apps/server      整個後端,Rust —— API、儲存、認證、內嵌的 SPA
-apps/web         使用者用的那個 app,以及 /admin 底下操作者用的後台,React + TanStack Router
-apps/tui         終端機用戶端
-apps/extension   瀏覽器擴充功能
-apps/fumadocs    文件網站
-packages/ui      共用的 shadcn/ui 元件
-packages/i18n    共用的多語系機制
-packages/config  共用的 tsconfig base
-```
-
-所有業務邏輯都在後端。前端只透過 API 跟後端溝通,沒有別的管道,所以不管是機器人、CLI 還是 ShareX,能做的事跟瀏覽器完全一樣。
-
-## 契約
-
-repository 根目錄的 `openapi.json` 是由 `utoipa` 從 handler 產生的——這是一個建置產物,不是給人手改的東西。CI 會重新產生一份並比對差異,handler 改了卻沒同步反映到契約裡就無法合併。所有 client 都是從這份檔案產生的,後端本身不會輸出任何 TypeScript。
-
-```bash
-pnpm server:openapi                                     # 重新產生
-TESSERA_FEATURES__DOCS=true pnpm server:dev             # 在 /docs 瀏覽
+```text
+                    ┌─────────────────────────────┐
+                    │           用戶端            │
+                    │   Web · TUI · 瀏覽器擴充    │
+                    └──────────────┬──────────────┘
+                                   │ HTTP API
+                    ┌──────────────▼──────────────┐
+                    │       tessera-server        │
+                    │   Rust · API · 認證 · 後台  │
+                    │          內嵌 SPA           │
+                    └─────────┬──────────┬────────┘
+                              │          │
+                    ┌─────────▼───┐  ┌───▼────────────┐
+                    │   SQL 資料庫 │  │    檔案儲存    │
+                    │ SQLite /    │  │ 本機 / S3 /    │
+                    │ PostgreSQL /│  │ Azure / WebDAV │
+                    │ MySQL       │  │                │
+                    └─────────────┘  └────────────────┘
 ```
 
-文件介面預設是關閉的,因為它的 renderer 是從 CDN 拉的,這樣可以讓執行檔少帶大約 11 MB 的內嵌 UI。`openapi.json` 不管開關與否都會提供。
+所有業務邏輯都由後端負責。用戶端透過 API 與伺服器溝通，因此整合工具不需要自行重寫伺服器端的規則。
 
-## 設定
+## 🗄️ 支援的儲存後端
 
-幾乎所有東西都可以在後台面板改,下一次請求就生效。有十六項設定不行:socket 已經綁定、連線池已經建好,而且 log subscriber 在兩者之前就已經安裝完成。這些設定來自環境變數,前綴為 `TESSERA_`,巢狀層級用 `__` 分隔:
+Tessera 預設使用本機的 `blobs` 目錄，也可以透過管理後台或 CLI 在執行期間新增後端。
+
+| 儲存後端 | 狀態／備註 |
+|---|---|
+| 本機檔案系統 | 預設選項，不需要額外的物件儲存服務 |
+| S3 相容儲存 | 包含已測試的 Garage、RustFS、MinIO、SeaweedFS、VersityGW 與 s3proxy |
+| Azure Blob Storage | 以 Azurite 進行測試 |
+| WebDAV | 僅適用於小檔案；較大的上傳會被拒絕並回傳 `413` |
+| AWS S3、Cloudflare R2、Backblaze B2 | 使用 S3 相容 API；設定憑證後由 opt-in 工作流程測試 |
+| Google Cloud Storage | 已編譯進執行檔，但目前尚未由測試套件驗證 |
+
+**WebDAV 限制：** WebDAV 只接受小於 `share.inline_threshold_bytes` 的檔案，預設為 64 KiB。由於其上傳路徑無法串流處理大型 payload，Tessera 會直接拒絕過大的檔案，避免上傳到一半才失敗。
+
+## ⚙️ 設定方式
+
+大部分設定都能在 **`/admin` 管理後台**修改，並於下一次請求生效。像是監聽 port、資料庫連線等程序啟動後無法變更的設定，則必須透過環境變數指定。
+
+環境變數使用 `TESSERA_` 前綴，巢狀層級以 `__` 分隔：
 
 ```bash
 TESSERA_SERVER__PORT=9000
-TESSERA_DATABASE__URL=sqlite://data/tessera.db      # 或 postgres:// / mysql://
-TESSERA_SERVER__DATA_DIR=data                       # 金鑰檔案,以及第一個 backend
+TESSERA_DATABASE__URL=sqlite://data/tessera.db
+TESSERA_SERVER__DATA_DIR=data
 ```
 
-檔案放在哪裡不屬於這十六項之一。全新的實例預設把檔案存在 data 目錄下的 `blobs`,可以在面板裡或用 `tessera-server backends add` 加入新的 bucket,不需要重啟。每個 backend 預設都編譯進執行檔,所以要指向 S3 或 Postgres 也不需要重新建置。
+資料庫支援 SQLite、PostgreSQL 與 MySQL。部署範例：
 
-### backend 可以指向哪裡
+- `tessera.personal.env.example` — 僅供自己使用的私人實例
+- `tessera.public.env.example` — 開放陌生人上傳的公開實例
+- `contrib/tessera.service` — systemd service unit
 
-以下每一項都在每次變更時跑過完整測試套件,所以這份清單反映的是「目前確實可用」,而不是「理論上應該可以」:
-
-| 儲存端 | URL | 備註 |
-| --- | --- | --- |
-| 本機目錄 | `data/blobs` | 預設值,不需要 object store |
-| Garage | `s3://bucket` |  |
-| RustFS | `s3://bucket` |  |
-| MinIO | `s3://bucket` |  |
-| SeaweedFS | `s3://bucket` | 需要 `-s3.config` identities 檔案,否則所有寫入都會被拒絕 |
-| VersityGW | `s3://bucket` |  |
-| s3proxy | `s3://bucket` | 需要新於 2.6.0 的版本——該版本之前沒有 bulk delete |
-| Azure Blob | `azure://container` | 對照 Azurite 測試 |
-| WebDAV | `https://host/path` | **只適合小檔案**——見下方說明 |
-
-AWS S3、Cloudflare R2 和 Backblaze B2 用的是跟上面那組一樣的 S3 API,但沒有 emulator 能替代它們,所以是靠一個 opt-in job 測試,只有在 operator 加入憑證時才會跑。
-
-選擇之前值得知道的兩個限制:
-
-- **WebDAV** 只接受小於 `share.inline_threshold_bytes`(預設 64 KiB)的檔案。更大的檔案需要分段寫入,但 WebDAV 唯一的上傳動詞是整包 `PUT`,底層的函式庫沒辦法串流處理。檔案太大會直接回 `413`,而不是寫到一半才失敗。
-- **Google Cloud Storage** 已編譯進執行檔,但未經測試。沒有任何 emulator 實作這個函式庫寫入時用到的 API,所以這裡沒有任何東西能證明它真的可用。
-
-這個區分就是唯一的規則:**只要在面板裡,改了就會生效。** 面板從來不會顯示「已儲存——現在請重啟」,因為需要重啟的設定會直接顯示為唯讀,並附上原因。
-
-repository 根目錄有兩個範例可以參考——`tessera.personal.env.example` 給只有你自己會連進去的實例,`tessera.public.env.example` 給陌生人上傳檔案用的實例。兩者都先列出環境變數的部分,再列出該情境下值得調整的面板設定,因為這兩種情境要的東西恰好相反。`contrib/tessera.service` 是在容器外執行時用的 systemd unit。
-
-沒有面板的情況——`features.accounts` 關閉的實例沒有 session 可以登入——就只剩命令列:
+也可以透過 CLI 管理設定：
 
 ```bash
 tessera-server settings list
 tessera-server settings set share.default_expiry_hours 720
-tessera-server settings reset-all        # 設錯之後回到預設值的方法
+tessera-server settings reset-all
 ```
 
-其餘內容記載在 `apps/server/README.md`,包含如何把建置縮到能塞進資源受限的機器上。
+## 🧰 專案結構
 
-## 開發
+```text
+apps/
+├── server/       Rust API、儲存、認證與內嵌 SPA
+├── web/          React + TanStack Router 應用程式與 /admin
+├── tui/          終端機用戶端
+├── extension/    瀏覽器擴充功能
+└── fumadocs/     文件網站
+packages/
+├── ui/           共用 shadcn/ui 元件
+├── i18n/         共用多語系工具
+└── config/       共用 TypeScript 設定
+crates/
+└── tessera-core/ 與框架無關的領域邏輯
+openapi.json      自動產生的 API 契約
+```
+
+Rust workspace 將領域規則與 HTTP、資料持久化層刻意分離。根目錄的 `openapi.json` 由 handler 產生，**請勿手動修改**。
+
+## 🧑‍💻 開發
 
 ```bash
-pnpm dev              # 同時跑所有前端
-pnpm server:dev       # 後端
-pnpm server:check     # lint、test、docs、audit —— CI 跑的就是這些
-pnpm check            # lint 跟 format TypeScript 那一側
+pnpm dev              # 平行啟動所有前端應用程式
+pnpm server:dev       # 啟動 Rust 伺服器
+pnpm server:check     # 執行伺服器 lint、測試、文件與 audit
+pnpm check            # TypeScript lint 與格式檢查
+pnpm server:openapi   # 重新產生 openapi.json
 ```
 
-Rust 是一個純粹的 cargo workspace,刻意沒有納入 Turborepo 的 pipeline。
+需要互動式 API 文件時：
+
+```bash
+TESSERA_FEATURES__DOCS=true pnpm server:dev
+```
+
+無論是否啟用互動式文件介面，`openapi.json` 都會提供。互動式文件 UI 預設關閉，因為它的 renderer 會從 CDN 載入。
+
+## 📚 延伸文件
+
+- [伺服器與部署細節](apps/server/README.md)
+- [API 契約](openapi.json)
+- [私人部署範例](tessera.personal.env.example)
+- [公開部署範例](tessera.public.env.example)
+
+## 📄 授權條款
+
+Tessera 採用 **GNU Affero General Public License v3.0（AGPL-3.0）**。詳見 [LICENSE](LICENSE)。
+
+<div align="center">
+
+**少一點永久留存，多一點自主掌控。**
+
+</div>
