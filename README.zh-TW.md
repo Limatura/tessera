@@ -8,12 +8,12 @@
 
 [English](README.md) · [繁體中文](README.zh-TW.md)
 
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-d94f2b?style=for-the-badge&labelColor=0a0605)](LICENSE)
-![Backend: Rust](https://img.shields.io/badge/Backend-Rust-f5efe9?style=for-the-badge&labelColor=0a0605&logo=rust&logoColor=d94f2b)
-![Self-hosted](https://img.shields.io/badge/Deploy-Self--hosted-d94f2b?style=for-the-badge&labelColor=0a0605)
-![Ephemeral sharing](https://img.shields.io/badge/Sharing-Ephemeral-f5efe9?style=for-the-badge&labelColor=0a0605)
-![Docker](https://img.shields.io/badge/Deploy-Docker-d94f2b?style=for-the-badge&labelColor=0a0605&logo=docker&logoColor=f5efe9)
-![S3 compatible](https://img.shields.io/badge/Storage-S3--compatible-f5efe9?style=for-the-badge&labelColor=0a0605)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-e74c3c?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
+![Backend: Rust](https://img.shields.io/badge/Backend-Rust-f39c12?style=for-the-badge&logo=rust&logoColor=white)
+![Self-hosted](https://img.shields.io/badge/Deploy-Self--hosted-27ae60?style=for-the-badge&logo=homeassistant&logoColor=white)
+![Ephemeral sharing](https://img.shields.io/badge/Sharing-Ephemeral-8e44ad?style=for-the-badge&logo=clockify&logoColor=white)
+![Docker](https://img.shields.io/badge/Deploy-Docker-2496ed?style=for-the-badge&logo=docker&logoColor=white)
+![S3 compatible](https://img.shields.io/badge/Storage-S3--compatible-16a085?style=for-the-badge&logo=amazons3&logoColor=white)
 
 </div>
 
