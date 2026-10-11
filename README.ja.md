@@ -51,7 +51,7 @@ Tessera は、恒久的な共有リンクを残さずにファイルやテキス
 恒久的なリンクを残すのではなく、必要な間だけコンテンツを受け渡します。
 
 <p align="center">
-  <img src="docs/images/sharing-lifecycle.svg" alt="Tessera sharing lifecycle" width="100%" />
+  <img src="docs/images/sharing-lifecycle.ja.svg" alt="Tessera 共有フロー" width="100%" />
 </p>
 
 
@@ -88,7 +88,7 @@ pnpm server:dev
 ## 🧱 アーキテクチャ
 
 <p align="center">
-  <img src="docs/images/architecture.svg" alt="Tessera system architecture" width="100%" />
+  <img src="docs/images/architecture.ja.svg" alt="Tessera システム構成" width="100%" />
 </p>
 
 業務ロジックはすべてバックエンドが担当します。クライアントは API 経由でサーバーと通信するため、連携ツール側でサーバーのルールを再実装する必要はありません。
