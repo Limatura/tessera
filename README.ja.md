@@ -74,24 +74,37 @@ pnpm server:dev
 
 ## 🧱 アーキテクチャ
 
-```text
-                    ┌─────────────────────────────┐
-                    │          クライアント       │
-                    │   Web · TUI · ブラウザー拡張 │
-                    └──────────────┬──────────────┘
-                                   │ HTTP API
-                    ┌──────────────▼──────────────┐
-                    │       tessera-server        │
-                    │   Rust · API · 認証 · 管理  │
-                    │          内蔵 SPA           │
-                    └─────────┬──────────┬────────┘
-                              │          │
-                    ┌─────────▼───┐  ┌───▼────────────┐
-                    │ SQL データベース│ │   ファイル保存 │
-                    │ SQLite /    │  │ ローカル / S3 / │
-                    │ PostgreSQL /│  │ Azure / WebDAV  │
-                    │ MySQL       │  │                │
-                    └─────────────┘  └────────────────┘
+```mermaid
+flowchart TB
+    subgraph Clients["クライアント"]
+        WEB["Web UI"]
+        TUI["ターミナル TUI"]
+        EXT["ブラウザー拡張機能"]
+    end
+
+    subgraph App["TESSERA · RUST サーバー"]
+        API["HTTP API · 認証 · ビジネスロジック"]
+        SPA["組み込み React SPA"]
+    end
+
+    subgraph Data["データ永続化"]
+        DB[("SQLite · PostgreSQL · MySQL")]
+        STORE[("ローカル · S3 互換 · Azure · WebDAV")]
+    end
+
+    WEB --> API
+    TUI --> API
+    EXT --> API
+    API --- SPA
+    API --> DB
+    API --> STORE
+
+    classDef client fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
+    classDef server fill:#0a0605,stroke:#d94f2b,color:#f5efe9,stroke-width:2px
+    classDef data fill:#f5efe9,stroke:#8e44ad,color:#0a0605,stroke-width:2px
+    class WEB,TUI,EXT client
+    class API,SPA server
+    class DB,STORE data
 ```
 
 業務ロジックはすべてバックエンドが担当します。クライアントは API 経由でサーバーと通信するため、連携ツール側でサーバーのルールを再実装する必要はありません。
