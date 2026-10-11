@@ -24,6 +24,9 @@
   <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
 </p>
 
+
+<p align="center"><a href="#-クイックスタート">🚀 クイックスタート</a> · <a href="#-アーキテクチャ">🧱 アーキテクチャ</a> · <a href="#-対応ストレージ">📦 ストレージ</a> · <a href="apps/fumadocs">📚 ドキュメント</a></p>
+
 ---
 
 Tessera は、恒久的な共有リンクを残さずにファイルやテキストを受け渡したい人のための**匿名ファイル・テキスト共有サービス**です。
@@ -41,6 +44,32 @@ Tessera は、恒久的な共有リンクを残さずにファイルやテキス
 | 🛠️ **管理画面** | `/admin` からインスタンス設定とストレージバックエンドを管理できます。 |
 | 🪶 **単一ファイルでデプロイ** | フロントエンドは Rust サーバーに組み込まれ、別途 Node.js runtime やリバースプロキシを必要としません。 |
 | 📜 **API 契約を重視** | OpenAPI はサーバーの handler から生成され、CI で同期状態が確認されます。 |
+
+
+## 🔄 共有の流れ：アップロードから期限切れまで
+
+恒久的なリンクを残すのではなく、必要な間だけコンテンツを受け渡します。
+
+```mermaid
+flowchart TD
+    A(["📤 ファイルまたはメモをアップロード"]) --> B["⚙️ 有効期限と受け取り回数を設定"]
+    B --> C["🔑 受け取りコードを取得"]
+    C --> D["📨 コードを共有"]
+    D --> E{"受信者は取得できる？"}
+    E -->|はい| F["📥 コンテンツを取得"]
+    E -->|いいえ| G["🚫 期限切れまたは上限到達"]
+    F --> H{"期限切れまたは上限到達？"}
+    H -->|まだ| D
+    H -->|はい| G
+
+    classDef action fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
+    classDef decision fill:#fff3cd,stroke:#f39c12,color:#0a0605,stroke-width:2px
+    classDef done fill:#e8daef,stroke:#8e44ad,color:#0a0605,stroke-width:2px
+    class A,B,C,D,F action
+    class E,H decision
+    class G done
+```
+
 
 ## 🚀 クイックスタート
 
