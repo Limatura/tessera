@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
+<title id="title">Tessera 共有フロー</title><desc id="desc">コンテンツをアップロードし、有効期限と取得回数を設定。コードを共有し、受信者が取得すると、期限切れまたは回数上限到達時にコンテンツは失効します。</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17100e"/><stop offset="1" stop-color="#0a0605"/></linearGradient>
+  <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#d94f2b"/></marker>
+  <style>.eyebrow{font:700 13px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:3px;fill:#d94f2b}.title{font:800 27px ui-sans-serif,system-ui,sans-serif;fill:#f5efe9}.desc{font:500 14px ui-sans-serif,system-ui,sans-serif;fill:#bfb2aa}.step{font:700 11px ui-monospace,monospace;letter-spacing:1.5px;fill:#d94f2b}.label{font:700 17px ui-sans-serif,system-ui,sans-serif;fill:#f5efe9}.small{font:500 12px ui-sans-serif,system-ui,sans-serif;fill:#bfb2aa}</style>
+</defs>
+<rect width="1200" height="430" rx="24" fill="url(#bg)"/><circle cx="1090" cy="60" r="140" fill="#d94f2b" opacity=".06"/>
+<text x="52" y="51" class="eyebrow">TESSERA / 共有フロー</text><text x="52" y="91" class="title">共有には、最初から終わりがある。</text><text x="52" y="119" class="desc">永久リンクの管理は不要。必要なのはコード、受信者、明確な制限だけ。</text>
+<g fill="none" stroke="#d94f2b" stroke-width="2.5" marker-end="url(#arrow)">
+<path d="M206 228 H237"/><path d="M392 228 H423"/><path d="M578 228 H609"/><path d="M764 228 H795"/><path d="M950 228 H981"/>
+</g>
+<g>
+  <rect x="52" y="163" width="154" height="130" rx="15" fill="#211714" stroke="#513026" stroke-width="1.5"/><circle cx="82" cy="194" r="17" fill="#d94f2b"/><text x="82" y="200" text-anchor="middle" font-size="17" fill="#fff">↑</text><text x="72" y="237" class="step">01 / 送信</text><text x="72" y="261" class="label">アップロード</text><text x="72" y="281" class="small">ファイルまたはメモ</text>
+  <rect x="238" y="163" width="154" height="130" rx="15" fill="#211714" stroke="#513026" stroke-width="1.5"/><circle cx="268" cy="194" r="17" fill="#f39c12"/><text x="268" y="200" text-anchor="middle" font-size="17" fill="#0a0605">◷</text><text x="258" y="237" class="step">02 / 制限</text><text x="258" y="261" class="label">ルール設定</text><text x="258" y="281" class="small">有効期限と取得回数</text>
+  <rect x="424" y="163" width="154" height="130" rx="15" fill="#211714" stroke="#513026" stroke-width="1.5"/><circle cx="454" cy="194" r="17" fill="#8e44ad"/><text x="454" y="200" text-anchor="middle" font-size="17" fill="#fff">#</text><text x="444" y="237" class="step">03 / コード</text><text x="444" y="261" class="label">コードを取得</text><text x="444" y="281" class="small">短い受け取りコード</text>
+  <rect x="610" y="163" width="154" height="130" rx="15" fill="#211714" stroke="#513026" stroke-width="1.5"/><circle cx="640" cy="194" r="17" fill="#16a085"/><text x="640" y="200" text-anchor="middle" font-size="17" fill="#fff">↗</text><text x="630" y="237" class="step">04 / 共有</text><text x="630" y="261" class="label">コードを共有</text><text x="630" y="281" class="small">別の手段で送信</text>
+  <rect x="796" y="163" width="154" height="130" rx="15" fill="#211714" stroke="#513026" stroke-width="1.5"/><circle cx="826" cy="194" r="17" fill="#3498db"/><text x="826" y="200" text-anchor="middle" font-size="17" fill="#fff">↓</text><text x="816" y="237" class="step">05 / 受信</text><text x="816" y="261" class="label">コンテンツ取得</text><text x="816" y="281" class="small">受信者が取得</text>
+  <rect x="982" y="163" width="166" height="130" rx="15" fill="#f5efe9"/><circle cx="1012" cy="194" r="17" fill="#d94f2b"/><text x="1012" y="200" text-anchor="middle" font-size="17" fill="#fff">✓</text><text x="1002" y="237" font-family="ui-monospace,monospace" font-size="11" font-weight="700" letter-spacing="1.5" fill="#d94f2b">06 / 失効</text><text x="1002" y="261" font-family="ui-sans-serif,system-ui,sans-serif" font-size="17" font-weight="700" fill="#0a0605">自動削除</text><text x="1002" y="281" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#62534c">期限切れ・回数上限</text>
+</g>
+<path d="M1050 307 V340 H316 V307" fill="none" stroke="#d94f2b" stroke-opacity=".5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<text x="600" y="369" text-anchor="middle" font-family="ui-monospace,monospace" font-size="12" letter-spacing="2" fill="#d94f2b">短期間だけの共有設計</text>
+<text x="600" y="397" text-anchor="middle" class="desc">コンテンツは永久 URL ではなく、有効期限と取得回数によって管理されます。</text>
+</svg>
