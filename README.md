@@ -153,12 +153,10 @@ packages/
 ├── i18n/         Shared localization utilities
 └── ui/           Shared UI components and styles
 crates/
-├── tessera-core/  Framework-independent domain rules
+├── tessera-core/   Framework-independent domain rules
 └── tessera-crypto/ End-to-end encryption format shared by Rust and browser
 openapi.json      Generated API contract
 ```
-
-The Rust workspace separates domain rules and cryptography from the HTTP and persistence layers. The OpenAPI document is generated from server handlers; **do not edit it by hand**.
 ## 🧑‍💻 Development
 
 ```bash
