@@ -16,7 +16,7 @@
   <rect x="435" y="151" width="330" height="94" rx="15" class="node"/><rect x="451" y="168" width="38" height="38" rx="10" fill="#f5efe9"/><text x="470" y="193" text-anchor="middle" font-size="19" fill="#0a0605">$_</text><text x="505" y="184" class="heading" font-size="18">ターミナルクライアント</text><text x="505" y="208" class="sub">高速で自動化しやすい操作</text>
   <rect x="816" y="151" width="330" height="94" rx="15" class="node"/><rect x="832" y="168" width="38" height="38" rx="10" fill="#8e44ad"/><text x="851" y="193" text-anchor="middle" font-size="20" fill="#fff">⌘</text><text x="886" y="184" class="heading" font-size="18">ブラウザー拡張機能</text><text x="886" y="208" class="sub">ブラウザーから直接共有</text>
 </g>
-<path d="M219 245 V281 H600 V315 M600 281 H600 M600 281 H600" class="line"/><path d="M600 245 V315" class="line"/><path d="M981 245 V281 H600" fill="none" stroke="#d94f2b" stroke-width="2.5"/>
+<path d="M219 245 V278 H300 V315" class="line"/><path d="M600 245 V315" class="line"/><path d="M981 245 V278 H900 V315" class="line"/>
 <text x="54" y="305" class="tag">02 — アプリケーションコア</text>
 <g filter="url(#shadow)">
   <rect x="54" y="326" width="1092" height="132" rx="18" fill="url(#server)"/>
