@@ -16,6 +16,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Limatura/tessera?style=flat-square&label=license&color=e74c3c&logo=gnu&logoColor=white" alt="License: AGPL-3.0" /></a>
   <a href="https://github.com/Limatura/tessera/stargazers"><img src="https://img.shields.io/github/stars/Limatura/tessera?style=flat-square&color=f1c40f&logo=github&label=stars" alt="GitHub stars" /></a>
   <a href="https://github.com/Limatura/tessera/network/members"><img src="https://img.shields.io/github/forks/Limatura/tessera?style=flat-square&color=8e44ad&logo=github&label=forks" alt="GitHub forks" /></a>
+  <img src="https://img.shields.io/badge/frontend-React-61DAFB?style=flat-square&logo=react&logoColor=20232A" alt="Frontend: React" />
+  <img src="https://img.shields.io/badge/routing-TanStack%20Router-ff4154?style=flat-square&logo=reactrouter&logoColor=white" alt="Routing: TanStack Router" />
   <img src="https://img.shields.io/badge/backend-Rust-f39c12?style=flat-square&logo=rust&logoColor=white" alt="Backend: Rust" />
   <img src="https://img.shields.io/badge/deploy-self--hosted-27ae60?style=flat-square&logo=docker&logoColor=white" alt="Self-hosted" />
   <img src="https://img.shields.io/badge/sharing-ephemeral-8e44ad?style=flat-square&logo=clockify&logoColor=white" alt="Ephemeral sharing" />
