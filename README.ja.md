@@ -50,25 +50,9 @@ Tessera は、恒久的な共有リンクを残さずにファイルやテキス
 
 恒久的なリンクを残すのではなく、必要な間だけコンテンツを受け渡します。
 
-```mermaid
-flowchart TD
-    A(["📤 ファイルまたはメモをアップロード"]) --> B["⚙️ 有効期限と受け取り回数を設定"]
-    B --> C["🔑 受け取りコードを取得"]
-    C --> D["📨 コードを共有"]
-    D --> E{"受信者は取得できる？"}
-    E -->|はい| F["📥 コンテンツを取得"]
-    E -->|いいえ| G["🚫 期限切れまたは上限到達"]
-    F --> H{"期限切れまたは上限到達？"}
-    H -->|まだ| D
-    H -->|はい| G
-
-    classDef action fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
-    classDef decision fill:#fff3cd,stroke:#f39c12,color:#0a0605,stroke-width:2px
-    classDef done fill:#e8daef,stroke:#8e44ad,color:#0a0605,stroke-width:2px
-    class A,B,C,D,F action
-    class E,H decision
-    class G done
-```
+<p align="center">
+  <img src="docs/images/sharing-lifecycle.svg" alt="Tessera sharing lifecycle" width="100%" />
+</p>
 
 
 ## 🚀 クイックスタート
@@ -103,41 +87,11 @@ pnpm server:dev
 
 ## 🧱 アーキテクチャ
 
-```mermaid
-flowchart TB
-    subgraph Clients["クライアント"]
-        WEB["Web UI"]
-        TUI["ターミナル TUI"]
-        EXT["ブラウザー拡張機能"]
-    end
-
-    subgraph App["TESSERA · RUST サーバー"]
-        API["HTTP API · 認証 · ビジネスロジック"]
-        SPA["組み込み React SPA"]
-    end
-
-    subgraph Data["データ永続化"]
-        DB[("SQLite · PostgreSQL · MySQL")]
-        STORE[("ローカル · S3 互換 · Azure · WebDAV")]
-    end
-
-    WEB --> API
-    TUI --> API
-    EXT --> API
-    API --- SPA
-    API --> DB
-    API --> STORE
-
-    classDef client fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
-    classDef server fill:#0a0605,stroke:#d94f2b,color:#f5efe9,stroke-width:2px
-    classDef data fill:#f5efe9,stroke:#8e44ad,color:#0a0605,stroke-width:2px
-    class WEB,TUI,EXT client
-    class API,SPA server
-    class DB,STORE data
-```
+<p align="center">
+  <img src="docs/images/architecture.svg" alt="Tessera system architecture" width="100%" />
+</p>
 
 業務ロジックはすべてバックエンドが担当します。クライアントは API 経由でサーバーと通信するため、連携ツール側でサーバーのルールを再実装する必要はありません。
-
 ## 🗄️ 対応ストレージ
 
 Tessera は標準でローカルの `blobs` ディレクトリを使用します。管理画面または CLI から、実行中にバックエンドを追加することもできます。
