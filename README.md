@@ -74,24 +74,37 @@ Then visit **http://127.0.0.1:8787**.
 
 ## 🧱 How it fits together
 
-```text
-                    ┌─────────────────────────────┐
-                    │         Clients             │
-                    │  Web · TUI · Extension      │
-                    └──────────────┬──────────────┘
-                                   │ HTTP API
-                    ┌──────────────▼──────────────┐
-                    │       tessera-server        │
-                    │  Rust · API · Auth · Admin  │
-                    │      Embedded Web SPA       │
-                    └─────────┬──────────┬────────┘
-                              │          │
-                    ┌─────────▼───┐  ┌───▼────────────┐
-                    │ SQL database│  │ Payload storage│
-                    │ SQLite /    │  │ Local / S3 /   │
-                    │ PostgreSQL /│  │ Azure / WebDAV │
-                    │ MySQL       │  │                │
-                    └─────────────┘  └────────────────┘
+```mermaid
+flowchart TB
+    subgraph Clients["CLIENTS"]
+        WEB["Web UI"]
+        TUI["Terminal UI"]
+        EXT["Browser Extension"]
+    end
+
+    subgraph App["TESSERA · RUST SERVER"]
+        API["HTTP API · Auth · Business Logic"]
+        SPA["Embedded React SPA"]
+    end
+
+    subgraph Data["PERSISTENCE"]
+        DB[("SQLite · PostgreSQL · MySQL")]
+        STORE[("Local · S3-compatible · Azure · WebDAV")]
+    end
+
+    WEB --> API
+    TUI --> API
+    EXT --> API
+    API --- SPA
+    API --> DB
+    API --> STORE
+
+    classDef client fill:#f5efe9,stroke:#d94f2b,color:#0a0605,stroke-width:2px
+    classDef server fill:#0a0605,stroke:#d94f2b,color:#f5efe9,stroke-width:2px
+    classDef data fill:#f5efe9,stroke:#8e44ad,color:#0a0605,stroke-width:2px
+    class WEB,TUI,EXT client
+    class API,SPA server
+    class DB,STORE data
 ```
 
 The server owns the business logic. Clients communicate with it through the API, so integrations do not need to reimplement server-side rules.
