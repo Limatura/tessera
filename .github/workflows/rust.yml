@@ -4,7 +4,7 @@ name: rust
 on:
   push:
     branches: [main]
-    paths: &rust-paths
+    paths:
       - "apps/server/**"
       - "apps/cli/**"
       - "apps/dev/**"
@@ -36,8 +36,12 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+  # Every pull request, not only ones touching these paths: `docker image`,
+  # `workflow lint` and `checks` are required by the branch ruleset, and a
+  # workflow that never starts never reports them, which blocks the merge.
+  # The `changes` job below skips what a change cannot affect, and a skipped
+  # job satisfies a required check.
   pull_request:
-    paths: *rust-paths
   workflow_dispatch:
 
 concurrency:
