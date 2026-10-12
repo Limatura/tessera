@@ -80,8 +80,8 @@
 //! `share.inline_threshold_bytes` is declined with `413` instead of started
 //! and failed halfway. Not WebDAV's limit: a chunked `PUT` of any size works
 //! fine against a real server. It is `apache/arrow-rs-object-store#281`, with
-//! work in progress in #817; when that lands and reaches the HTTP store, the
-//! placer stops declining.
+//! work in progress in `apache/arrow-rs-object-store#817`; when that lands and
+//! reaches the HTTP store, the placer stops declining.
 //!
 //! Two things are easy to lose an afternoon to. Plain HTTP needs
 //! `allow_http=true`, the same thing `AWS_ALLOW_HTTP` says for S3, and it cannot
@@ -160,7 +160,7 @@
 //! be the *same* size: R2's own rule, not S3's, and nothing
 //! self-hostable enforces it. `config.rs` records it, the opt-in real-provider
 //! step is the only thing that can confirm it, and until that is pointed at an
-//! R2 bucket it rests on Cloudflare's documentation. See #148.
+//! R2 bucket it rests on Cloudflare's documentation.
 //!
 //! # Why there are more stores than there are opinions
 //!

@@ -13,11 +13,10 @@ CREATE TABLE users (
     username      TEXT    NOT NULL,
     email         TEXT    NOT NULL,
     must_change_password INTEGER NOT NULL DEFAULT 0,
-    -- TEXT rather than INTEGER: sqlx encodes an `OffsetDateTime` as RFC 3339
-    -- text for SQLite, and a column declared INTEGER would take it anyway
-    -- (SQLite types are advisory) while making every `psql`-equivalent session
-    -- lie about what is stored. Always UTC and always the same width, so
-    -- lexicographic ordering matches chronological ordering.
+    -- TEXT, not INTEGER: sqlx encodes an `OffsetDateTime` as RFC 3339 text for
+    -- SQLite, and a column declared INTEGER would accept it anyway (SQLite types
+    -- are advisory) while misrepresenting what is stored. Always UTC and always
+    -- the same width, so lexicographic order matches chronological order.
     email_verified_at    TEXT,
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL

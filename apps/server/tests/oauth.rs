@@ -396,7 +396,6 @@ async fn a_github_session_records_github() {
     assert!(!user_id.is_null());
 }
 
-/// Which account a cookie belongs to.
 /// Walks the redirect out with a query, and reads the `state` it carried.
 async fn leave_with(app: &TestApp, query: &str) -> String {
     let response = app
@@ -444,9 +443,9 @@ async fn session_of(app: &TestApp, cookie: &str) -> serde_json::Value {
     .await
 }
 
-/// An account made through GitHub has no password to confirm a change with.
-/// It confirms by having just signed in; after that, it is asked to sign in
-/// again, and comes back to the page it left.
+/// An account created through GitHub has no password to confirm changes with.
+/// It confirms by having just signed in; after that it is asked to sign in
+/// again, and returns to the page it left.
 #[tokio::test]
 async fn an_account_without_a_password_confirms_by_signing_in_again() {
     let github = FakeOauth::start().await;
@@ -487,7 +486,7 @@ async fn an_account_without_a_password_confirms_by_signing_in_again() {
     )
     .await;
 
-    // Too long ago: every confirming act asks for a fresh sign-in.
+    // Too long ago: every confirming action asks for a fresh sign-in.
     signed_in_ago(&app, 11).await;
     for (method, path, body) in [
         (
@@ -512,8 +511,8 @@ async fn an_account_without_a_password_confirms_by_signing_in_again() {
         .await;
         assert_eq!(refused["code"], "reauthentication_required", "{path}");
     }
-    // Linking another provider is a browser navigation, so it says so in the
-    // redirect instead.
+    // Linking another provider is a browser navigation, so the refusal comes
+    // as a redirect instead.
     let link = app
         .empty(
             Method::GET,
@@ -528,7 +527,7 @@ async fn an_account_without_a_password_confirms_by_signing_in_again() {
     assert_eq!(location(&again), "/user");
     let fresh = session_cookie(&again);
 
-    // And sets a first password with nothing to confirm but that sign-in.
+    // And it sets a first password with nothing to confirm but that sign-in.
     expect_status(
         app.json(
             Method::PATCH,
@@ -580,8 +579,8 @@ async fn an_account_without_a_password_can_remove_itself() {
     .await;
 }
 
-/// Only a path on this site is a place to come back to. Anything a browser
-/// would resolve against another host lands on the home page instead.
+/// Only a path on this site is a valid return target. Anything a browser would
+/// resolve against another host lands on the home page instead.
 #[tokio::test]
 async fn a_return_path_off_this_site_is_ignored() {
     let github = FakeOauth::start().await;
@@ -601,6 +600,7 @@ async fn a_return_path_off_this_site_is_ignored() {
     }
 }
 
+/// Which account a cookie belongs to.
 async fn id_of(app: &TestApp, cookie: &str) -> serde_json::Value {
     let body = common::body_json(
         expect_status(

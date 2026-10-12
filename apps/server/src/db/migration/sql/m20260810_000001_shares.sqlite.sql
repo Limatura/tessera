@@ -1,39 +1,38 @@
--- Shares: the thing this service exists to hand out.
+-- Shares: what this service exists to hand out.
 --
 -- # Why two tables
 --
 -- The access gate runs on every public request and needs six small columns:
 -- `code`, `password_hash`, `use_limit`, `use_count`, `expires_at`, `disabled_at`.
--- The content bytes are only needed when something is actually being sent.
+-- The content bytes are only needed when something is actually sent.
 --
--- Keeping them in one table would mean `SELECT code, expires_at FROM shares`
--- pulls pages holding 64 KiB blobs into memory. So the split is by *size and
--- access frequency*, not by kind: `shares` stays narrow and hot,
--- `share_contents` is read only by `/raw` and `/download`.
+-- In one table, `SELECT code, expires_at FROM shares` would pull pages holding
+-- 64 KiB blobs into memory. So the split is by *size and access frequency*,
+-- not by kind: `shares` stays narrow and hot, and `share_contents` is read only
+-- by `/raw` and `/download`.
 --
 -- By the same rule, `filename` and `language` stay here even though each is
 -- meaningless for one of the two kinds. They are small, and the metadata
--- endpoint returns both kinds — a separate table per kind would buy tidiness and
--- cost a join on the common path.
+-- endpoint returns both kinds; a table per kind would buy tidiness at the cost
+-- of a join on the common path.
 CREATE TABLE IF NOT EXISTS shares (
     id             TEXT    NOT NULL PRIMARY KEY,
     -- The public retrieval code, as it appears in `/s/{code}`. Separate from the
     -- primary key so it can be rotated without rewriting foreign keys, and so
     -- inserts keep the locality a ULID primary key gives us.
     code           TEXT    NOT NULL UNIQUE,
-    -- NULL for an anonymous upload. `ON DELETE SET NULL` rather than CASCADE:
-    -- what happens to a departing account's shares is still undecided, and
-    -- orphaning a row is recoverable where deleting it is not. Deleting here
-    -- would also strand the objects, since no database action reaches the blob
-    -- store.
+    -- NULL for an anonymous upload. `ON DELETE SET NULL`, not CASCADE: what
+    -- happens to a departing account's shares is not decided yet, and orphaning a
+    -- row is recoverable while deleting it is not. Deleting would also strand the
+    -- objects, since no database action reaches the blob store.
     user_id        TEXT    REFERENCES users (id) ON DELETE SET NULL,
     kind           TEXT    NOT NULL,
 
     -- Everything the access gate reads.
     password_hash  TEXT,
-    -- NULL means unlimited. A count plus a limit rather than a countdown: a
-    -- countdown throws away how many times something was actually fetched, and
-    -- that number cannot be reconstructed afterwards.
+    -- NULL means unlimited. A count plus a limit instead of a countdown: a
+    -- countdown discards how many times something was actually fetched, and that
+    -- number cannot be reconstructed later.
     use_limit      INTEGER,
     use_count      INTEGER NOT NULL DEFAULT 0,
     expires_at     TEXT,
@@ -48,9 +47,9 @@ CREATE TABLE IF NOT EXISTS shares (
     language       TEXT,
     size_bytes     INTEGER NOT NULL,
 
-    -- Where the bytes live. `object_key` is stored rather than derived from the
-    -- id and date: storing it means the layout can change later without moving a
-    -- single byte, because old rows keep the key they were written with.
+    -- Where the bytes live. `object_key` is stored, not derived from the id and
+    -- date, so the layout can change later without moving a byte: old rows keep
+    -- the key they were written with.
     storage        TEXT    NOT NULL,
     object_key     TEXT,
 

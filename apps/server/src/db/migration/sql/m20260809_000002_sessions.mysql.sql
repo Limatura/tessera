@@ -1,8 +1,8 @@
 -- MySQL/MariaDB mirror of m20260809_000002_sessions.sqlite.sql.
 --
--- Fixed widths rather than TEXT: both `id` and `secret_hash` are indexed, and
--- MySQL cannot index TEXT without a prefix length. A ULID is 26 characters and a
--- SHA-256 digest in hex is 64, so both are exact.
+-- Fixed widths instead of TEXT: both `id` and `secret_hash` are indexed, and
+-- MySQL cannot index TEXT without a prefix length. A ULID is 26 characters and
+-- a hex SHA-256 digest is 64, so both are exact.
 CREATE TABLE IF NOT EXISTS sessions (
     id           CHAR(26)  NOT NULL PRIMARY KEY,
     user_id      CHAR(26)  NOT NULL,

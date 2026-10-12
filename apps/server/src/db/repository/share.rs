@@ -388,11 +388,11 @@ impl Content {
         }
     }
 
-    /// Whether the content has been removed, by the sweep after the share
-    /// expired or ran out.
+    /// Whether the sweep has removed the content after the share expired or
+    /// ran out.
     ///
-    /// A file share keeps its rows with their storage marked gone; a note's row
-    /// is deleted. Either way nothing can be handed out again.
+    /// A file share keeps its rows with storage marked gone; a note's row is
+    /// deleted. Either way nothing can be served again.
     #[must_use]
     pub fn is_removed(&self) -> bool {
         match self {
@@ -740,12 +740,12 @@ impl Share {
         }
     }
 
-    /// When this share ended, in the sense the sweep uses to decide when its
-    /// row goes; `None` while it has not.
+    /// When this share ended, as the sweep defines it for deciding when the row
+    /// goes; `None` if it has not.
     ///
     /// The same two rules as `ShareRepository::dead_before`: past its expiry,
-    /// or out of uses since its last retrieval. Switched off is not on its
-    /// own an ending; such a share is swept once it also expires.
+    /// or out of uses since its last retrieval. Being disabled is not an ending
+    /// by itself; such a share is swept once it also expires.
     #[must_use]
     pub fn died_at(&self, now: OffsetDateTime) -> Option<OffsetDateTime> {
         let expired = self.expires_at.filter(|at| *at <= now);
@@ -1492,21 +1492,21 @@ impl ShareRepository {
         Ok(result.rows_affected > 0)
     }
 
-    /// Rewrites the settings a share can be changed after the fact.
+    /// Rewrites the share settings that can be changed after creation.
     ///
-    /// One statement, and only the columns the caller named. A
-    /// read-modify-write would let two people editing the same share each undo
-    /// the other's field without either seeing a conflict.
+    /// One statement, touching only the columns the caller named. A
+    /// read-modify-write would let two people editing the same share undo each
+    /// other's fields without either seeing a conflict.
     ///
     /// Returns whether a row matched, so a caller can tell "changed nothing"
     /// from "no such share".
     ///
     /// # `uses_left`
     ///
-    /// How many more retrievals from now, not a new total. Written as
-    /// `use_count + uses_left` inside the same statement, so a retrieval landing
+    /// Retrievals remaining from now, not a new total. Written as
+    /// `use_count + uses_left` in the same statement, so a retrieval landing
     /// between the owner reading the count and saving cannot use up the share
-    /// on the spot. A total would: switching on burn-after-reading as `1` for a
+    /// on the spot. A total could: enabling burn-after-reading as `1` on a
     /// share already opened once retired it before anyone else saw it, and the
     /// sweep then removed its content.
     ///
@@ -1534,9 +1534,9 @@ impl ShareRepository {
             }
             Change::Set(Some(left)) => {
                 let left = i32::try_from(left).unwrap_or(i32::MAX);
-                // Capped at what the column holds, in SQL every dialect reads
-                // the same way, rather than overflowing for a share already
-                // retrieved close to two billion times.
+                // Capped at the column's maximum, in SQL every dialect reads
+                // the same way, instead of overflowing for a share retrieved
+                // close to two billion times.
                 update = update.col_expr(
                     share::Column::UseLimit,
                     Expr::case(
@@ -1945,10 +1945,10 @@ impl ShareRepository {
         Ok((count, u64::try_from(bytes.unwrap_or(0)).unwrap_or(0)))
     }
 
-    /// A share is dead when it has run out of time, or out of uses and has not
-    /// been touched since. Written once so the sweep and the count that warns
-    /// about it cannot describe different sets. [`Share::died_at`] says the
-    /// same thing about one share, for a screen that wants the date.
+    /// A share is dead when it has run out of time, or out of uses and not been
+    /// touched since. Defined once so the sweep and the count that warns about
+    /// it cannot disagree. [`Share::died_at`] gives the same answer for one
+    /// share, for a screen that wants the date.
     fn dead_before(cutoff: OffsetDateTime) -> sea_orm::Condition {
         use sea_orm::Condition;
         let expired = share::Column::ExpiresAt

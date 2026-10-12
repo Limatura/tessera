@@ -2,12 +2,12 @@
 --
 -- Differences that are not stylistic:
 --   * `TEXT` cannot be indexed without a prefix length, and both `username` and
---     `email` need a UNIQUE index — so they are VARCHAR. 191 is the largest
+--     `email` need a UNIQUE index, so they are VARCHAR. 191 is the largest
 --     utf8mb4 column that fits the 767-byte index limit on older InnoDB builds,
 --     which homelab installs still run.
 --   * `id` is 26 characters (a ULID), so CHAR(26) is exact and fixed-width.
 --   * MySQL has no `CREATE INDEX IF NOT EXISTS`. It is not needed: the migrator
---     records what it has applied, so no migration runs twice. The clause is kept
+--     records what it has applied, so no migration runs twice. The clause stays
 --     on the other dialects only because it costs nothing there.
 CREATE TABLE IF NOT EXISTS users (
     id            CHAR(26)     NOT NULL PRIMARY KEY,

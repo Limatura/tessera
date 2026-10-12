@@ -1,7 +1,7 @@
 -- See the SQLite file.
 --
--- The `DELETE` is written as a join rather than a subquery on `users`: MySQL
--- refuses to read the table it is updating through one.
+-- The `DELETE` uses a join instead of a subquery on `users`: MySQL refuses to
+-- read the table it is updating through one.
 DROP TABLE IF EXISTS oidc_flows;
 DROP TABLE IF EXISTS identities;
 

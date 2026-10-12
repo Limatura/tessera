@@ -1,9 +1,9 @@
 //! The SPA and its fallback routing.
 //!
-//! The bundle is compiled into the binary by `rust-embed` (see `build.rs` for how
-//! the directory is populated), so a deployment is one file with no web server in
-//! front of it. The admin panel is part of the same SPA, a client-side route
-//! under `/admin/`, so it gets the same fallback and the same spliced-in colours.
+//! The bundle is compiled into the binary by `rust-embed` (see `build.rs` for
+//! how the directory is populated), so a deployment is one file with no web
+//! server in front. The admin panel is part of the same SPA, a client-side
+//! route under `/admin/`, so it gets the same fallback and spliced-in colours.
 //!
 //! `server.assets_dir` reads from a directory instead. A development
 //! convenience, and the only mode with a filesystem to get wrong; see `load`

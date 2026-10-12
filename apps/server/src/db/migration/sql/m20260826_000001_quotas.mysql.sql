@@ -3,33 +3,33 @@
 -- # Three layers, and why
 --
 -- `storage.max_total_bytes` is one number for the whole instance, so the only
--- way to give one person more room was to give everybody more. A role covers
--- the ordinary case — members get this much, guests get that much — and an
--- account-level value covers the one person who needs different treatment
--- without inventing a role just for them.
+-- way to give one account more room was to give everyone more. A role covers
+-- the usual case (members get this much, guests that much), and a per-account
+-- value covers the one user who needs different treatment without a role
+-- invented just for them.
 --
--- Resolved highest-first: the account's own value, then its role's, then the
--- instance ceiling.
+-- Resolved most specific first: the account's own value, then its role's,
+-- then the instance limit.
 --
 -- # NULL is not zero
 --
--- NULL means "not set here, ask the next layer down". Zero means "no ceiling",
--- which is what `storage.max_total_bytes` has always meant and what the panel
--- shows. Without the distinction, an account set to 0 could not be told from
--- one nobody has set, and the two are opposite instructions.
+-- NULL means "not set here, ask the next layer". Zero means "no limit", which
+-- is what `storage.max_total_bytes` has always meant and what the panel shows.
+-- Without the distinction, an account set to 0 would be indistinguishable
+-- from one never set, and they are opposite instructions.
 --
--- # Why `uploads` gains a role too
+-- # Why `uploads` gets a role too
 --
--- An upload in flight reserves its declared size against a quota, and which
--- quota depends on who is uploading. Summing every open session would charge a
--- member for room a guest is holding. The column mirrors `shares.role_id` and
--- is written at session creation for the same reason: it is the role at the
--- time, not a pointer to whatever the account is in now.
+-- An upload in progress reserves its declared size against a quota, and which
+-- quota depends on the uploader. Summing every open session would charge a
+-- member for space a guest is holding. The column mirrors `shares.role_id` and
+-- is written at session creation for the same reason: it is the role at that
+-- time, not a pointer to the account's current role.
 --
 -- # Why this dialect looks different
 --
--- `VARCHAR(191)` for the indexed role, and the foreign key is table-level
--- because `InnoDB` silently ignores a `REFERENCES` written on a column.
+-- `VARCHAR(191)` for the indexed role, and a table-level foreign key because
+-- `InnoDB` silently ignores a `REFERENCES` on a column.
 ALTER TABLE roles ADD COLUMN quota_bytes BIGINT;
 ALTER TABLE users ADD COLUMN quota_bytes BIGINT;
 ALTER TABLE uploads ADD COLUMN role_id VARCHAR(191);

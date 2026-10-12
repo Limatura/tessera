@@ -1,7 +1,7 @@
 -- MySQL/MariaDB mirror of m20260817_000001_text_shares.sqlite.sql.
 --
--- LONGBLOB rather than BLOB: the latter stops at 64 KiB, which is exactly the
--- size a text share is allowed to pass.
+-- LONGBLOB instead of BLOB: the latter stops at 64 KiB, which is exactly the
+-- size a text share may exceed.
 CREATE TABLE IF NOT EXISTS text_shares (
     share_id CHAR(26)     NOT NULL PRIMARY KEY,
     language VARCHAR(64),
