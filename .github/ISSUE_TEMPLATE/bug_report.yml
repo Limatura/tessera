@@ -1,0 +1,59 @@
+name: Bug report
+description: Something does not work the way it should.
+labels: [Bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English or Chinese are both fine. For a security problem, use the private report instead (see the links on the previous page).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Upload a 2 GB file with an expiry of one hour
+        2. Open the link in Safari
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The `version` and `build_rev` from `/health`, or the image tag.
+      placeholder: 0.1.0 (a1b2c3d4e5f6)
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How you run it
+      options:
+        - Docker
+        - Binary built from source
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Database and storage
+      placeholder: SQLite + local disk, PostgreSQL + MinIO, ...
+  - type: input
+    id: client
+    attributes:
+      label: Browser or client
+      placeholder: Firefox 131, Safari on iOS 18, the CLI, the extension, ...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server log
+      description: The lines around the failure. Remove anything private first.
+      render: text
