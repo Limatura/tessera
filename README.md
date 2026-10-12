@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
 </p>
 
-<p align="center"><a href="#-get-started">🚀 Quick start</a> · <a href="#-how-it-fits-together">🧱 Architecture</a> · <a href="#%EF%B8%8F-storage-options">📦 Storage</a> · <a href="apps/fumadocs">📚 Documentation</a></p>
+<p align="center"><a href="#-get-started">🚀 Quick start</a> · <a href="#-how-it-fits-together">🧱 Architecture</a> · <a href="#%EF%B8%8F-storage-options">📦 Storage</a> · <a href="https://github.com/Limatura/tessera-docs">📚 Documentation</a></p>
 
 ---
 
