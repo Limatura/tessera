@@ -935,7 +935,7 @@ fn harden(headers: &mut HeaderMap) {
     // Nothing here should be able to load anything, run anything, or be framed.
     headers.insert(
         header::CONTENT_SECURITY_POLICY,
-        HeaderValue::from_static("default-src 'none'; sandbox"),
+        HeaderValue::from_static("default-src 'none'; frame-ancestors 'none'; sandbox"),
     );
 }
 
