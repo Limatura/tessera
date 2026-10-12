@@ -15,13 +15,13 @@ CREATE TABLE file_segments (
     -- Which configured backend holds this segment.
     backend       TEXT      NOT NULL,
     object_key    TEXT      NOT NULL,
-    -- Where this segment starts within the whole file, and how long it is.
+    -- Where this segment starts within the file, and its length.
     offset_bytes  INTEGER    NOT NULL DEFAULT 0,
     length_bytes  INTEGER    NOT NULL,
     created_at    TEXT     NOT NULL,
-    -- Says the invariant rather than inventing an identifier for it: one
-    -- segment per position, and no way to write two. It is also the index the
-    -- reader needs, since every read is "this file, in order".
+    -- States the invariant instead of inventing an id for it: one segment per
+    -- position, and no way to write two. It is also the index the reader needs,
+    -- since every read is "this file, in order".
     PRIMARY KEY (file_id, seq)
 )
 ```

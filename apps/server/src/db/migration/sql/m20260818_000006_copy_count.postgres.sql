@@ -1,18 +1,16 @@
 -- Counts how many times a share's content was copied.
 --
--- # Why a second column and not a second table
+-- # Why a column and not a table
 --
--- Both of these are one integer per share that nothing else joins to, and the
--- question they answer is asked in the same breath as `use_count` — which is
--- already a column here. A table would buy the ability to hold events rather
--- than totals, and holding events means holding when and from where, which is
--- a different feature with a different privacy decision behind it.
+-- Both counters are one integer per share that nothing joins to, and they are
+-- read alongside `use_count`, which is already a column here. A table would
+-- allow events instead of totals, but events mean recording when and from
+-- where, which is a different feature with its own privacy decision.
 --
--- # Why `copy` and `view` are counted and `download` is not
+-- # Why `copy` and `view` are counted here and `download` is not
 --
--- `use_count` is a retrieval limit, so the server has to be the one counting
--- it — a client that could report its own would be a client that could decide
--- whether the limit applied. These two are reports of something with no side
--- effect, so a client is the only thing that can see them happen at all.
+-- `use_count` is a retrieval limit, so the server must count it: a client that
+-- reported its own count could decide whether the limit applied. These two
+-- report actions with no side effect, which only a client can observe.
 
 ALTER TABLE shares ADD COLUMN copy_count INTEGER NOT NULL DEFAULT 0;

@@ -1,7 +1,7 @@
 -- MySQL/MariaDB mirror of m20260816_000001_file_shares.sqlite.sql.
 --
--- Widths follow the tables next door: CHAR(26) for a ULID, and VARCHAR(191) for
--- anything that might carry an index.
+-- Widths follow the neighbouring tables: CHAR(26) for a ULID, VARCHAR(191) for
+-- anything that might be indexed.
 CREATE TABLE IF NOT EXISTS file_shares (
     id            CHAR(26)     NOT NULL PRIMARY KEY,
     share_id      CHAR(26)     NOT NULL,

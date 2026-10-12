@@ -9,8 +9,8 @@ One way an account signs in through a provider. Keyed on `(provider, subject)` b
 
 ```sql
 CREATE TABLE identities (
-    -- Which provider vouched for this. One today; the column is here so that a
-    -- second one needs configuration rather than a migration.
+    -- The provider that vouched for this. Only one today; the column exists so a
+    -- second one needs configuration instead of a migration.
     provider   TEXT NOT NULL,
     -- The provider's own identifier for the person: the `sub` claim.
     subject    TEXT NOT NULL,

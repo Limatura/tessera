@@ -485,7 +485,7 @@ fn code_block(snippet: &code::Snippet, and_more: &str) -> String {
 /// The icon beside the headline, framed.
 ///
 /// Inline SVG, not an icon font or an image: takumi rasterises the subtree
-/// itself, so the card still needs nothing the binary does not carry.
+/// itself, so the card still needs nothing outside the binary.
 fn mark(colour: &str, shapes: &str) -> String {
     format!(
         r#"<div style="width:88px;height:88px;flex-shrink:0;border:2px solid {colour};border-radius:16px;display:flex;align-items:center;justify-content:center">
@@ -496,15 +496,15 @@ fn mark(colour: &str, shapes: &str) -> String {
 
 /// The shapes inside each mark, on a 24-unit grid.
 ///
-/// Lucide's, the set the web app draws with, so the card and the page it
-/// links to speak the same visual language.
+/// Lucide's, the set the web app uses, so the card and the page it links to
+/// look consistent.
 mod icon {
     /// `file-text`.
     pub(super) const DOCUMENT: &str = r#"<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>"#;
     /// `lock`.
     pub(super) const LOCK: &str = r#"<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>"#;
     /// `shield-check`. Not the padlock: a sealed share has no password, and
-    /// what it promises is that this server cannot read it.
+    /// its promise is that this server cannot read it.
     pub(super) const SEALED: &str = r#"<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>"#;
     /// `file-x`.
     pub(super) const GONE: &str = r#"<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="m14.5 12.5-5 5"/><path d="m9.5 12.5 5 5"/>"#;

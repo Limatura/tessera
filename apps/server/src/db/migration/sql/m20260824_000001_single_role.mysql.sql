@@ -2,39 +2,37 @@
 --
 -- # Why the join table goes
 --
--- Nothing needed more than one. The seeded roles are nested — `member` is a
--- subset of `admin`, which is a subset of `owner` — so holding two of them is
--- holding the larger one. No code depended on the union being of more than one
--- row: `permissions_of` collected a set, and a set of one is that one.
+-- Nothing needed more than one. The seeded roles are nested (`member` is a
+-- subset of `admin`, which is a subset of `owner`), so holding two means
+-- holding the larger. No code relied on a union of more than one row:
+-- `permissions_of` collected a set, and a set of one is that one.
 --
--- What it cost was everywhere a single answer was wanted from a plural fact:
+-- The cost was every place that wanted a single answer from a plural fact:
 -- which role a share counts against, which quota applies, which role an
 -- identity provider's groups map to.
 --
 -- # Which one is kept
 --
--- The API accepted a list, so a row per account is not guaranteed. Where there
--- is more than one, the one with the most permissions wins — that is the role
--- whose removal would change the most, and every other choice can take
--- something away from somebody.
+-- The API accepted a list, so one row per account is not guaranteed. With more
+-- than one, the role with the most permissions wins: removing it would change
+-- the most, and any other choice could take something away.
 --
--- Ties break on `role_id` so the three dialects agree, and so re-running gives
--- the same answer.
+-- Ties break on `role_id`, so all three dialects agree and reruns give the
+-- same answer.
 --
 -- # Nullable
 --
--- An account in no role is a real state, not a fault: signed in and allowed
+-- An account in no role is a valid state, not a fault: signed in and allowed
 -- nothing. It was expressible before (no rows) and stays expressible.
 --
--- `ON DELETE SET NULL` matches what the join table did with `ON DELETE
--- CASCADE` on `role_id` — removing a role takes the assignment, not the
--- account.
+-- `ON DELETE SET NULL` matches the join table's `ON DELETE CASCADE` on
+-- `role_id`: removing a role removes the assignment, not the account.
 --
 -- # Why this dialect looks different
 --
 -- `VARCHAR(191)` because the column is indexed and MySQL cannot index TEXT
 -- without a prefix length, and the foreign key is table-level because `InnoDB`
--- ignores a `REFERENCES` written on a column.
+-- ignores a `REFERENCES` on a column.
 ALTER TABLE users ADD COLUMN role_id VARCHAR(191);
 
 UPDATE users

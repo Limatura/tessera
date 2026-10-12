@@ -9,7 +9,7 @@ pub(super) const POSTGRES: &str =
     include_str!("sql/m20261006_000001_auth_flow_return.postgres.sql");
 pub(super) const MYSQL: &str = include_str!("sql/m20261006_000001_auth_flow_return.mysql.sql");
 
-/// Only sign-ins in progress lose where they were going.
+/// Only sign-ins in progress lose their return path.
 const DOWN: &str = "ALTER TABLE auth_flows DROP COLUMN return_to;\n";
 
 #[derive(Debug, DeriveMigrationName)]

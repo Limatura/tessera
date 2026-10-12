@@ -106,11 +106,11 @@ pub struct AdminUserResponse {
     pub account: AccountResponse,
     /// Whether it may sign in, or has been deleted.
     pub state: UserState,
-    /// Largest single file set on this one account, overriding its role's.
+    /// Largest single file for this account, overriding its role's limit.
     ///
-    /// `null` means the role's applies; `0` means this account has no limit
-    /// of its own. Only administrators see it; what a user may actually send
-    /// is `max_upload_bytes` on `/capabilities`.
+    /// `null` means the role's limit applies; `0` means no limit for this
+    /// account. Only administrators see it; what a user may actually send is
+    /// `max_upload_bytes` on `/capabilities`.
     #[schema(example = 5_368_709_120_u64)]
     pub max_file_bytes: Option<u64>,
 }
@@ -1477,17 +1477,17 @@ pub struct AdminShareResponse {
     pub expires_at: Option<String>,
     /// Whether the sweep has already removed what it held.
     ///
-    /// Happens within the hour after a share expires or runs out of uses, and
-    /// from then on it takes no storage: `size_bytes` is what it held, not what
-    /// it occupies. A share switched off by the scanner keeps its content until
-    /// its row goes.
+    /// Happens within an hour of a share expiring or running out of uses, after
+    /// which it takes no storage: `size_bytes` is what it held, not what it
+    /// occupies. A share disabled by the scanner keeps its content until its
+    /// row goes.
     pub content_removed: bool,
     /// When the sweep will remove the row itself, RFC 3339, or `null` while
     /// the share has not ended.
     ///
     /// The moment it ended plus `share.retain_after_death_hours`: its expiry,
-    /// or its last retrieval for one that ran out of uses. The sweep runs
-    /// hourly, so the row goes within the hour after this.
+    /// or its last retrieval if it ran out of uses. The sweep runs hourly, so
+    /// the row goes within an hour of this.
     #[schema(example = "2026-10-17T09:00:00Z")]
     pub purges_at: Option<String>,
 }
@@ -1868,8 +1868,8 @@ pub struct DeleteAnyShareFailure {
 
 /// Removes several shares at once, whoever uploaded them.
 ///
-/// Each one as `DELETE /admin/shares/{id}` would, and logged the same way. One
-/// that fails does not stop the rest.
+/// Each one as `DELETE /admin/shares/{id}` would, logged the same way. A
+/// failure does not stop the rest.
 ///
 /// # Errors
 ///

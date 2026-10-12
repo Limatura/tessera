@@ -1,7 +1,7 @@
 -- Postgres mirror of m20260809_000001_users.sqlite.sql.
 --
--- `TIMESTAMPTZ` rather than the SQLite integer: Postgres has a real instant type
--- and storing epoch seconds in it would throw away the reason to use it.
+-- `TIMESTAMPTZ` instead of the SQLite integer: Postgres has a real instant
+-- type, and storing epoch seconds would throw away the reason to use it.
 -- `BOOLEAN` likewise, instead of an integer flag.
 CREATE TABLE IF NOT EXISTS users (
     id            TEXT        NOT NULL PRIMARY KEY,

@@ -1524,10 +1524,10 @@ async fn reaping_an_inline_share_actually_frees_the_database() {
 /// like that, since an operator did it and may undo it, so a disabled share
 /// keeps its content until its row goes for good.
 ///
-/// Nothing writes `disabled_at` yet (the admin endpoints are #7), and that is
-/// exactly why this is worth pinning: the reaper would happily have taken those
-/// bytes, and the bug would only have surfaced the first time an operator
-/// re-enabled something and got a live link to nothing.
+/// Only the malware scanner writes `disabled_at` today, which makes this worth
+/// pinning: the reaper would happily have taken those bytes, and the bug would
+/// only surface the first time a disabled share was re-enabled and turned into
+/// a live link to nothing.
 #[tokio::test]
 async fn a_disabled_share_keeps_its_content() {
     let app = TestApp::with_config(|config| {
@@ -1542,9 +1542,8 @@ async fn a_disabled_share_keeps_its_content() {
         .parse()
         .expect("a share id");
 
-    // No endpoint writes `disabled_at` yet, so the test does it the only way
-    // there is. That is the point: the reaper must already be right about a
-    // state the API cannot reach, because #7 will make it reachable.
+    // No endpoint disables a share by hand, so the test writes the column
+    // directly. The reaper must handle the state however it is reached.
     app.state
         .db
         .execute_unprepared(&format!(
@@ -1883,8 +1882,8 @@ async fn a_ticket_does_not_survive_a_disable() {
 
 /// Writes a timestamp column directly.
 ///
-/// No endpoint sets `disabled_at` yet (#7) and `expires_at` is only settable in
-/// whole hours at creation, so a test cannot reach either state through the API.
+/// No endpoint sets `disabled_at` by hand, and `expires_at` is only settable at
+/// creation, so a test cannot reach either state through the API.
 #[expect(
     clippy::expect_used,
     clippy::panic,
@@ -4932,9 +4931,9 @@ fn backend_row(
 
 /// A file no single backend can hold, with the switch on.
 ///
-/// All of #184 in one test: two buckets, neither big enough, and a
-/// file that goes up, comes back byte for byte, and answers a range across the
-/// seam between them.
+/// Splitting one file across backends, end to end: two buckets, neither big
+/// enough alone, and a file that goes up, comes back byte for byte, and serves
+/// a range across the seam between them.
 ///
 /// With the switch off the same upload is a `507`, the other half of the
 /// promise: an operator who did not ask for splitting does not get it.
@@ -6109,7 +6108,7 @@ async fn a_use_limit_past_the_column_is_refused() {
 }
 
 /// serde builds a struct from an array too, so a request whose fields are all
-/// optional used to take `[]` as "change nothing". The contract says object.
+/// optional used to accept `[]` as "change nothing". The contract says object.
 #[tokio::test]
 async fn a_request_body_must_be_an_object() {
     let app = TestApp::ready().await;
@@ -6241,9 +6240,9 @@ async fn a_lifetime_in_minutes_has_the_same_bounds() {
     assert_eq!(both["code"], "conflicting_fields");
 }
 
-/// `PATCH max_uses` counts from now. Switching on burn-after-reading as `1` for
-/// a share already opened once used to set the total to 1, retiring it on the
-/// spot before the recipient saw it.
+/// `PATCH max_uses` counts from now. Enabling burn-after-reading as `1` on a
+/// share already opened once used to set the total to 1, retiring it before
+/// the recipient saw it.
 #[tokio::test]
 async fn max_uses_counts_from_now() {
     let app = TestApp::ready().await;
@@ -6279,8 +6278,8 @@ async fn max_uses_counts_from_now() {
     expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::GONE).await;
 }
 
-/// Once the sweep has removed what a dead share held, extending it or lifting
-/// its limit would make a live link to nothing. Refused instead.
+/// Once the sweep has removed a dead share's content, extending it or lifting
+/// its limit would make a live link to nothing, so it is refused.
 #[tokio::test]
 async fn a_share_whose_content_was_removed_cannot_be_revived() {
     let app = TestApp::ready().await;

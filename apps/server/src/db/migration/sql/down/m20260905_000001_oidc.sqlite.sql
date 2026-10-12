@@ -1,9 +1,9 @@
 -- Undoing the OIDC schema.
 --
--- The column comes back and the passwords go into it. An account that has no
--- row in `credentials` had no password, and `NOT NULL` cannot hold that, so it
--- is removed: rolling back a sign-in method removes the accounts that only had
--- it.
+-- The column comes back and the passwords go into it. An account with no row
+-- in `credentials` had no password, which `NOT NULL` cannot hold, so it is
+-- removed: rolling back a sign-in method removes the accounts that only had
+-- that method.
 DROP TABLE IF EXISTS oidc_flows;
 DROP TABLE IF EXISTS identities;
 

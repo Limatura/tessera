@@ -361,7 +361,8 @@ pub fn build_with_multipart(target: &Target) -> Result<Stores, StorageError> {
     // Not a limitation of WebDAV, which takes a chunked `PUT` of any size.
     // `object_store`'s `PutPayload` is an array of `Bytes` and cannot express a
     // stream: `apache/arrow-rs-object-store#281`, with work in progress in
-    // #817. When that lands and reaches the HTTP store, this becomes `true`.
+    // `apache/arrow-rs-object-store#817`. When that lands and reaches the HTTP
+    // store, this becomes `true`.
     Ok(if whole_body_only(&url) {
         Stores::whole_body_only(shared)
     } else {

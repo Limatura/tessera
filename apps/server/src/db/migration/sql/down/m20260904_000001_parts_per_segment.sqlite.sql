@@ -1,7 +1,7 @@
 -- Reversible while every session still has one segment: `seq` is zero on every
--- row, so dropping it loses nothing. That stops being true the moment a session
--- is planned onto two backends — by then two rows share a `(upload_id,
--- part_number)` and this would refuse, which is the honest failure.
+-- row, so dropping it loses nothing. Once a session is planned onto two
+-- backends, two rows share a `(upload_id, part_number)` and this refuses,
+-- the correct failure.
 ALTER TABLE upload_parts RENAME TO upload_parts_new;
 
 CREATE TABLE upload_parts (

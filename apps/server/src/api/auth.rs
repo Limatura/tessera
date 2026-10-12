@@ -68,9 +68,9 @@ pub struct AccountResponse {
     pub roles: Vec<String>,
     /// Whether the account has a password.
     ///
-    /// An account made through GitHub, Discord or OIDC has none. It confirms a
-    /// change to itself by having signed in within the last few minutes instead
-    /// of by typing one, so a client shows a password field only when this is
+    /// An account created through GitHub, Discord or OIDC has none. It confirms
+    /// changes by having signed in within the last few minutes instead of by
+    /// typing one, so a client shows a password field only when this is
     /// `true`; see `reauthentication_required`.
     pub has_password: bool,
     /// Whether the account must set a new password before doing anything else.
@@ -192,11 +192,11 @@ pub struct LoginRequest {
 /// Body of `PATCH /auth/password`.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct ChangePasswordRequest {
-    /// The password in force now. Required even though the caller is signed in:
-    /// it is what stops a borrowed, unlocked browser from taking the account.
+    /// The current password. Required even though the caller is signed in: it
+    /// stops a borrowed, unlocked browser from taking over the account.
     ///
-    /// Omitted by an account that has none (`has_password: false`), which is
-    /// setting its first one and confirms it by a recent sign-in instead.
+    /// Omitted by an account without one (`has_password: false`), which is
+    /// setting its first and confirms by a recent sign-in instead.
     #[schema(min_length = 8, max_length = 1024)]
     #[serde(default)]
     pub current_password: Option<String>,
@@ -647,8 +647,8 @@ pub async fn change_password(
         return Err(Error::new(ErrorCode::SessionRequired));
     }
 
-    // An account with a password proves it knows it; one without, which is
-    // setting its first, proves it just signed in.
+    // An account with a password proves it knows it; one without, setting its
+    // first, proves it just signed in.
     reconfirm(&state, &current, body.current_password).await?;
 
     let replacement = Password::parse(body.new_password, state.config().auth.password)?;
@@ -679,7 +679,7 @@ pub async fn change_password(
     )
     .await?;
     let roles = state.roles.of_user(current.user.id).await?;
-    // It has one now; this is the request that set it.
+    // It has one now: this request set it.
     let mut account = AccountResponse::build(&current.user, &roles, true);
     account.must_change_password = false;
 
@@ -1302,13 +1302,13 @@ pub struct UpdateAccountRequest {
     #[schema(example = "alice@example.com", format = Email)]
     #[serde(default)]
     pub email: Option<String>,
-    /// The password in force now.
+    /// The current password.
     ///
-    /// Required even though the caller is signed in. An unlocked browser left
-    /// on a desk is otherwise enough to move the account's address to one the
-    /// finder controls, and from there the reset flow hands them the account.
+    /// Required even though the caller is signed in. Otherwise an unlocked
+    /// browser left on a desk is enough to move the account's address to one
+    /// the finder controls, after which the reset flow hands them the account.
     ///
-    /// Omitted by an account that has none (`has_password: false`); see
+    /// Omitted by an account without one (`has_password: false`); see
     /// `reauthentication_required`.
     #[schema(min_length = 8, max_length = 1024)]
     #[serde(default)]
@@ -1319,8 +1319,8 @@ pub struct UpdateAccountRequest {
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DeleteAccountRequest {
-    /// The password in force now, for the same reason as above, and omitted
-    /// the same way by an account that has none.
+    /// The current password, for the same reason as above, and omitted the same
+    /// way by an account without one.
     #[schema(min_length = 8, max_length = 1024)]
     #[serde(default)]
     pub current_password: Option<String>,
@@ -1345,12 +1345,12 @@ const fn delete_shares_by_default() -> bool {
     true
 }
 
-/// Confirms it is the account's owner, for an act that is worth confirming.
+/// Confirms the caller is the account's owner, for an action worth confirming.
 ///
-/// By the password, when the account has one. An account made through a
+/// By password, when the account has one. An account created through a
 /// provider has none, and confirms by having signed in within
 /// [`REAUTHENTICATION_WINDOW`] (the "requires recent login" of Firebase and
-/// Google): a client sends it back to the provider and repeats the request.
+/// Google): a client sends the user back to the provider and retries.
 ///
 /// # Errors
 ///
@@ -1369,8 +1369,8 @@ async fn reconfirm(
     }
     let Some(stored) = state.users.password_of(current.user.id).await? else {
         // No password to ask for: the account signs in through a provider. The
-        // proof is having done that just now, which a stolen session cookie
-        // cannot repeat without the person's provider account as well.
+        // proof is having just done so, which a stolen session cookie cannot
+        // repeat without the user's provider account too.
         let since = OffsetDateTime::now_utc() - REAUTHENTICATION_WINDOW;
         return if current.credential.signed_in_since(since) {
             Ok(())
@@ -1378,9 +1378,9 @@ async fn reconfirm(
             Err(Error::new(ErrorCode::ReauthenticationRequired))
         };
     };
-    // Widest bounds for the password being *presented*, the instance's policy
-    // for the one being *chosen*. Otherwise raising `min_length` would leave
-    // everyone below it unable to log in and unable to fix it.
+    // The widest bounds for a password being *presented*, the instance policy
+    // for one being *chosen*. Otherwise raising `min_length` would lock out
+    // everyone below it, with no way to fix it.
     let supplied = supplied
         .and_then(|supplied| Password::parse(supplied, PasswordPolicy::widest()).ok())
         .ok_or_else(|| Error::new(ErrorCode::CurrentPasswordIncorrect))?;
@@ -1394,8 +1394,8 @@ async fn reconfirm(
 /// How recently an account with no password must have signed in to change or
 /// remove itself, set its first password, or link another provider.
 ///
-/// Long enough to sign in at the provider and come back to finish; short enough
-/// that a session cookie taken later is not enough on its own.
+/// Long enough to sign in at the provider and come back; short enough that a
+/// session cookie stolen later is not enough on its own.
 pub(crate) const REAUTHENTICATION_WINDOW: time::Duration = time::Duration::minutes(10);
 
 /// Changes the caller's own name or address.

@@ -115,7 +115,7 @@ async fn main() -> anyhow::Result<()> {
         Sealer::for_config(&config).context("the key for sealed settings is not usable")?;
 
     // Before anything is built from the configuration, so the stores, the
-    // mailer and the first page all see what the panel saved.
+    // mailer and the first request all see what the panel saved.
     let config = with_stored_settings(config, &db, &sealer).await?;
 
     let pool = open_stores(&config, &db, &sealer).await?;
@@ -318,10 +318,9 @@ async fn watch_for_shutdown(token: CancellationToken) {
 
 /// Layers what the admin panel stored on top of the environment.
 ///
-/// `PUT /admin/settings` swaps a change into the running process and writes it
-/// to the table, but without this nothing read the table back, so every change
-/// made in the panel was gone at the next restart while the panel kept showing
-/// it as saved.
+/// `PUT /admin/settings` applies a change to the running process and writes it
+/// to the table, but nothing read the table back, so every panel change was
+/// lost at the next restart while the panel still showed it as saved.
 ///
 /// A stored value this binary will not accept is dropped with a warning instead
 /// of stopping the process; see [`Config::load_with_overrides`].
