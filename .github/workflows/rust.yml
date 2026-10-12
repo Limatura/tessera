@@ -66,7 +66,7 @@ jobs:
   # Skips jobs a change cannot affect.
   changes:
     name: what changed
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     # `paths-filter` needs `pull-requests: read` to list PR files.
     permissions:
       contents: read
@@ -142,7 +142,7 @@ jobs:
 
   checks:
     name: checks
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -233,7 +233,7 @@ jobs:
 
   features:
     name: feature matrix
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -252,7 +252,7 @@ jobs:
 
   test:
     name: test
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -283,7 +283,7 @@ jobs:
 
   backends:
     name: ${{ matrix.backend }} backend
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -337,7 +337,7 @@ jobs:
 
   storage:
     name: object store
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -694,7 +694,7 @@ jobs:
 
   workflows:
     name: workflow lint
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -718,7 +718,7 @@ jobs:
 
   docker:
     name: docker image
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -887,7 +887,7 @@ jobs:
   # Separate so the only job that can write PRs runs no third-party actions.
   image-size-comment:
     name: image size comment
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
@@ -914,7 +914,7 @@ jobs:
 
   fuzz:
     name: contract fuzz
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-

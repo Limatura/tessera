@@ -29,7 +29,7 @@ permissions:
 jobs:
   check:
     name: types & lint
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
     if: >-
@@ -196,7 +196,7 @@ jobs:
   #
   # e2e:
   #   name: e2e
-  #   runs-on: [self-hosted, Linux, X64]
+  #   runs-on: ubuntu-latest
   #   timeout-minutes: 30
   #   needs: check
   #   if: needs.check.outputs.web == 'true'
@@ -319,7 +319,7 @@ jobs:
   # else means it stays that way even if one is added here later.
   bundle-size-comment:
     name: bundle size comment
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write

@@ -30,7 +30,7 @@ jobs:
   mutants:
     name: mutation testing
     if: inputs.job == 'both' || inputs.job == 'mutants'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     # A full mutation run rebuilds the crate once per surviving mutant.
     timeout-minutes: 120
     steps:
@@ -60,7 +60,7 @@ jobs:
   bench:
     name: benchmarks
     if: inputs.job == 'both' || inputs.job == 'bench'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
