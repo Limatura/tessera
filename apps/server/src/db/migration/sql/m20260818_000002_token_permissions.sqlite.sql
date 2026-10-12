@@ -2,23 +2,22 @@
 --
 -- # Why a table and not a column on `api_tokens`
 --
--- The issue that asked for this said a delimited column would do, and for one
--- token holding three words it would. `role_permissions` already exists and has
--- exactly this shape, though, so a second spelling of the same idea would mean
--- two ways to ask "does this hold `shares:create`" — one an indexed lookup, the
--- other a string search that matches `shares:create:all` as well.
+-- The original request suggested a delimited column, which would work for one
+-- token with three words. But `role_permissions` already has this exact shape,
+-- and a second spelling of the same idea would mean two ways to ask "does this
+-- hold `shares:create`": one an indexed lookup, the other a string search that
+-- also matches `shares:create:all`.
 --
--- # Why every existing token is given everything
+-- # Why every existing token gets everything
 --
--- Today a token is its owner. Somebody's backup script is using one right now,
--- and a migration that narrows it would stop that script with an error naming a
--- permission its author has never heard of. So existing tokens keep exactly
--- what they had, and the narrower default applies only to tokens minted from
--- here on.
+-- Until now a token was its owner. Backup scripts are using them right now,
+-- and a migration that narrowed them would break those scripts with an error
+-- naming a permission their authors never heard of. So existing tokens keep
+-- what they had, and the narrower default applies only to new tokens.
 --
--- That is not as generous as it reads: what a token may do is intersected with
--- what its owner may do at the time of the request, so one of these still loses
--- `users:delete` the moment its owner does.
+-- That is less generous than it sounds: a token's permissions are intersected
+-- with its owner's at request time, so one of these still loses `users:delete`
+-- as soon as its owner does.
 
 CREATE TABLE api_token_permissions (
     token_id   TEXT NOT NULL REFERENCES api_tokens (id) ON DELETE CASCADE,

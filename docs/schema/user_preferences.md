@@ -11,8 +11,8 @@ One person's own choices, one row each. So far that is appearance: a mode, a neu
 CREATE TABLE user_preferences (
     user_id    TEXT NOT NULL PRIMARY KEY
                REFERENCES users (id) ON DELETE CASCADE,
-    -- The appearance choices as JSON. `{}` and an absent row mean the same
-    -- thing, and both are what somebody who has never opened the setting has.
+    -- The appearance choices as JSON. `{}` and a missing row mean the same, and
+    -- both describe a user who never opened the setting.
     appearance TEXT NOT NULL DEFAULT '{}',
     updated_at TEXT NOT NULL
 )

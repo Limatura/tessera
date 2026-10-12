@@ -378,8 +378,8 @@ async fn missing_asset_is_a_404_rather_than_the_spa() {
 }
 
 /// The admin panel is a client-side route of the same SPA: every route under
-/// `/admin/` opens the site's entry point, so it carries the instance's colours
-/// from the first paint like any other page. A missing file there is still a 404.
+/// `/admin/` serves the site's entry point, so it has the instance's colours
+/// from first paint like any other page. A missing file there is still a 404.
 #[tokio::test]
 async fn the_admin_panel_is_a_route_of_the_spa() {
     let app = TestApp::ready().await;

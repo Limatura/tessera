@@ -14,19 +14,18 @@ CREATE TABLE shares (
     -- primary key so it can be rotated without rewriting foreign keys, and so
     -- inserts keep the locality a ULID primary key gives us.
     code           TEXT    NOT NULL UNIQUE,
-    -- NULL for an anonymous upload. `ON DELETE SET NULL` rather than CASCADE:
-    -- what happens to a departing account's shares is still undecided, and
-    -- orphaning a row is recoverable where deleting it is not. Deleting here
-    -- would also strand the objects, since no database action reaches the blob
-    -- store.
+    -- NULL for an anonymous upload. `ON DELETE SET NULL`, not CASCADE: what
+    -- happens to a departing account's shares is not decided yet, and orphaning a
+    -- row is recoverable while deleting it is not. Deleting would also strand the
+    -- objects, since no database action reaches the blob store.
     user_id        TEXT    REFERENCES users (id) ON DELETE SET NULL,
     kind           TEXT    NOT NULL,
 
     -- Everything the access gate reads.
     password_hash  TEXT,
-    -- NULL means unlimited. A count plus a limit rather than a countdown: a
-    -- countdown throws away how many times something was actually fetched, and
-    -- that number cannot be reconstructed afterwards.
+    -- NULL means unlimited. A count plus a limit instead of a countdown: a
+    -- countdown discards how many times something was actually fetched, and that
+    -- number cannot be reconstructed later.
     use_limit      INTEGER,
     use_count      INTEGER NOT NULL DEFAULT 0,
     expires_at     TEXT,

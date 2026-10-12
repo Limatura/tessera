@@ -1,7 +1,7 @@
 -- MySQL/MariaDB mirror of m20260815_000001_invites.sqlite.sql.
 --
 -- Fixed widths for the two indexed columns, as elsewhere: a ULID is 26
--- characters and a SHA-256 digest in hex is 64.
+-- characters and a hex SHA-256 digest is 64.
 CREATE TABLE IF NOT EXISTS invites (
     id          CHAR(26)     NOT NULL PRIMARY KEY,
     code_hash   CHAR(64)     NOT NULL UNIQUE,

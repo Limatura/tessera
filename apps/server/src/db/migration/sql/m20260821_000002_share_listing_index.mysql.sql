@@ -1,39 +1,38 @@
--- An index for the two queries that draw a list of shares.
+-- An index for the two queries that list shares.
 --
--- # What was wrong
+-- # The problem
 --
 -- Both listings order by `created_at DESC, id DESC`. `shares` had an index on
--- `user_id` alone, so an account's listing could find its rows quickly and
--- then had to sort all of them; the instance-wide listing had nothing at all
--- and sorted the whole table to render twenty rows.
+-- `user_id` alone, so an account's listing found its rows quickly but then
+-- sorted all of them, and the instance-wide listing had no index and sorted
+-- the entire table to render twenty rows.
 --
--- Neither is visible on an instance with a hundred shares, which is why it
--- lasted this long. It is the shape of slowness that arrives all at once.
+-- Neither shows on an instance with a hundred shares, which is why it lasted
+-- this long. It is the kind of slowness that arrives all at once.
 --
 -- # Why two indexes and not one
 --
--- A composite on `(user_id, created_at)` serves the per-account listing and
--- cannot serve the instance-wide one — the leading column is not in that
--- query. `idx_shares_user` is replaced rather than kept alongside: a prefix of
--- the composite is the same index, so keeping both is a second write on every
--- insert for nothing.
+-- A composite on `(user_id, created_at)` serves the per-account listing but
+-- not the instance-wide one, whose query lacks the leading column.
+-- `idx_shares_user` is replaced, not kept alongside: it is a prefix of the
+-- composite, so keeping both just adds a write to every insert.
 --
 -- `id` is left out of both. It only breaks ties between shares created in the
 -- same microsecond, and paying for it in every index entry to order a case
--- that barely happens is the wrong trade.
+-- that barely occurs is the wrong trade.
 --
 -- # Why the drop comes last
 --
 -- `shares.user_id` is a foreign key, and InnoDB refuses to drop the only index
--- that covers one. Creating the composite first leaves `user_id` still
--- indexed by its leading column, so the drop is allowed. The order costs
--- nothing on the other two dialects.
+-- covering one. Creating the composite first keeps `user_id` indexed by its
+-- leading column, so the drop is allowed. The order costs nothing on the
+-- other two dialects.
 --
 -- # Why this dialect looks different
 --
 -- MySQL spells the drop `DROP INDEX name ON table`, and has neither
--- `IF NOT EXISTS` on the create nor `IF EXISTS` on the drop. Neither clause is
--- needed — the migrator records what it has applied, so this runs once.
+-- `IF NOT EXISTS` on create nor `IF EXISTS` on drop. Neither is needed: the
+-- migrator records what it applied, so this runs once.
 CREATE INDEX idx_shares_user_created ON shares (user_id, created_at);
 CREATE INDEX idx_shares_created ON shares (created_at);
 DROP INDEX idx_shares_user ON shares;

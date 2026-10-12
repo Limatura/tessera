@@ -3796,7 +3796,7 @@ async fn deleting_an_account_leaves_nothing_of_the_person() {
     );
 }
 
-/// An account with a password still has to give it; leaving it out is not the
+/// An account with a password must still provide it; omitting it is not the
 /// same as having none.
 #[tokio::test]
 async fn an_account_with_a_password_must_still_give_it() {

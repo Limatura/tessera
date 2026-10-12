@@ -1,2 +1,2 @@
--- Postgres stores `TIMESTAMPTZ`, which is an instant and has no 2038 ceiling,
--- so there is nothing here for it to do.
+-- Postgres stores `TIMESTAMPTZ`, an instant with no 2038 limit, so there is
+-- nothing to do here.

@@ -104,7 +104,7 @@
             ]
           },
           "has_password": {
-            "description": "Whether the account has a password.\n\nAn account made through GitHub, Discord or OIDC has none. It confirms a\nchange to itself by having signed in within the last few minutes instead\nof by typing one, so a client shows a password field only when this is\n`true`; see `reauthentication_required`.",
+            "description": "Whether the account has a password.\n\nAn account created through GitHub, Discord or OIDC has none. It confirms\nchanges by having signed in within the last few minutes instead of by\ntyping one, so a client shows a password field only when this is\n`true`; see `reauthentication_required`.",
             "type": "boolean"
           },
           "id": {
@@ -210,7 +210,7 @@
             "type": "integer"
           },
           "content_removed": {
-            "description": "Whether the sweep has already removed what it held.\n\nHappens within the hour after a share expires or runs out of uses, and\nfrom then on it takes no storage: `size_bytes` is what it held, not what\nit occupies. A share switched off by the scanner keeps its content until\nits row goes.",
+            "description": "Whether the sweep has already removed what it held.\n\nHappens within an hour of a share expiring or running out of uses, after\nwhich it takes no storage: `size_bytes` is what it held, not what it\noccupies. A share disabled by the scanner keeps its content until its\nrow goes.",
             "type": "boolean"
           },
           "created_at": {
@@ -263,7 +263,7 @@
             ]
           },
           "purges_at": {
-            "description": "When the sweep will remove the row itself, RFC 3339, or `null` while\nthe share has not ended.\n\nThe moment it ended plus `share.retain_after_death_hours`: its expiry,\nor its last retrieval for one that ran out of uses. The sweep runs\nhourly, so the row goes within the hour after this.",
+            "description": "When the sweep will remove the row itself, RFC 3339, or `null` while\nthe share has not ended.\n\nThe moment it ended plus `share.retain_after_death_hours`: its expiry,\nor its last retrieval if it ran out of uses. The sweep runs hourly, so\nthe row goes within an hour of this.",
             "example": "2026-10-17T09:00:00Z",
             "type": [
               "string",
@@ -351,7 +351,7 @@
           {
             "properties": {
               "max_file_bytes": {
-                "description": "Largest single file set on this one account, overriding its role's.\n\n`null` means the role's applies; `0` means this account has no limit\nof its own. Only administrators see it; what a user may actually send\nis `max_upload_bytes` on `/capabilities`.",
+                "description": "Largest single file for this account, overriding its role's limit.\n\n`null` means the role's limit applies; `0` means no limit for this\naccount. Only administrators see it; what a user may actually send is\n`max_upload_bytes` on `/capabilities`.",
                 "example": 5368709120,
                 "format": "int64",
                 "minimum": 0,
@@ -628,7 +628,7 @@
         "description": "Body of `PATCH /auth/password`.",
         "properties": {
           "current_password": {
-            "description": "The password in force now. Required even though the caller is signed in:\nit is what stops a borrowed, unlocked browser from taking the account.\n\nOmitted by an account that has none (`has_password: false`), which is\nsetting its first one and confirms it by a recent sign-in instead.",
+            "description": "The current password. Required even though the caller is signed in: it\nstops a borrowed, unlocked browser from taking over the account.\n\nOmitted by an account without one (`has_password: false`), which is\nsetting its first and confirms by a recent sign-in instead.",
             "maxLength": 1024,
             "minLength": 8,
             "type": [
@@ -825,7 +825,7 @@
         "description": "Body of `DELETE /account`.",
         "properties": {
           "current_password": {
-            "description": "The password in force now, for the same reason as above, and omitted\nthe same way by an account that has none.",
+            "description": "The current password, for the same reason as above, and omitted the same\nway by an account without one.",
             "maxLength": 1024,
             "minLength": 8,
             "type": [
@@ -942,7 +942,7 @@
         "type": "object"
       },
       "DeleteSharesResponse": {
-        "description": "What a batch delete did, share by share.\n\nNever all-or-nothing. A client keeps the ones that failed selected so they\ncan be retried, and only the ones listed in `deleted` are gone.",
+        "description": "What a batch delete did, share by share.\n\nNever all-or-nothing. A client keeps the failed ones selected for a retry;\nonly the codes listed in `deleted` are gone.",
         "properties": {
           "deleted": {
             "description": "The codes that were deleted, as they were sent.",
@@ -1380,7 +1380,7 @@
             ]
           },
           "max_uses": {
-            "description": "How many more times it may be retrieved, counting from now. `null` means\nunlimited.\n\nNot a total: `1` on a share already retrieved three times allows one\nmore, the fourth, whoever gets there first. The response's\n`uses_remaining` says the same number back.",
+            "description": "How many more times it may be retrieved, counting from now. `null` means\nunlimited.\n\nNot a total: `1` on a share already retrieved three times allows one\nmore (the fourth), to whoever gets there first. The response's\n`uses_remaining` echoes the same number.",
             "example": 1,
             "format": "int32",
             "minimum": 0,
@@ -2395,7 +2395,7 @@
         "description": "Body of `PATCH /account`.",
         "properties": {
           "current_password": {
-            "description": "The password in force now.\n\nRequired even though the caller is signed in. An unlocked browser left\non a desk is otherwise enough to move the account's address to one the\nfinder controls, and from there the reset flow hands them the account.\n\nOmitted by an account that has none (`has_password: false`); see\n`reauthentication_required`.",
+            "description": "The current password.\n\nRequired even though the caller is signed in. Otherwise an unlocked\nbrowser left on a desk is enough to move the account's address to one\nthe finder controls, after which the reset flow hands them the account.\n\nOmitted by an account without one (`has_password: false`); see\n`reauthentication_required`.",
             "maxLength": 1024,
             "minLength": 8,
             "type": [
@@ -3729,7 +3729,7 @@
     },
     "/api/v1/admin/shares": {
       "delete": {
-        "description": "Each one as `DELETE /admin/shares/{id}` would, and logged the same way. One\nthat fails does not stop the rest.\n\n# Errors\n\n`400` for more than 200 identifiers, `401` when nothing was signed in, `403`\nwhen the caller may not delete every share or used a bearer token, `404`\nwhen this instance has no administration. Problems with individual shares\nare in the body.",
+        "description": "Each one as `DELETE /admin/shares/{id}` would, logged the same way. A\nfailure does not stop the rest.\n\n# Errors\n\n`400` for more than 200 identifiers, `401` when nothing was signed in, `403`\nwhen the caller may not delete every share or used a bearer token, `404`\nwhen this instance has no administration. Problems with individual shares\nare in the body.",
         "operationId": "delete_any_shares",
         "requestBody": {
           "content": {
@@ -6121,7 +6121,7 @@
     },
     "/api/v1/shares": {
       "delete": {
-        "description": "Each one exactly as `DELETE /shares/{code}` would: its objects first, each\nfrom the backend holding it, then its row. One that fails does not stop the\nrest. Repeated codes are deleted once.\n\nSigned in only: a management token belongs to one share, so there is\nnothing for a batch to check it against.\n\n# Errors\n\n`400` for more than 200 codes, `401` when nothing was signed in, `403`\nwhen the credential does not carry `shares:delete`. Problems with\nindividual shares are in the body, not the status.",
+        "description": "Each one as `DELETE /shares/{code}` would: its objects first, each from the\nbackend holding it, then its row. A failure does not stop the rest.\nRepeated codes are deleted once.\n\nSigned in only: a management token belongs to one share, so there is\nnothing for a batch to check it against.\n\n# Errors\n\n`400` for more than 200 codes, `401` when nothing was signed in, `403`\nwhen the credential does not carry `shares:delete`. Problems with\nindividual shares are in the body, not the status.",
         "operationId": "delete_shares",
         "requestBody": {
           "content": {
@@ -6634,7 +6634,7 @@
         ]
       },
       "patch": {
-        "description": "# Why this exists\n\nThis replaces deciding everything at creation, which does not survive\ncontact with how people share a file. The link goes out, and then the\nmeeting moves, or the recipient asks for another day, or the wrong person\nwas in the thread and the password has to change now.\n\n# Who may\n\nThe same two answers as `DELETE`: the owning account, or the holder of the\nmanagement token an anonymous upload was given. The permission checked is\n`shares:delete`. There is no `shares:update` today, and gating a change\nbehind the right to delete outright is the conservative reading.\n\n# Errors\n\n`400` for a value the instance will not accept, `404` when no share of the\ncaller's has that code. The same answer as one belonging to another account,\nbecause telling them apart would confirm which codes exist. `410` when the\nchange would revive a share whose content the sweep has already removed.",
+        "description": "# Why this exists\n\nFixing everything at creation does not match how files get shared. The\nlink goes out, then the meeting moves, the recipient asks for another day,\nor the wrong person was on the thread and the password must change now.\n\n# Who may\n\nThe same two as `DELETE`: the owning account, or the holder of the\nmanagement token an anonymous upload was given. The permission checked is\n`shares:delete`: there is no `shares:update`, and requiring the right to\ndelete outright is the conservative choice.\n\n# Errors\n\n`400` for a value the instance will not accept, `404` when the caller has no\nshare with that code, which is also the answer for another account's share,\nsince telling them apart would confirm which codes exist. `410` when the\nchange would revive a share whose content the sweep already removed.",
         "operationId": "update_share",
         "parameters": [
           {
