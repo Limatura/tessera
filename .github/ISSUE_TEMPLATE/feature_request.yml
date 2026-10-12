@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest something Tessera should do.
+labels: [Feature]
+body:
+  - type: markdown
+    attributes:
+      value: English or Chinese are both fine.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The situation and what gets in the way today. This matters more than the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: How you imagine it working, if you have an idea.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do now instead
+      description: Workarounds or other tools you use for this.
