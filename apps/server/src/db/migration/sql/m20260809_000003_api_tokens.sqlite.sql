@@ -1,13 +1,13 @@
 -- API tokens, for scripts, the CLI, ShareX and the Discord bot.
 --
--- Separate from sessions on purpose: an automation credential is long-lived,
--- pasted into a config file and revoked individually, where a browser session is
--- short-lived, invisible to JavaScript and dropped on logout. One table serving
--- both would end up too weak for the first job or too awkward for the second.
+-- Separate from sessions by design: an automation credential is long-lived,
+-- pasted into a config file and revoked individually, while a browser session
+-- is short-lived, invisible to JavaScript and dropped on logout. One table for
+-- both would be too weak for the first or too awkward for the second.
 --
--- `display_prefix` holds the first few characters of the token so a listing can
--- say which one a row is without revealing it — the value itself is never
--- recoverable after creation.
+-- `display_prefix` holds the token's first few characters so a listing can
+-- identify a row without revealing it. The value itself cannot be recovered
+-- after creation.
 CREATE TABLE IF NOT EXISTS api_tokens (
     id             TEXT NOT NULL PRIMARY KEY,
     user_id        TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,

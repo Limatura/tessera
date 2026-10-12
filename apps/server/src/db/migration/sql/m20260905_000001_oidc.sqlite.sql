@@ -1,44 +1,43 @@
 -- Signing in with an identity provider instead of a password.
 --
--- Three changes, and each of them is here because the alternative is worse
--- later rather than because OIDC needs it today.
+-- Three changes, each made now because the alternative is worse later, not
+-- because OIDC needs it today.
 --
 -- # Why `identities` and not a column on `users`
 --
--- One account may end up with several ways to sign in: a password it was
+-- An account may end up with several ways to sign in: the password it was
 -- created with, an identity from the company's Authentik, and later perhaps a
--- second provider. A column pair on `users` says "one provider, for ever" and
--- has to be migrated the first time that is wrong.
+-- second provider. A column pair on `users` says "one provider, forever" and
+-- needs a migration the first time that is wrong.
 --
--- `subject` is the provider's own identifier for the person. It is stable and
--- never reused within one issuer, which is what makes it safe to key on. The
--- e-mail address is not: providers let people change it, and some do not
--- verify it at all.
+-- `subject` is the provider's own identifier for the user. It is stable and
+-- never reused within one issuer, which makes it safe to key on. The email
+-- address is not: providers let users change it, and some do not verify it.
 --
--- # Why the e-mail address is still required
+-- # Why the email address is still required
 --
--- The `email` scope is optional in the specification, so a provider need not
--- release one. Rather than making the column nullable, a sign-in that arrives
--- without an address is refused with a message naming the scope to grant.
+-- The `email` scope is optional in the spec, so a provider need not release
+-- one. Instead of making the column nullable, a sign-in without an address is
+-- refused with a message naming the scope to grant.
 --
 -- The column is `NOT NULL` and uniquely indexed, and everything from password
--- reset to notification assumes an address exists. Relaxing that to serve a
--- provider that can be configured to release one is a large change for a small
--- case: Authentik, Authelia, Keycloak, Google and GitHub all can.
+-- reset to notifications assumes an address. Relaxing that for providers that
+-- can be configured to release one anyway is a large change for a small case:
+-- Authentik, Authelia, Keycloak, Google and GitHub all can.
 --
 -- # Why `sessions.origin`
 --
--- A provider can disable somebody, and a session that outlives that is exactly
--- what single sign-on exists to prevent. What can be done about it depends on
--- what the provider supports, so a session has to know where it came from:
--- password sessions keep the configured lifetime, provider sessions may be
--- given a shorter one or revalidated.
+-- A provider can disable a user, and a session outliving that is what single
+-- sign-on exists to prevent. What can be done depends on the provider, so a
+-- session must record where it came from: password sessions keep the
+-- configured lifetime, provider sessions may get a shorter one or be
+-- revalidated.
 --
--- Written from the first day, unlike a column added in case it is wanted.
+-- Written from day one, unlike a column added in case it is wanted.
 
 CREATE TABLE IF NOT EXISTS identities (
-    -- Which provider vouched for this. One today; the column is here so that a
-    -- second one needs configuration rather than a migration.
+    -- The provider that vouched for this. Only one today; the column exists so a
+    -- second one needs configuration instead of a migration.
     provider   TEXT NOT NULL,
     -- The provider's own identifier for the person: the `sub` claim.
     subject    TEXT NOT NULL,
@@ -48,35 +47,34 @@ CREATE TABLE IF NOT EXISTS identities (
     PRIMARY KEY (provider, subject)
 );
 
--- Finding every way one account can sign in, which is what unlinking has to
--- count before it removes one.
+-- Finding every sign-in method of an account, which unlinking must count
+-- before removing one.
 CREATE INDEX IF NOT EXISTS idx_identities_user ON identities (user_id);
 
--- Where a sign-in that has left for the provider keeps what it will need when
--- the browser comes back.
+-- Where a sign-in that has gone to the provider keeps what it will need when
+-- the browser returns.
 --
 -- `state` is the CSRF token: the callback is a request we did not make, and
--- this is what says it belongs to a redirect we did. `nonce` binds the returned
--- token to this attempt. `verifier` is the PKCE secret whose challenge went out
--- with the redirect.
+-- this ties it to a redirect we did. `nonce` binds the returned token to this
+-- attempt. `verifier` is the PKCE secret whose challenge went out with the
+-- redirect.
 --
--- A table rather than a signed cookie. Both work; a cookie needs `SameSite=Lax`
--- exactly, because `Strict` withholds it on the top-level navigation back from
--- the provider, and that failure looks like an unrelated error to whoever hits
--- it. Rows are cheap, the sweep already clears four other short-lived tables,
--- and the redirect endpoint is throttled like the other unauthenticated ones.
+-- A table instead of a signed cookie. Both work, but a cookie needs exactly
+-- `SameSite=Lax`, since `Strict` withholds it on the top-level navigation back
+-- from the provider, and that failure looks like an unrelated error. Rows are
+-- cheap, the sweep already clears four other short-lived tables, and the
+-- redirect endpoint is throttled like the other unauthenticated ones.
 CREATE TABLE IF NOT EXISTS oidc_flows (
     state       TEXT NOT NULL PRIMARY KEY,
     nonce       TEXT NOT NULL,
     verifier    TEXT NOT NULL,
-    -- `login` or `link`. The callback is one endpoint and this is how it knows
-    -- whether it is signing somebody in or attaching a provider to the account
-    -- that is already signed in.
+    -- `login` or `link`. The callback is one endpoint, and this tells it whether
+    -- it is signing a user in or linking a provider to the signed-in account.
     purpose     TEXT NOT NULL,
     -- Set when `purpose` is `link`: whose account this will be attached to.
     user_id     TEXT REFERENCES users (id) ON DELETE CASCADE,
-    -- Carried through the provider and back, so an invitation can be spent by
-    -- somebody who has never had a password here. The provider never sees it.
+    -- Carried through the provider and back, so an invitation can be used by
+    -- someone who has never had a password here. The provider never sees it.
     invite_code TEXT,
     created_at  TEXT NOT NULL,
     expires_at  TEXT NOT NULL
@@ -84,31 +82,30 @@ CREATE TABLE IF NOT EXISTS oidc_flows (
 
 CREATE INDEX IF NOT EXISTS idx_oidc_flows_expires ON oidc_flows (expires_at);
 
--- Passwords move out of `users` and into a table of their own.
+-- Passwords move out of `users` into their own table.
 --
 -- # Why not a nullable column
 --
--- The obvious change is `users.password_hash` becoming nullable. It cannot be
--- done here. SQLite has no `DROP NOT NULL`, so the table would have to be
--- rebuilt, and seven tables carry a foreign key to `users`:
+-- The obvious change is making `users.password_hash` nullable, which is not
+-- possible here. SQLite has no `DROP NOT NULL`, so the table would have to be
+-- rebuilt, and seven tables have a foreign key to `users`:
 --
---   * renaming `users` out of the way rewrites all seven to point at the
---     temporary name, and they dangle the moment it is dropped;
---   * dropping `users` first fires `ON DELETE CASCADE` on every one of them,
---     which empties `sessions`, `shares` and `api_tokens` — measured, not
---     feared;
---   * and renaming a new table into the freed name fails outright while those
+--   * renaming `users` out of the way repoints all seven at the temporary
+--     name, and they dangle once it is dropped;
+--   * dropping `users` first fires `ON DELETE CASCADE` on all of them, which
+--     empties `sessions`, `shares` and `api_tokens` (tested, not assumed);
+--   * renaming a new table into the freed name fails outright while those
 --     seven still reference it.
 --
--- `PRAGMA foreign_keys = OFF` would suppress the first and second, and it is a
+-- `PRAGMA foreign_keys = OFF` would avoid the first two, but it is a
 -- connection setting these statements are not guaranteed to share.
 --
 -- # Why this shape is better anyway
 --
--- `identities` is already one row per way of signing in. A password as a column
--- on `users` makes one method a column and the other a row. As a table, "no
--- row" means "no password" and needs no explanation, which is exactly what an
--- account that has only ever used a provider is.
+-- `identities` is already one row per sign-in method. A password column on
+-- `users` would make one method a column and the other a row. As a table, "no
+-- row" means "no password" without explanation, which describes an account
+-- that has only ever used a provider.
 CREATE TABLE IF NOT EXISTS credentials (
     user_id       TEXT NOT NULL PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
     -- PHC-format Argon2 string.

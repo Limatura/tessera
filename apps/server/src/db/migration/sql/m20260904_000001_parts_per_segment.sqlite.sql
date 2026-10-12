@@ -1,33 +1,32 @@
 -- Which segment a part belongs to.
 --
--- # What was wrong
+-- # The problem
 --
--- `upload_parts` was keyed on `(upload_id, part_number)`, and a part number is
--- the store's own, restarting at one for every multipart upload. One session,
--- one upload, so that held.
+-- `upload_parts` was keyed on `(upload_id, part_number)`, and part numbers
+-- come from the store, restarting at one for each multipart upload. With one
+-- multipart upload per session, that held.
 --
--- A session spread over two backends is two multipart uploads. Both hand back a
--- part one, a part two, a part three — and the second segment's rows collide
--- with the first's on the primary key. Whichever way the database resolves that,
--- the result is a `complete_multipart` handed somebody else's `ETag`s: an object
--- that either fails to assemble or assembles wrong.
+-- A session spread over two backends is two multipart uploads. Both return a
+-- part one, two, three, and the second segment's rows collide with the first's
+-- on the primary key. However the database resolves that, `complete_multipart`
+-- gets another segment's `ETag`s: the object either fails to assemble or
+-- assembles wrong.
 --
--- Nothing splits yet, so nothing has hit this. It has to go in before anything
--- does, because by then the rows exist and the fix is a data migration rather
--- than a column.
+-- Nothing splits yet, so nothing has hit this. It must land first, because
+-- once such rows exist the fix is a data migration instead of a column.
 --
--- # Why the whole table is rebuilt, and in this order
+-- # Why the table is rebuilt, in this order
 --
--- SQLite cannot add a column to a primary key, so the table is built again and
--- the rows copied across. Everything else about it is unchanged, and `seq` is
--- zero, which is the segment every existing row belongs to.
+-- SQLite cannot add a column to a primary key, so the table is rebuilt and the
+-- rows copied over. Everything else is unchanged, and `seq` is zero, the
+-- segment every existing row belongs to.
 --
--- The old table is renamed *out of the way* first rather than dropped last.
+-- The old table is renamed *out of the way* first instead of dropped last.
 -- Dropping `upload_parts` and then renaming something to `upload_parts` in the
--- same transaction is refused — "there is already another table or index with
--- this name", on a name `sqlite_master` no longer has. Measured: the statements
--- run clean one at a time and fail as a migration. Never reusing a name freed
--- in the same transaction avoids the question entirely, and is the order
+-- same transaction is refused ("there is already another table or index with
+-- this name", for a name `sqlite_master` no longer has). Tested: the
+-- statements succeed one at a time but fail as a migration. Never reusing a
+-- name freed in the same transaction avoids the issue, and is the order
 -- SQLite's own documentation gives for rebuilding a table.
 ALTER TABLE upload_parts RENAME TO upload_parts_old;
 

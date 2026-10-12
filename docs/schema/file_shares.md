@@ -17,8 +17,8 @@ CREATE TABLE file_shares (
     -- back is how a text/html upload becomes stored XSS on our own origin.
     content_type  TEXT,
     size_bytes    INTEGER NOT NULL,
-    -- Where the bytes live, carried over as they were. `object_key` is stored
-    -- rather than derived so the layout can change without moving a byte.
+    -- Where the bytes live, carried over unchanged. `object_key` is stored, not
+    -- derived, so the layout can change without moving a byte.
     storage       TEXT    NOT NULL,
     object_key    TEXT,
     created_at    TEXT    NOT NULL

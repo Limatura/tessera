@@ -1,20 +1,20 @@
 -- Links that prove an account can receive mail at its address.
 --
 -- Registration proves it once, by making the account wait for the link. An
--- address changed afterwards, or an account made by an administrator or before
--- mail was configured, has no such proof, and this is how it gets one.
+-- address changed later, or an account created by an administrator or before
+-- mail was configured, has no such proof; this is how it gets one.
 --
--- The same shape as password_reset_tokens, for the same reasons: a row so a
--- link can be spent and revoked, only the digest stored so a stolen database
--- holds nothing that can be presented, and used_at kept rather than the row
--- deleted so "already used" and "never existed" stay apart.
+-- Same shape as password_reset_tokens, for the same reasons: a row so a link
+-- can be used up and revoked, only the digest stored so a stolen database
+-- holds nothing presentable, and used_at kept instead of deleting the row so
+-- "already used" and "never existed" stay distinct.
 --
 -- # Why the address is on the row
 --
--- A link proves the address it was sent to, not whatever the account's address
--- is by the time it is clicked. Without the column, asking for a link and then
--- changing the address to one you cannot receive would verify the new one with
--- the old one's mail.
+-- A link proves the address it was sent to, not whatever the account's
+-- address is when it is clicked. Without the column, requesting a link and
+-- then changing to an address you cannot receive at would verify the new one
+-- with mail sent to the old.
 CREATE TABLE IF NOT EXISTS email_verifications (
     id          TEXT NOT NULL PRIMARY KEY,
     user_id     TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,

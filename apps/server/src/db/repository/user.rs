@@ -226,7 +226,7 @@ impl UserRepository {
 
     /// Whether this account has a password at all.
     ///
-    /// An account made through a provider has none until it sets one.
+    /// An account created through a provider has none until it sets one.
     ///
     /// # Errors
     ///

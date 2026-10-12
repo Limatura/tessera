@@ -255,9 +255,9 @@ error_codes! {
     InvalidCredentials => UNAUTHORIZED, "wrong username or password";
     /// The current password, given to confirm a change, is wrong.
     CurrentPasswordIncorrect => UNAUTHORIZED, "the current password is wrong";
-    /// An account with no password confirms a change by having just signed in,
-    /// and this session signed in too long ago. Sign in again with the
-    /// provider, then repeat the request.
+    /// An account with no password confirms changes by having just signed in,
+    /// and this session signed in too long ago. The user signs in again with
+    /// the provider, then repeats the request.
     ReauthenticationRequired => UNAUTHORIZED, "sign in again to confirm it is you";
     /// The password is in a known breach.
     PasswordBreached => BAD_REQUEST, "this password has appeared in a data breach; choose a different one";
@@ -303,8 +303,8 @@ error_codes! {
     ShareExpired => GONE, "this share has expired";
     /// Retrieved as many times as it allowed.
     ShareExhausted => GONE, "this share has been retrieved as many times as it was allowed to be";
-    /// The share ended and the sweep has since removed what it held, so no
-    /// change to its expiry or use limit can make it work again.
+    /// The share ended and the sweep has removed its content, so no change to
+    /// its expiry or use limit can revive it.
     ShareContentRemoved => GONE, "this share's content has been removed and cannot be restored";
     /// A file share, asked for as text.
     ShareIsFile => BAD_REQUEST, "this share is a file; use /download instead";

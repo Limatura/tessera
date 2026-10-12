@@ -1,9 +1,9 @@
 -- MySQL/MariaDB mirror of m20260810_000001_shares.sqlite.sql.
 --
--- `MEDIUMBLOB` and not `BLOB`: MySQL's `BLOB` tops out at 65,535 bytes, one byte
+-- `MEDIUMBLOB`, not `BLOB`: MySQL's `BLOB` tops out at 65,535 bytes, one byte
 -- short of the 64 KiB inline threshold. The larger type costs nothing for rows
--- that do not use it and removes a truncation that would only appear on one
--- backend, at the boundary, for the largest inline share anyone happens to make.
+-- that do not need it, and avoids a truncation that would only appear on one
+-- backend, at the boundary, for the largest inline shares.
 CREATE TABLE IF NOT EXISTS shares (
     id             CHAR(26)     NOT NULL PRIMARY KEY,
     code           VARCHAR(64)  NOT NULL UNIQUE,

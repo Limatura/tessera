@@ -5,8 +5,8 @@
 //! was in flight" has never once been exercised. That is the path where a
 //! partial object is left behind, a session records bytes that are not there,
 //! and the sweep has to know what to do about it. The alternative is finding
-//! out in production; see #184, which names it as something to have *before* a
-//! file is spread over several backends.
+//! out in production, and this needs to be covered *before* a file is spread
+//! over several backends.
 //!
 //! The point is that it stops **mid-upload**. A store that refuses from the
 //! first byte proves only that a refusal is handled; this one takes what fits

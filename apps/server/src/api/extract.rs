@@ -55,21 +55,21 @@ where
     type Rejection = Error;
 
     async fn from_request(request: Request, state: &S) -> Result<Self, Self::Rejection> {
-        // Read as JSON first, which keeps axum's answers for a missing
+        // Parsed as generic JSON first, keeping axum's answers for a missing
         // content type and for a body that is not JSON at all.
         let axum::Json(value) = axum::Json::<serde_json::Value>::from_request(request, state)
             .await
             .map_err(|rejection| describe_json(&rejection))?;
         // Every body this API takes is an object. Checked here because serde
         // also builds a struct from an array, matching elements to fields in
-        // order, so `[]` passed as a request whose fields are all optional:
-        // a body the contract calls invalid, accepted as "change nothing".
+        // order, so `[]` was accepted for a request whose fields are all
+        // optional: a body the contract calls invalid, read as "change nothing".
         if !value.is_object() {
             return Err(Error::new(ErrorCode::InvalidBody)
                 .with_message("the request body must be a JSON object"));
         }
-        // The same wording axum gives, path included, so a client sees no
-        // difference for a body that is an object of the wrong shape.
+        // Same wording as axum, path included, so a client sees no difference
+        // for an object of the wrong shape.
         serde_path_to_error::deserialize(value)
             .map(Self)
             .map_err(|error| {
