@@ -14,6 +14,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Limatura/tessera" alt="License: AGPL-3.0" /></a>
 </p>
 
+https://github.com/user-attachments/assets/b5c35d7f-60f8-4571-80e6-0c0a0cfe7184
+
 <p align="center">
   <img src="docs/images/screenshot-upload.png" alt="The upload page" width="49%" />
   <img src="docs/images/screenshot-share.png" alt="A shared snippet, as the recipient sees it" width="49%" />
