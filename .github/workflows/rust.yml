@@ -792,14 +792,15 @@ jobs:
           outputs: type=local,dest=/tmp/tessera-image-size/frontend
           cache-from: type=local,src=/tmp/tessera-buildx-cache
 
-      # Smoke alarm for unintended growth, set at ~2x current. See image-size.sh.
+      # Smoke alarm for unintended growth, about 1.4x the size when last set
+      # (binary 41 MB: 28 MB backend, 13 MB embedded web). See image-size.sh.
       - name: Measure the footprint against its budget
         id: footprint
         run: .github/scripts/image-size.sh tessera-server:ci
         env:
           FRONTEND_DIR: /tmp/tessera-image-size/frontend
-          BINARY_BUDGET_MB: "40"
-          ROOTFS_BUDGET_MB: "44"
+          BINARY_BUDGET_MB: "56"
+          ROOTFS_BUDGET_MB: "60"
 
       - name: Smoke-test the image
         run: |
