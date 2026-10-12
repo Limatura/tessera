@@ -846,3 +846,30 @@ fn a_directory_without_an_index_is_refused() {
     // A path that is not there is a typo, and typos stop the server.
     assert!(tessera_server::assets::Source::resolve("/nonexistent/assets").is_err());
 }
+
+/// No page, API answer or error may be shown inside another site's frame.
+///
+/// The admin panel is the one that matters: framed invisibly, a signed-in
+/// operator's clicks could be steered onto it.
+#[tokio::test]
+async fn nothing_can_be_framed_by_another_site() {
+    let app = TestApp::ready().await;
+    for uri in ["/", "/admin", "/api/v1/health", "/api/v1/no-such-thing"] {
+        let response = app.get(uri).await;
+        let headers = response.headers();
+        assert_eq!(
+            headers
+                .get(header::X_FRAME_OPTIONS)
+                .and_then(|v| v.to_str().ok()),
+            Some("DENY"),
+            "{uri}"
+        );
+        assert_eq!(
+            headers
+                .get(header::CONTENT_SECURITY_POLICY)
+                .and_then(|v| v.to_str().ok()),
+            Some("frame-ancestors 'none'"),
+            "{uri}"
+        );
+    }
+}
