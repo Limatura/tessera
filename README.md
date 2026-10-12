@@ -23,6 +23,23 @@ Upload a file, a folder, a snippet of code or a link, and get back a short code 
 
 No account is needed to send something, unless you turn that off. Tessera runs as one binary with the web app built in, keeps its data in SQLite, PostgreSQL or MySQL, and stores files on local disk or in object storage.
 
+## Who it is for
+
+**Just you, and people you trust.** Run it on a NAS or a home server, behind
+your VPN, to move files between your own devices or hand them to friends. The
+defaults suit this: anonymous uploads on, SQLite and local disk, nothing else to
+set up. See the [personal example](tessera.personal.env.example).
+
+**A public instance for strangers.** Anyone can upload, so every resource is
+spent by people you do not know. Cap the file size and the total storage,
+shorten the default lifetime, keep sign-up closed or invite-only, and point it
+at a malware scanner. See the [public example](tessera.public.env.example).
+
+**A team or an organization.** Turn anonymous uploads off and let people sign in
+through your company's OpenID Connect provider. Roles control who may upload,
+who may see everyone's shares and who may change settings, and each account can
+have its own quota. PostgreSQL and S3-compatible storage scale past one machine.
+
 ## Features
 
 - **Expiry and download limits.** Each share has a lifetime and, optionally, a maximum number of retrievals. Expired content is removed on a schedule.
@@ -30,9 +47,30 @@ No account is needed to send something, unless you turn that off. Tessera runs a
 - **Previews.** Code is syntax-highlighted, and images, SVGs and Mermaid diagrams show in the page. Links pasted into chat apps get a preview card.
 - **Large files.** Uploads resume after a dropped connection, and several files download together as one archive.
 - **Accounts, when you want them.** Sign-up can be open, invite-only or closed. Sign in with a password, GitHub, Discord or any OpenID Connect provider. Roles decide who may do what, and API tokens let scripts upload.
-- **Admin panel.** Manage users, shares, storage and settings at `/admin`. Changes apply without a restart.
 - **Optional malware scanning** through ClamAV or an HTTP scanner of your choice.
 - **Interface in English, Traditional Chinese and Japanese.**
+
+## Admin panel
+
+<p align="center">
+  <img src="docs/images/screenshot-admin.png" alt="The admin dashboard" width="80%" />
+</p>
+
+Everything an operator needs is at `/admin`, and nearly every setting takes
+effect on the next request, without a restart:
+
+- **Dashboard:** storage used and where it lives, traffic, trends, and warnings
+  about risky settings.
+- **Users:** suspend or delete accounts, change roles, set per-account quotas,
+  and end everything one account uploaded.
+- **Shares:** every share on the instance, including anonymous ones, with who
+  uploaded it.
+- **Invite codes, roles and permissions.**
+- **Settings:** sign-in providers, upload limits, expiry defaults, storage
+  backends, email, scanning, link previews and branding.
+
+Without a browser, the same settings are available from the command line:
+`tessera-server settings list`, `settings set <key> <value>`.
 
 ## Quick start
 
