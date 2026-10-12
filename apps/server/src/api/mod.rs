@@ -488,11 +488,32 @@ pub fn build(state: AppState) -> Router {
         // Outside the timeout, so a panicking handler becomes a 500 and not a
         // dropped connection.
         .layer(CatchPanicLayer::new())
+        // Outside the panic catcher, so the 500 it makes is covered too.
+        .layer(axum::middleware::map_response(deny_framing))
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
         .layer(TraceLayer::new_for_http().make_span_with(make_span))
         // Outermost: stamped before anything else, so every log line and every
         // error response for this request can be correlated.
         .layer(SetRequestIdLayer::new(request_id_header, UlidRequestId))
+}
+
+/// Refuses to be shown inside another site's frame.
+///
+/// Without it any page can load `/admin` in an invisible frame and steer a
+/// signed-in operator's clicks (clickjacking). Nothing here is meant to be
+/// framed, this origin's own pages included: previews use blobs and `<img>`.
+///
+/// `X-Frame-Options` for browsers that predate `frame-ancestors`. A response
+/// that already carries its own policy keeps it, since a second one would be
+/// enforced alongside it, and the one that does ([`public`]'s retrievals)
+/// says `frame-ancestors` itself.
+async fn deny_framing(mut response: axum::response::Response) -> axum::response::Response {
+    let headers = response.headers_mut();
+    headers.insert(header::X_FRAME_OPTIONS, HeaderValue::from_static("DENY"));
+    headers
+        .entry(header::CONTENT_SECURITY_POLICY)
+        .or_insert(HeaderValue::from_static("frame-ancestors 'none'"));
+    response
 }
 
 /// The answer at `/docs` when `features.docs` is off.
