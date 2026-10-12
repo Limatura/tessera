@@ -1,77 +1,58 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Limatura/tessera/main/apps/web/public/favicon.svg" alt="Tessera logo" width="104" height="104" />
+  <img src="apps/web/public/favicon.svg" alt="" width="88" height="88" />
 </p>
 
 <h1 align="center">Tessera</h1>
 
-<h3 align="center">The self-hosted, self-destructing file courier.</h3>
-
-<p align="center"><strong>Send a file. Share a retrieval code. Let time do the cleanup.</strong></p>
+<p align="center">Self-hosted file and note sharing that cleans up after itself.</p>
 
 <p align="center">
-  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a>
+  English · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a>
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/Limatura/tessera?style=flat&label=license&color=e74c3c&logo=gnu&logoColor=white" alt="License: AGPL-3.0" /></a>
-  <a href="https://github.com/Limatura/tessera/stargazers"><img src="https://img.shields.io/github/stars/Limatura/tessera?style=flat&color=f1c40f&logo=github&label=stars" alt="GitHub stars" /></a>
-  <a href="https://github.com/Limatura/tessera/network/members"><img src="https://img.shields.io/github/forks/Limatura/tessera?style=flat&color=8e44ad&logo=github&label=forks" alt="GitHub forks" /></a>
-  <img src="https://img.shields.io/badge/frontend-React-61DAFB?style=flat&logo=react&logoColor=20232A" alt="Frontend: React" />
-  <img src="https://img.shields.io/badge/routing-TanStack%20Router-ff4154?style=flat&logo=reactrouter&logoColor=white" alt="Routing: TanStack Router" />
-  <img src="https://img.shields.io/badge/backend-Rust-f39c12?style=flat&logo=rust&logoColor=white" alt="Backend: Rust" />
-  <img src="https://img.shields.io/badge/deploy-self--hosted-27ae60?style=flat&logo=docker&logoColor=white" alt="Self-hosted" />
-  <img src="https://img.shields.io/badge/sharing-ephemeral-8e44ad?style=flat&logo=clockify&logoColor=white" alt="Ephemeral sharing" />
-  <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Limatura/tessera" alt="License: AGPL-3.0" /></a>
 </p>
-
-<p align="center"><a href="#-get-started">🚀 Quick start</a> · <a href="#-how-it-fits-together">🧱 Architecture</a> · <a href="#%EF%B8%8F-storage-options">📦 Storage</a> · <a href="https://github.com/Limatura/tessera-docs">📚 Documentation</a></p>
-
----
-
-Tessera is an **anonymous file and note sharing service** built for people who want to hand something over without creating another permanent link.
-
-Upload a file or a note, receive a retrieval code, and let the payload expire when its time or retrieval limit runs out. Host it yourself, keep control of your data, and run the service as a **single binary with the frontend embedded**.
-
-## ✨ Why Tessera?
-
-| **Feature** | **Description** |
-| --- | --- |
-| 🕶️ **Anonymous sharing** | Send files or notes with a retrieval code, without turning sharing into a permanent account-based workflow. |
-| ⏳ **Self-destructing payloads** | Set expiry and retrieval limits so shared content does not need to live forever. |
-| 📦 **Storage that fits your setup** | Start with local disk, then add supported S3-compatible, Azure Blob, or other backends. |
-| 🧩 **One backend, many clients** | The browser, terminal client, and browser extension use the same API. |
-| 🛠️ **Operator console** | Manage instance settings and storage backends from `/admin`. |
-| 🪶 **Single-binary deployment** | The frontend is embedded in the Rust server—no separate Node.js runtime or reverse proxy is required by the app itself. |
-| 📜 **API-first contract** | OpenAPI is generated from the server handlers and checked in CI. |
-
-## 🔄 From upload to expiry
-
-A short-lived handoff, not another permanent link.
 
 <p align="center">
-  <img src="docs/images/sharing-lifecycle.svg" alt="Tessera sharing lifecycle" width="100%" />
+  <img src="docs/images/screenshot-upload.png" alt="The upload page" width="49%" />
+  <img src="docs/images/screenshot-share.png" alt="A shared snippet, as the recipient sees it" width="49%" />
 </p>
 
-## 🚀 Get started
+Upload a file, a folder, a snippet of code or a link, and get back a short code and a URL. Whoever has them can open it until it expires or has been downloaded as many times as you allowed. Then it is deleted.
 
-### Docker
+No account is needed to send something, unless you turn that off. Tessera runs as one binary with the web app built in, keeps its data in SQLite, PostgreSQL or MySQL, and stores files on local disk or in object storage.
 
-Build from the repository root:
+## Features
+
+- **Expiry and download limits.** Each share has a lifetime and, optionally, a maximum number of retrievals. Expired content is removed on a schedule.
+- **Passwords.** A share can require a password before anything is shown or downloaded.
+- **Previews.** Code is syntax-highlighted, and images, SVGs and Mermaid diagrams show in the page. Links pasted into chat apps get a preview card.
+- **Large files.** Uploads resume after a dropped connection, and several files download together as one archive.
+- **Accounts, when you want them.** Sign-up can be open, invite-only or closed. Sign in with a password, GitHub, Discord or any OpenID Connect provider. Roles decide who may do what, and API tokens let scripts upload.
+- **Admin panel.** Manage users, shares, storage and settings at `/admin`. Changes apply without a restart.
+- **Optional malware scanning** through ClamAV or an HTTP scanner of your choice.
+- **Interface in English, Traditional Chinese and Japanese.**
+
+## Quick start
+
+With Docker, from a clone of this repository:
 
 ```bash
-docker build -f apps/server/Dockerfile -t tessera .
-docker run --rm -p 8787:8787 -v tessera-data:/data tessera
+docker compose up -d
 ```
 
-Open **http://localhost:8787**.
+Then open <http://localhost:8787>. On first start the server creates an administrator account and prints its password in the log, once:
 
-The image build compiles the frontend and embeds it into the server. The persistent volume keeps the instance data across container replacement.
+```bash
+docker compose logs tessera | grep password
+```
 
-> [!IMPORTANT] On first startup, Tessera creates an administrator and prints the password **once in the server log**. Save it somewhere secure.
+Before you put it on the internet, read the [public deployment example](tessera.public.env.example). Anonymous uploads are on by default, and without a storage limit anyone who can reach the server can fill its disk.
 
-### Run from source
+### From source
 
-Requirements: Rust toolchain and pnpm.
+You need Rust and pnpm.
 
 ```bash
 pnpm install
@@ -79,113 +60,52 @@ pnpm --filter web build
 pnpm server:dev
 ```
 
-Then visit **http://127.0.0.1:8787**.
+## Configuration
 
-## 🧱 How it fits together
-
-<p align="center">
-  <img src="docs/images/architecture.svg" alt="Tessera system architecture" width="100%" />
-</p>
-
-The server owns the business logic. Clients communicate with it through the API, so integrations do not need to reimplement server-side rules.
-
-## 🗄️ Storage options
-
-Tessera starts with a local `blobs` directory and can add backends at runtime from the admin panel or CLI.
-
-| Backend | Status / notes |
-| --- | --- |
-| Local filesystem | Default; no object-storage service required |
-| S3-compatible storage | Includes tested integrations such as Garage, RustFS, MinIO, SeaweedFS, VersityGW, and s3proxy |
-| Azure Blob Storage | Tested against Azurite |
-| WebDAV | Small files only; larger uploads are rejected with `413` |
-| AWS S3, Cloudflare R2, Backblaze B2 | S3-compatible; checked by an opt-in job when credentials are configured |
-| Google Cloud Storage | Compiled in, but currently unverified by the test suite |
-
-**Storage note:** WebDAV is limited to files below `share.inline_threshold_bytes` (64 KiB by default). Its upload path cannot stream large payloads, so Tessera rejects oversized files instead of letting an upload fail partway through.
-
-## ⚙️ Configuration
-
-Most settings can be changed in the operator console at **`/admin`** and take effect on the next request. Process-level settings—such as the listening port and database connection—must be set through environment variables.
-
-Variables use the `TESSERA_` prefix and `__` for nested keys:
+Most settings live in the admin panel. The few that must be known before the server starts, such as the port, the database URL and the data directory, are environment variables:
 
 ```bash
 TESSERA_SERVER__PORT=9000
-TESSERA_DATABASE__URL=sqlite://data/tessera.db
-TESSERA_SERVER__DATA_DIR=data
+TESSERA_DATABASE__URL=postgres://tessera:secret@localhost/tessera
+TESSERA_SERVER__DATA_DIR=/var/lib/tessera
 ```
 
-The database URL can target SQLite, PostgreSQL, or MySQL. See the example deployment configurations:
+Two commented starting points: [a personal instance](tessera.personal.env.example) and [a public one](tessera.public.env.example). For systemd there is a [unit file](contrib/tessera.service).
 
-- `tessera.personal.env.example` — private, personal instance
-- `tessera.public.env.example` — instance intended for public uploads
-- `contrib/tessera.service` — systemd service unit
+### Storage
 
-For command-line administration:
+Files go to a local directory unless you add another backend in the admin panel.
+
+| Backend | Notes |
+| --- | --- |
+| Local disk | The default |
+| S3-compatible | Tested against MinIO, Garage, RustFS, SeaweedFS, VersityGW and s3proxy. AWS S3, Cloudflare R2 and Backblaze B2 are checked when credentials are available. |
+| Azure Blob Storage | Tested against Azurite |
+| Google Cloud Storage | Built in, not yet covered by tests |
+| WebDAV | Small files only, up to `share.inline_threshold_bytes` (64 KiB by default) |
+
+## Command-line client
 
 ```bash
-tessera-server settings list
-tessera-server settings set share.default_expiry_hours 720
-tessera-server settings reset-all
+cargo install --path apps/cli
+
+tessera send report.pdf --server https://share.example.com --expires 24
+tessera get https://share.example.com/s/P8D72PSF
+echo "hello" | tessera send - --server https://share.example.com
 ```
 
-## 🧰 Project layout
+`--encrypt` seals the content before it leaves your machine; the key is the part of the link after `#`, which the server never sees.
 
-```text
-apps/
-├── server/       Rust API, auth, storage, and embedded SPA
-├── web/          React + TanStack Router web app and /admin
-├── tui/          Interactive terminal UI
-├── cli/          Command-line client
-├── extension/    Browser extension
-├── dev/          Local stand-ins for external services
-└── docs/         Documentation site (Git submodule)
-packages/
-├── api/          Generated OpenAPI TypeScript client and schema
-├── auth/         Shared authentication hooks and permissions
-├── config/       Shared TypeScript configuration
-├── crypto/       Browser-side end-to-end encryption utilities
-├── env/          Validated server and web environment variables
-├── i18n/         Shared localization utilities
-└── ui/           Shared UI components and styles
-crates/
-├── tessera-core/   Framework-independent domain rules
-└── tessera-crypto/ End-to-end encryption format shared by Rust and browser
-openapi.json      Generated API contract
-```
+## Documentation
 
-## 🧑‍💻 Development
+- [User and operator guide](https://github.com/Limatura/tessera-docs)
+- [Server internals](apps/server/README.md), and the design notes in [docs/](docs/README.md)
+- [API contract](openapi.json), generated from the server code
 
-```bash
-pnpm dev              # Run frontend apps in parallel
-pnpm server:dev       # Run the Rust server
-pnpm server:check     # Server lint, tests, docs, and audit
-pnpm check            # TypeScript lint and formatting
-pnpm server:openapi   # Regenerate openapi.json
-```
+## Contributing
 
-Enable the browsable API docs when needed:
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security problems go through [SECURITY.md](SECURITY.md), not the issue tracker.
 
-```bash
-TESSERA_FEATURES__DOCS=true pnpm server:dev
-```
+## License
 
-The API document is available as `openapi.json` regardless; the interactive docs UI is disabled by default because its renderer is loaded from a CDN.
-
-## 📚 More documentation
-
-- [Server and deployment details](apps/server/README.md)
-- [API contract](openapi.json)
-- [Personal deployment example](tessera.personal.env.example)
-- [Public deployment example](tessera.public.env.example)
-
-## 📄 License
-
-Tessera is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [LICENSE](LICENSE).
-
-<div align="center">
-
-**A little less permanence. A little more control.**
-
-</div>
+[AGPL-3.0](LICENSE). If you run a modified Tessera for other people, you must offer them its source.
