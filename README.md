@@ -35,12 +35,23 @@ No account is needed to send something, unless you turn that off. Tessera runs a
 
 ## Features
 
-- **Expiry and download limits.** Each share has a lifetime and, optionally, a maximum number of retrievals. Expired content is removed on a schedule.
-- **Passwords.** A share can require a password before anything is shown or downloaded.
+### Under the hood
+
+- **Big files can skip your server.** With S3 or Google Cloud Storage behind it, uploads go straight to the bucket and plain downloads are redirected there. A share with a password or a download limit always comes through the server, so those limits still hold.
+- **Limits that hold under load.** A retrieval is counted in one conditional database update, so two people racing for a one-time share cannot both get it. Expiry is checked on every request, and code lookups are rate-limited.
+- **Streams instead of buffering.** Memory use stays flat however large the file.
+- **Storage you can mix.** Local disk, S3-compatible stores, Azure Blob, Google Cloud Storage and WebDAV, several at once, added or retired from the admin panel without a restart. One large file can even be split across buckets (off by default).
+- **SQLite, PostgreSQL or MySQL**, each with its own hand-written migrations.
+- **An API to build on.** The OpenAPI contract is generated from the server code, checked in CI and fuzz-tested. The CLI and API tokens use the same endpoints as the web app.
+- **Quotas and limits** per role, per account and for anonymous uploads together, plus resumable uploads and optional malware scanning.
+
+### For the people using it
+
+- **Expiry and download limits.** Each share has a lifetime and, optionally, a maximum number of retrievals.
+- **Passwords**, required before anything is shown or downloaded.
 - **Previews.** Code is syntax-highlighted, and images, SVGs and Mermaid diagrams show in the page. Links pasted into chat apps get a preview card.
-- **Large files.** Uploads resume after a dropped connection, and several files download together as one archive.
-- **Accounts, when you want them.** Sign-up can be open, invite-only or closed. Sign in with a password, GitHub, Discord or any OpenID Connect provider. Roles decide who may do what, and API tokens let scripts upload.
-- **Optional malware scanning** through ClamAV or an HTTP scanner of your choice.
+- **Folders and many files**, downloaded together as one archive.
+- **Accounts when you want them.** Open, invite-only or closed sign-up; passwords, GitHub, Discord or any OpenID Connect provider.
 - **Interface in English, Traditional Chinese and Japanese.**
 
 ## Admin panel
