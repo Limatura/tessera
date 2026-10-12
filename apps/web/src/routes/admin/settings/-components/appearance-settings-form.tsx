@@ -123,7 +123,7 @@ function initialValues(settings: Settings): AppearanceSettingsValues {
     accent: asEnum(
       readSetting(settings, KEYS.accent),
       APPEARANCE_ACCENTS,
-      "violet"
+      "orange"
     ),
     mode: asEnum(readSetting(settings, KEYS.mode), APPEARANCE_MODES, "system"),
     theme: asEnum(
