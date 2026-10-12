@@ -21,8 +21,8 @@ CREATE TABLE auth_flows (
     purpose     TEXT NOT NULL,
     -- Set when `purpose` is `link`: whose account this will be attached to.
     user_id     TEXT REFERENCES users (id) ON DELETE CASCADE,
-    -- Carried through the provider and back, so an invitation can be spent by
-    -- somebody who has never had a password here. The provider never sees it.
+    -- Carried through the provider and back, so an invitation can be used by
+    -- someone who has never had a password here. The provider never sees it.
     invite_code TEXT,
     created_at  TEXT NOT NULL,
     expires_at  TEXT NOT NULL

@@ -2,33 +2,30 @@
 --
 -- # Why
 --
--- The seeded set had `admin` (everything) and `member`, with nothing between
--- them. So an operator who wants somebody to help — see the accounts, hand out
--- invites, look at the shares — could only put them in `admin`, which also
--- hands over deleting accounts, destroying other people's content, and granting
--- permissions.
+-- The seeded set had `admin` (everything) and `member`, with nothing in
+-- between. An operator wanting a helper (to see accounts, hand out invites,
+-- look at shares) could only use `admin`, which also grants deleting
+-- accounts, destroying other people's content, and granting permissions.
 --
--- The three that separate them are exactly those:
+-- The three permissions that separate them are exactly those:
 --
---   users:delete       removing somebody
+--   users:delete       removing an account
 --   shares:delete:any  destroying content that is not yours
---   roles:write        handing out permissions, including these
+--   roles:write        granting permissions, including these
 --
--- `roles:write` is the one that matters most: without it an `admin` cannot
--- raise themselves, which is what makes the split hold rather than being a
--- suggestion.
+-- `roles:write` matters most: without it an `admin` cannot promote
+-- themselves, so the split is enforced instead of advisory.
 --
 -- # Why existing administrators are put in `owner`
 --
--- Narrowing `admin` on an instance that already has people in it would take
--- powers away from whoever is administering it today — possibly including the
--- only person who could put them back. So everybody in `admin` is added to
--- `owner` first. Nobody loses anything, and `admin` means the same thing on
--- every instance from here on, which is the whole reason the seeded roles are
--- locked.
+-- Narrowing `admin` on an instance already in use would take powers from
+-- whoever administers it today, possibly including the only person who could
+-- restore them. So everyone in `admin` is added to `owner` first. No one loses
+-- anything, and `admin` means the same on every instance from here on, which
+-- is why the seeded roles are locked.
 --
--- An operator will see those people in two roles. That is honest: they hold
--- what they held.
+-- An operator will see those accounts in two roles. That is accurate: they
+-- hold what they held.
 
 INSERT INTO roles (id, name, description, is_system, created_at, updated_at)
 VALUES ('00WNER00000000000000000000', 'owner', 'Everything, including removing accounts and content.', TRUE, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z')

@@ -10,9 +10,9 @@ publish.workspace = true
 name = "tessera"
 path = "src/main.rs"
 
-# A client, so the opposite trade from the server's: the server counts every
-# dependency against a single small binary, while this one is for people typing
-# commands, where `--help` that explains itself is the product.
+# A client, so the opposite trade-off from the server: the server counts every
+# dependency against one small binary, while this is for people typing
+# commands, where a self-explanatory `--help` is the product.
 [dependencies]
 base64ct = { version = "1.8", features = ["alloc"] }
 clap = { version = "4.6", features = ["derive", "env"] }

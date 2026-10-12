@@ -841,8 +841,8 @@ pub struct DeleteSharesRequest {
 
 /// What a batch delete did, share by share.
 ///
-/// Never all-or-nothing. A client keeps the ones that failed selected so they
-/// can be retried, and only the ones listed in `deleted` are gone.
+/// Never all-or-nothing. A client keeps the failed ones selected for a retry;
+/// only the codes listed in `deleted` are gone.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DeleteSharesResponse {
     /// The codes that were deleted, as they were sent.
@@ -863,9 +863,9 @@ pub struct DeleteShareFailure {
 
 /// Deletes several of the caller's shares in one request.
 ///
-/// Each one exactly as `DELETE /shares/{code}` would: its objects first, each
-/// from the backend holding it, then its row. One that fails does not stop the
-/// rest. Repeated codes are deleted once.
+/// Each one as `DELETE /shares/{code}` would: its objects first, each from the
+/// backend holding it, then its row. A failure does not stop the rest.
+/// Repeated codes are deleted once.
 ///
 /// Signed in only: a management token belongs to one share, so there is
 /// nothing for a batch to check it against.
@@ -924,8 +924,8 @@ async fn delete_own(state: &AppState, current: &CurrentUser, code: &str) -> Resu
         .find_by_code(&code)
         .await?
         .ok_or(Error::NotFound)?;
-    // Someone else's answers like one that does not exist, so a batch cannot
-    // be used to find out which codes are taken.
+    // Another account's share answers like a missing one, so a batch cannot
+    // reveal which codes are taken.
     if share.user_id != Some(current.user.id) {
         return Err(Error::NotFound);
     }
@@ -956,9 +956,9 @@ pub(crate) fn batch_of(values: Vec<String>, field: &str) -> Result<Vec<String>> 
 /// Not from the backend new uploads go to: asking a store for a key it never
 /// had returns "not found", and the bytes would stay orphaned where they are.
 ///
-/// An object that is already gone counts as removed, as it does in the sweep:
-/// a share whose content the sweep reaped keeps its keys until its row goes,
-/// and retrying would not make the object exist.
+/// An object that is already gone counts as removed, as in the sweep: a share
+/// whose content the sweep reaped keeps its keys until its row goes, and
+/// retrying would not bring the object back.
 ///
 /// # Errors
 ///
@@ -1003,8 +1003,8 @@ pub struct PatchShareRequest {
     /// unlimited.
     ///
     /// Not a total: `1` on a share already retrieved three times allows one
-    /// more, the fourth, whoever gets there first. The response's
-    /// `uses_remaining` says the same number back.
+    /// more (the fourth), to whoever gets there first. The response's
+    /// `uses_remaining` echoes the same number.
     #[serde(default, deserialize_with = "patched")]
     #[schema(value_type = Option<u32>, example = 1)]
     pub max_uses: Patch<u32>,
@@ -1021,24 +1021,23 @@ pub struct PatchShareRequest {
 ///
 /// # Why this exists
 ///
-/// This replaces deciding everything at creation, which does not survive
-/// contact with how people share a file. The link goes out, and then the
-/// meeting moves, or the recipient asks for another day, or the wrong person
-/// was in the thread and the password has to change now.
+/// Fixing everything at creation does not match how files get shared. The
+/// link goes out, then the meeting moves, the recipient asks for another day,
+/// or the wrong person was on the thread and the password must change now.
 ///
 /// # Who may
 ///
-/// The same two answers as `DELETE`: the owning account, or the holder of the
+/// The same two as `DELETE`: the owning account, or the holder of the
 /// management token an anonymous upload was given. The permission checked is
-/// `shares:delete`. There is no `shares:update` today, and gating a change
-/// behind the right to delete outright is the conservative reading.
+/// `shares:delete`: there is no `shares:update`, and requiring the right to
+/// delete outright is the conservative choice.
 ///
 /// # Errors
 ///
-/// `400` for a value the instance will not accept, `404` when no share of the
-/// caller's has that code. The same answer as one belonging to another account,
-/// because telling them apart would confirm which codes exist. `410` when the
-/// change would revive a share whose content the sweep has already removed.
+/// `400` for a value the instance will not accept, `404` when the caller has no
+/// share with that code, which is also the answer for another account's share,
+/// since telling them apart would confirm which codes exist. `410` when the
+/// change would revive a share whose content the sweep already removed.
 #[utoipa::path(
     patch,
     path = "/shares/{code}",
@@ -1107,8 +1106,8 @@ pub async fn patch(
     }
 
     // A share whose content the sweep removed is finished. Extending it or
-    // lifting its limit would make a live link to nothing: the visitor gets
-    // past the gate and then finds no bytes.
+    // lifting its limit would make a live link to nothing: the visitor passes
+    // the gate and finds no bytes.
     let reviving = body.expires_in_hours.is_some()
         || body.expires_in_minutes.is_some()
         || body.max_uses.is_some();
@@ -1117,8 +1116,8 @@ pub async fn patch(
     }
 
     let now = OffsetDateTime::now_utc();
-    // Either field, the one that was sent; both is refused rather than one
-    // silently winning.
+    // Whichever field was sent; sending both is refused instead of letting one
+    // silently win.
     let lifetime_field = match (body.expires_in_hours, body.expires_in_minutes) {
         (Some(_), Some(_)) => return Err(both_lifetimes()),
         (Some(hours), None) => Some(hours.map(Lifetime::hours)),

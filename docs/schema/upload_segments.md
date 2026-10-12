@@ -15,10 +15,10 @@ CREATE TABLE upload_segments (
     -- Which configured backend this piece goes to.
     backend       TEXT      NOT NULL,
     object_key    TEXT      NOT NULL,
-    -- Where this piece starts within the whole file, and how long it will be.
-    -- How much has actually landed is not here: `uploads.offset_bytes` already
-    -- says it for the whole file, and a second copy is a second thing to keep
-    -- true.
+    -- Where this piece starts within the file, and how long it will be. How much
+    -- has actually arrived is not here: `uploads.offset_bytes` already records it
+    -- for the whole file, and a second copy would be one more thing to keep in
+    -- sync.
     offset_bytes  INTEGER   NOT NULL DEFAULT 0,
     length_bytes  INTEGER   NOT NULL,
     -- The store's own multipart identifier. `NULL` on a local filesystem, and

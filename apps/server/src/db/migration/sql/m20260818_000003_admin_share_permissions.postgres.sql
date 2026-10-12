@@ -1,19 +1,19 @@
 -- Lets an administrator reach shares that are not theirs.
 --
--- # Why this is a migration and not an edit to the roles one
+-- # Why a new migration instead of editing the roles one
 --
 -- Instances have already run `m20260818_000001_roles`. Editing its SQL would
--- change nothing on any of them and would only make the file lie about what
--- their database contains.
+-- change nothing on them and would only make the file misdescribe their
+-- database.
 --
 -- # Why the administrator role and not every role
 --
 -- These two reach other people's content, which is the line `is_privileged`
--- draws. A role somebody built for uploaders should not silently gain the
--- ability to delete a stranger's file because this version shipped.
+-- draws. A role built for uploaders should not silently gain the ability to
+-- delete a stranger's file because this version shipped.
 --
--- `ON CONFLICT DO NOTHING` because a fresh instance runs every migration in order and
--- an operator may have added the rows by hand.
+-- `ON CONFLICT DO NOTHING` because a fresh instance runs every migration in
+-- order and an operator may have added the rows by hand.
 
 INSERT INTO role_permissions (role_id, permission)
 VALUES

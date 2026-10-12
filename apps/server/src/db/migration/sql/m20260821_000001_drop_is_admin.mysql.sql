@@ -2,28 +2,25 @@
 --
 -- # What it was
 --
--- The whole permission model, before roles. #113 moved every decision onto
+-- The entire permission model before roles. Roles moved every decision onto
 -- `role_permissions`, and the column stayed behind as a mirror: still written
--- by `PATCH /admin/users/{id}`, read by nobody.
+-- by `PATCH /admin/users/{id}`, read by nothing.
 --
 -- It was kept so that version could be rolled back. Several releases later
--- that is no longer a rollback anybody is going to perform, and the cost of
--- keeping it is a column that can disagree with the roles table — an account
--- granted `admin` through the role endpoints has `is_admin = 0` and
--- administers the instance anyway. A flag that is wrong is worse than a flag
--- that is missing.
+-- no one will perform that rollback, and keeping it costs a column that can
+-- disagree with the roles table: an account granted `admin` through the role
+-- endpoints has `is_admin = 0` yet administers the instance. A wrong flag is
+-- worse than a missing one.
 --
--- # What the API does about it
+-- # Effect on the API
 --
--- Nothing changes. `AccountResponse.is_admin` has been computed from the
--- roles since #113, so what a client reads is already the true answer; this
--- only removes the copy underneath it.
+-- None. `AccountResponse.is_admin` has been computed from roles since then, so
+-- clients already read the true answer; this only removes the stale copy.
 --
 -- # Going back
 --
--- There is no down. The column can be recreated empty, but which accounts
--- held it cannot be recovered from anything left in the database, and
--- guessing from the roles table would be inventing history. A downgrade past
--- this point is a restore from backup.
+-- There is no down. The column can be recreated empty, but which accounts held
+-- it cannot be recovered from the database, and guessing from the roles table
+-- would invent history. Downgrading past this point means restoring a backup.
 
 ALTER TABLE users DROP COLUMN is_admin;

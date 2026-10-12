@@ -1,77 +1,94 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Limatura/tessera/main/apps/web/public/favicon.svg" alt="Tessera logo" width="104" height="104" />
+  <img src="apps/web/public/favicon.svg" alt="" width="88" height="88" />
 </p>
 
 <h1 align="center">Tessera</h1>
 
-<h3 align="center">セルフホスト型・自動消去ファイル便。</h3>
-
-<p align="center"><strong>ファイルを送信し、受け取りコードを共有。あとは時間に任せましょう。</strong></p>
+<p align="center">使い終わったら自動で片付く、セルフホスト型のファイル・テキスト共有。</p>
 
 <p align="center">
-  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a>
+  <a href="README.md">English</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.zh-CN.md">简体中文</a> · 日本語
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/Limatura/tessera?style=flat&label=license&color=e74c3c&logo=gnu&logoColor=white" alt="License: AGPL-3.0" /></a>
-  <a href="https://github.com/Limatura/tessera/stargazers"><img src="https://img.shields.io/github/stars/Limatura/tessera?style=flat&color=f1c40f&logo=github&label=stars" alt="GitHub stars" /></a>
-  <a href="https://github.com/Limatura/tessera/network/members"><img src="https://img.shields.io/github/forks/Limatura/tessera?style=flat&color=8e44ad&logo=github&label=forks" alt="GitHub forks" /></a>
-  <img src="https://img.shields.io/badge/frontend-React-61DAFB?style=flat&logo=react&logoColor=20232A" alt="Frontend: React" />
-  <img src="https://img.shields.io/badge/routing-TanStack%20Router-ff4154?style=flat&logo=reactrouter&logoColor=white" alt="Routing: TanStack Router" />
-  <img src="https://img.shields.io/badge/backend-Rust-f39c12?style=flat&logo=rust&logoColor=white" alt="Backend: Rust" />
-  <img src="https://img.shields.io/badge/deploy-self--hosted-27ae60?style=flat&logo=docker&logoColor=white" alt="Self-hosted" />
-  <img src="https://img.shields.io/badge/sharing-ephemeral-8e44ad?style=flat&logo=clockify&logoColor=white" alt="Ephemeral sharing" />
-  <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Limatura/tessera" alt="License: AGPL-3.0" /></a>
 </p>
 
-<p align="center"><a href="#-クイックスタート">🚀 クイックスタート</a> · <a href="#-アーキテクチャ">🧱 アーキテクチャ</a> · <a href="#%EF%B8%8F-対応ストレージ">📦 ストレージ</a> · <a href="https://github.com/Limatura/tessera-docs">📚 ドキュメント</a></p>
-
----
-
-Tessera は、恒久的な共有リンクを残さずにファイルやテキストを受け渡したい人のための**匿名ファイル・テキスト共有サービス**です。
-
-ファイルやメモをアップロードすると受け取りコードが発行されます。有効期限または受け取り回数の上限に達すると、コンテンツは保持し続ける必要がなくなります。自分でホストしてデータの保存先を管理でき、フロントエンドを内蔵した**単一バイナリ**として実行できます。
-
-## ✨ Tessera の特長
-
-| 機能 | 説明 |
-| --- | --- |
-| 🕶️ **匿名共有** | 受け取りコードでファイルやメモを共有。恒久的なアカウント運用に依存しません。 |
-| ⏳ **自動期限切れ** | 有効期限と受け取り回数を設定し、共有コンテンツの長期残存を防ぎます。 |
-| 📦 **柔軟なストレージ** | ローカルディスクを標準で使用し、S3 互換ストレージや Azure Blob などにも対応します。 |
-| 🧩 **複数のクライアント、共通 API** | Web、ターミナルクライアント、ブラウザー拡張機能が同じ API を利用します。 |
-| 🛠️ **管理画面** | `/admin` からインスタンス設定とストレージバックエンドを管理できます。 |
-| 🪶 **単一ファイルでデプロイ** | フロントエンドは Rust サーバーに組み込まれ、別途 Node.js runtime やリバースプロキシを必要としません。 |
-| 📜 **API 契約を重視** | OpenAPI はサーバーの handler から生成され、CI で同期状態が確認されます。 |
-
-## 🔄 共有の流れ：アップロードから期限切れまで
-
-恒久的なリンクを残すのではなく、必要な間だけコンテンツを受け渡します。
+https://github.com/user-attachments/assets/b5c35d7f-60f8-4571-80e6-0c0a0cfe7184
 
 <p align="center">
-  <img src="docs/images/sharing-lifecycle.ja.svg" alt="Tessera 共有フロー" width="100%" />
+  <img src="docs/images/screenshot-upload.png" alt="アップロード画面" width="49%" />
+  <img src="docs/images/screenshot-share.png" alt="受け取った人に見えるコードの共有" width="49%" />
 </p>
 
-## 🚀 クイックスタート
+ファイル、フォルダー、コードの断片、リンクをアップロードすると、短い取得コードと URL が返ってきます。それを受け取った人は、有効期限が切れるか、設定したダウンロード回数に達するまで開けます。その後は削除されます。
 
-### Docker を使う
+送るだけならアカウントは不要です（この機能はオフにもできます）。Tessera は Web 画面を内蔵した単一のバイナリで動き、データは SQLite・PostgreSQL・MySQL に、ファイルはローカルディスクかオブジェクトストレージに保存します。
 
-リポジトリのルートで実行します。
+## 想定する使い方
+
+**自分と信頼できる人だけで使う。** NAS や自宅サーバーで、VPN の内側に置き、自分のデバイス間でファイルを移したり友人に渡したりする使い方です。初期設定はこの用途に合わせてあります。匿名アップロードが有効で、SQLite とローカルディスクを使い、ほかに設定するものはありません。[個人向けの設定例](tessera.personal.env.example)を参照してください。
+
+**誰でも使える公開インスタンス。** 誰でもアップロードできるので、マシンのリソースはすべて見知らぬ人が使うことになります。ファイルサイズと総容量に上限を設け、既定の保存期間を短くし、登録は閉じるか招待制にして、マルウェアスキャナーにつないでください。[公開インスタンス向けの設定例](tessera.public.env.example)を参照してください。
+
+**チームや組織で使う。** 匿名アップロードを無効にし、社内の OpenID Connect でサインインしてもらいます。ロールで、誰がアップロードできるか、誰が全員の共有を見られるか、誰が設定を変えられるかを決め、アカウントごとに容量の上限も設定できます。1 台で足りなくなったら PostgreSQL と S3 互換ストレージに移れます。
+
+## 機能
+
+### 内部の設計
+
+- **大きなファイルはサーバーを経由しなくてよい。** S3 か Google Cloud Storage を使うと、アップロードはバケットへ直接送られ、通常のダウンロードもバケットへリダイレクトされます。パスワードやダウンロード回数の制限がある共有は必ずサーバーを経由するので、その制限は守られます。
+- **負荷がかかっても崩れない制限。** 取得は条件付きのデータベース更新 1 回で数えるため、1 回限りの共有を 2 人が同時に取りに来ても、両方が手に入れることはありません。有効期限はリクエストごとに確認し、取得コードの照会にはレート制限があります。
+- **バッファせずにストリーミング。** ファイルがどれだけ大きくても、メモリ使用量は一定のままです。
+- **ストレージを組み合わせられる。** ローカルディスク、S3 互換ストレージ、Azure Blob、Google Cloud Storage、WebDAV を同時に使え、管理画面から再起動なしで追加・退役できます。大きなファイルを複数のバケットに分割して保存することもできます（初期状態では無効）。
+- **SQLite・PostgreSQL・MySQL に対応**し、それぞれに手書きのマイグレーションがあります。
+- **開発に使える API。** OpenAPI 仕様はサーバーのコードから生成され、CI で検証とファジングを行います。CLI と API トークンは Web 画面と同じエンドポイントを使います。
+- **容量と制限**はロールごと、アカウントごと、匿名アップロード全体に設定できます。再開可能なアップロードと、任意のマルウェアスキャンにも対応しています。
+
+### 使う人にとって
+
+- **有効期限とダウンロード回数。** 共有ごとに保存期間を決め、取得回数の上限も設定できます。
+- **パスワード。** 入力するまで、内容の表示もダウンロードもできません。
+- **プレビュー。** コードはシンタックスハイライトされ、画像・SVG・Mermaid の図はページ内に表示されます。チャットに貼ったリンクにはプレビューカードが付きます。
+- **フォルダーや複数のファイル**は、まとめて 1 つのアーカイブでダウンロードできます。
+- **必要なときだけアカウント。** 登録は公開・招待制・停止から選べ、パスワード、GitHub、Discord、任意の OpenID Connect でサインインできます。
+- **画面は英語・繁体字中国語・日本語に対応。**
+
+## 管理画面
+
+<p align="center">
+  <img src="docs/images/screenshot-admin.png" alt="管理ダッシュボード" width="80%" />
+</p>
+
+運用に必要なものはすべて `/admin` にあり、ほとんどの設定は再起動なしで次のリクエストから反映されます。
+
+- **ダッシュボード：** 使用容量とその保存先、転送量、推移、危険な設定の警告。
+- **ユーザー：** アカウントの停止や削除、ロールの変更、アカウントごとの容量上限、あるアカウントがアップロードした共有の一括終了。
+- **共有：** 匿名のものも含め、インスタンス上のすべての共有と、そのアップロード者。
+- **招待コード、ロールと権限。**
+- **設定：** サインイン方法、アップロード制限、既定の有効期限、ストレージバックエンド、メール、スキャン、リンクプレビュー、外観。
+
+ブラウザがなくても、同じ設定はコマンドから変更できます：`tessera-server settings list`、`settings set <key> <value>`。
+
+## クイックスタート
+
+Docker を使い、このリポジトリをクローンした場所で実行します。
 
 ```bash
-docker build -f apps/server/Dockerfile -t tessera .
-docker run --rm -p 8787:8787 -v tessera-data:/data tessera
+docker compose up -d
 ```
 
-その後、**http://localhost:8787** を開きます。
+<http://localhost:8787> を開いてください。初回起動時にサーバーが管理者アカウントを作成し、そのパスワードをログに一度だけ出力します。
 
-イメージのビルド時にフロントエンドがコンパイルされ、サーバーに組み込まれます。永続化 volume は、コンテナを入れ替えた後も必要なデータを保持するために使用します。
+```bash
+docker compose logs tessera | grep password
+```
 
-> [!IMPORTANT] 初回起動時に Tessera は管理者アカウントを作成し、パスワードを**サーバーログに一度だけ表示します**。必ず安全な場所に保存してください。
+インターネットに公開する前に、[公開インスタンス向けの設定例](tessera.public.env.example)を読んでください。匿名アップロードは初期状態で有効なので、容量の上限がないと、サーバーに届く人なら誰でもディスクを埋められます。
 
-### ソースコードから実行
+### ソースから動かす
 
-必要なもの：Rust toolchain と pnpm。
+Rust と pnpm が必要です。
 
 ```bash
 pnpm install
@@ -79,113 +96,52 @@ pnpm --filter web build
 pnpm server:dev
 ```
 
-**http://127.0.0.1:8787** にアクセスしてください。
+## 設定
 
-## 🧱 アーキテクチャ
-
-<p align="center">
-  <img src="docs/images/architecture.ja.svg" alt="Tessera システム構成" width="100%" />
-</p>
-
-業務ロジックはすべてバックエンドが担当します。クライアントは API 経由でサーバーと通信するため、連携ツール側でサーバーのルールを再実装する必要はありません。
-
-## 🗄️ 対応ストレージ
-
-Tessera は標準でローカルの `blobs` ディレクトリを使用します。管理画面または CLI から、実行中にバックエンドを追加することもできます。
-
-| ストレージ | 状態・備考 |
-| --- | --- |
-| ローカルファイルシステム | 標準設定。追加のオブジェクトストレージサービスは不要 |
-| S3 互換ストレージ | Garage、RustFS、MinIO、SeaweedFS、VersityGW、s3proxy でテスト済み |
-| Azure Blob Storage | Azurite でテスト |
-| WebDAV | 小さなファイルのみ対応。大きなアップロードは拒否され、`413` を返します |
-| AWS S3、Cloudflare R2、Backblaze B2 | S3 互換 API を使用。認証情報を設定し、opt-in ワークフローでテスト |
-| Google Cloud Storage | バイナリには組み込まれていますが、現時点ではテストスイートによる検証は未実施 |
-
-**WebDAV の制限：** WebDAV が受け付けるのは `share.inline_threshold_bytes` 未満のファイルです。既定値は 64 KiB です。アップロード経路で大きな payload をストリーミングできないため、Tessera はサイズ超過のファイルを事前に拒否します。
-
-## ⚙️ 設定
-
-多くの設定は **`/admin` 管理画面**で変更でき、次のリクエストから反映されます。待受ポートやデータベース接続など、プロセス起動後に変更できない設定は環境変数で指定します。
-
-環境変数には `TESSERA_` プレフィックスを使用し、階層は `__` で区切ります。
+ほとんどの設定は管理画面にあります。ポート、データベースの URL、データディレクトリのように、サーバーの起動前に決まっている必要があるものだけは環境変数で指定します。
 
 ```bash
 TESSERA_SERVER__PORT=9000
-TESSERA_DATABASE__URL=sqlite://data/tessera.db
-TESSERA_SERVER__DATA_DIR=data
+TESSERA_DATABASE__URL=postgres://tessera:secret@localhost/tessera
+TESSERA_SERVER__DATA_DIR=/var/lib/tessera
 ```
 
-データベースは SQLite、PostgreSQL、MySQL に対応しています。デプロイ例：
+コメント付きの設定例が 2 つあります：[個人向け](tessera.personal.env.example)と[公開インスタンス向け](tessera.public.env.example)。systemd 用の [unit ファイル](contrib/tessera.service)もあります。
 
-- `tessera.personal.env.example` — 個人利用向けのプライベートインスタンス
-- `tessera.public.env.example` — 不特定ユーザーからのアップロードを許可する公開インスタンス
-- `contrib/tessera.service` — systemd service unit
+### ストレージ
 
-CLI から設定を管理することもできます。
+ファイルはローカルのディレクトリに保存されます。ほかのバックエンドは管理画面から追加できます。
+
+| バックエンド | 備考 |
+| --- | --- |
+| ローカルディスク | 初期設定 |
+| S3 互換 | MinIO、Garage、RustFS、SeaweedFS、VersityGW、s3proxy でテスト済み。認証情報があれば AWS S3、Cloudflare R2、Backblaze B2 もテストします。 |
+| Azure Blob Storage | Azurite でテスト済み |
+| Google Cloud Storage | 組み込み済み、テストは未整備 |
+| WebDAV | 小さなファイルのみ。上限は `share.inline_threshold_bytes`（既定 64 KiB） |
+
+## コマンドラインクライアント
 
 ```bash
-tessera-server settings list
-tessera-server settings set share.default_expiry_hours 720
-tessera-server settings reset-all
+cargo install --path apps/cli
+
+tessera send report.pdf --server https://share.example.com --expires 24
+tessera get https://share.example.com/s/P8D72PSF
+echo "hello" | tessera send - --server https://share.example.com
 ```
 
-## 🧰 プロジェクト構成
+`--encrypt` を付けると、内容はマシンを離れる前に暗号化されます。鍵はリンクの `#` 以降の部分で、サーバーが目にすることはありません。
 
-```text
-アプリ apps/
-├── server/       Rust API、認証、ストレージ、内蔵 SPA
-├── web/          React + TanStack Router Web アプリと /admin
-├── tui/          対話型ターミナル UI
-├── cli/          コマンドラインクライアント
-├── extension/    ブラウザー拡張機能
-├── dev/          外部サービスのローカル開発用スタブ
-└── docs/         ドキュメントサイト（Git submodule）
-共有パッケージ packages/
-├── api/          OpenAPI から生成される TypeScript クライアントと schema
-├── auth/         共通認証 hooks と権限ユーティリティ
-├── config/       共通 TypeScript 設定
-├── crypto/       ブラウザー側のエンドツーエンド暗号化ユーティリティ
-├── env/          サーバーと Web の環境変数検証
-├── i18n/         共通多言語ユーティリティ
-└── ui/           共通 UI コンポーネントとスタイル
-Rust crates/
-├── tessera-core/   フレームワーク非依存のドメインルール
-└── tessera-crypto/ Rust とブラウザーで共有する E2E 暗号化形式
-openapi.json      自動生成される API 契約
-```
+## ドキュメント
 
-## 🧑‍💻 開発
+- [利用・運用ガイド](https://github.com/Limatura/tessera-docs)
+- [サーバーの内部](apps/server/README.md)と、[docs/](docs/README.md) にある設計メモ
+- [API 仕様](openapi.json)（サーバーのコードから生成）
 
-```bash
-pnpm dev              # すべてのフロントエンドアプリを並行起動
-pnpm server:dev       # Rust サーバーを起動
-pnpm server:check     # サーバーの lint、テスト、ドキュメント、audit を実行
-pnpm check            # TypeScript の lint とフォーマット確認
-pnpm server:openapi   # openapi.json を再生成
-```
+## コントリビュート
 
-対話型 API ドキュメントを有効にする場合：
+[CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。セキュリティの問題は issue ではなく、[SECURITY.md](SECURITY.md) の手順で非公開で報告してください。
 
-```bash
-TESSERA_FEATURES__DOCS=true pnpm server:dev
-```
+## ライセンス
 
-対話型ドキュメント UI の有効・無効にかかわらず、`openapi.json` は利用できます。UI は renderer を CDN から読み込むため、既定では無効です。
-
-## 📚 関連ドキュメント
-
-- [サーバーとデプロイの詳細](apps/server/README.md)
-- [API 契約](openapi.json)
-- [プライベート環境の例](tessera.personal.env.example)
-- [公開環境の例](tessera.public.env.example)
-
-## 📄 ライセンス
-
-Tessera は **GNU Affero General Public License v3.0（AGPL-3.0）** を採用しています。詳細は [LICENSE](LICENSE) を参照してください。
-
-<div align="center">
-
-**恒久的な保存を減らし、自分のデータを自分で管理する。**
-
-</div>
+[AGPL-3.0](LICENSE)。改変した Tessera を他の人に提供する場合は、そのソースコードを入手できるようにする必要があります。

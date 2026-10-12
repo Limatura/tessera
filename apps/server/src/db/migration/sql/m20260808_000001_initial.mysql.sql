@@ -1,7 +1,7 @@
--- `TIMESTAMP(6)` and never a bare `TIMESTAMP`: MySQL's default precision is
--- whole seconds, so a timestamp written from Rust would silently lose its
--- fractional part and no longer equal what was stored. Six digits matches
--- Postgres's `TIMESTAMPTZ`, which makes all three backends agree.
+-- `TIMESTAMP(6)`, never a bare `TIMESTAMP`: MySQL's default precision is whole
+-- seconds, so a timestamp written from Rust would silently lose its fraction
+-- and no longer equal what was stored. Six digits matches Postgres's
+-- `TIMESTAMPTZ`, so all three backends agree.
 --
 -- MySQL/MariaDB mirror of m20260808_000001_initial.sqlite.sql.
 --

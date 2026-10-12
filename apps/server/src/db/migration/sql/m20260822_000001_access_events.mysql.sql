@@ -2,41 +2,39 @@
 --
 -- # Why this is off by default
 --
--- The counters (`view_count`, `copy_count`, `bytes_served`) need no switch —
--- an integer does not tell anybody where a visitor was. A row per access does:
--- it is an address and a browser fingerprint, kept in the operator's database,
--- about a person who was handed a link and never signed anything.
+-- The counters (`view_count`, `copy_count`, `bytes_served`) need no switch:
+-- an integer reveals nothing about where a visitor was. A row per access does.
+-- It is an address and a browser fingerprint, stored in the operator's
+-- database, about a person who was sent a link and agreed to nothing.
 --
--- Anonymity is one of the reasons to run this software at all, so switching
--- that off is a product decision the operator makes, not a technical default
--- somebody inherits. `share.access_log.enabled` starts `false` and nothing is
--- written until it does not.
+-- Anonymity is one of the reasons to run this software, so giving it up is a
+-- product decision for the operator, not a technical default they inherit.
+-- `share.access_log.enabled` starts `false` and nothing is written until it is
+-- turned on.
 --
 -- # Why a table and not columns on `shares`
 --
--- There is no number of columns that holds "every access". The same reason
+-- No number of columns can hold "every access", for the same reason
 -- `file_shares` exists.
 --
 -- # Why the address is nullable
 --
--- Behind a proxy this instance does not trust, there is no honest answer. A
--- row that says NULL is one that says so; one carrying the proxy's own address
--- would be a record of the wrong person.
+-- Behind a proxy this instance does not trust, there is no correct answer. A
+-- NULL says so; the proxy's own address would record the wrong party.
 --
 -- # Why this dialect looks different
 --
--- `VARCHAR(191)` rather than TEXT for anything an index touches: MySQL cannot
--- index a TEXT column without a prefix length, and 191 is the widest utf8mb4
--- column that fits the 767-byte limit older InnoDB builds still have.
+-- `VARCHAR(191)` instead of TEXT for anything indexed: MySQL cannot index a
+-- TEXT column without a prefix length, and 191 is the widest utf8mb4 column
+-- within the 767-byte limit of older InnoDB builds.
 --
--- The foreign key is table-level. `InnoDB` silently ignores a `REFERENCES`
--- written on a column, so the column form would create the table, pass every
--- test, and leave MySQL with no cascade — access events would outlive the share
--- they describe, which is the one row that must not be kept after the thing it
--- is about is gone.
+-- The foreign key is table-level. `InnoDB` silently ignores a `REFERENCES` on a
+-- column, so the column form would create the table, pass every test, and
+-- leave MySQL with no cascade: access events would outlive their share, which
+-- is the one row that must not be kept once its subject is gone.
 --
--- `DATETIME(6)` rather than TIMESTAMP: TIMESTAMP stops at 2038 and errors
--- rather than truncating.
+-- `DATETIME(6)` instead of TIMESTAMP: TIMESTAMP stops at 2038 and errors
+-- instead of truncating.
 CREATE TABLE IF NOT EXISTS access_events (
     id           VARCHAR(191) NOT NULL PRIMARY KEY,
     share_id     VARCHAR(191) NOT NULL,

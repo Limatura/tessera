@@ -1,9 +1,8 @@
 -- MySQL/MariaDB mirror of m20260813_000002_pending_registrations.sqlite.sql.
 --
--- The column types follow `users` for the same reasons given there: VARCHAR(191)
--- for anything carrying a UNIQUE index, CHAR(26) for a ULID, and no
--- `IF NOT EXISTS` on indexes because MySQL has no such clause and the migrator
--- already refuses to run a migration twice.
+-- Column types follow `users` for the same reasons: VARCHAR(191) for anything
+-- with a UNIQUE index, CHAR(26) for a ULID, and no `IF NOT EXISTS` on indexes
+-- because MySQL lacks the clause and the migrator never runs a migration twice.
 CREATE TABLE IF NOT EXISTS pending_registrations (
     id            CHAR(26)     NOT NULL PRIMARY KEY,
     username      VARCHAR(191) NOT NULL,
@@ -14,13 +13,13 @@ CREATE TABLE IF NOT EXISTS pending_registrations (
     expires_at    TIMESTAMP(6) NOT NULL
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
--- One live link per address: registering again replaces the first rather than
+-- One live link per address: registering again replaces the first instead of
 -- leaving two working links in one mailbox.
 CREATE UNIQUE INDEX idx_pending_registrations_email ON pending_registrations (email);
 
 CREATE UNIQUE INDEX idx_pending_registrations_secret ON pending_registrations (secret_hash);
 
--- Deliberately no index on `username`: reserving a name while nobody has
--- confirmed it would make "register and never confirm" a free way to lock every
--- good name away. The name is checked for real when the link is followed.
+-- No index on `username`, by design: reserving a name before anyone confirms
+-- it would make "register and never confirm" a free way to lock up every good
+-- name. The name is checked for real when the link is followed.
 CREATE INDEX idx_pending_registrations_expires_at ON pending_registrations (expires_at);

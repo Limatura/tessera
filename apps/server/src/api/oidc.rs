@@ -63,10 +63,10 @@ const FLOW_TTL_MINUTES: i64 = 15;
 /// Where the browser is sent when it comes back.
 const SIGN_IN_PAGE: &str = "/login";
 
-/// Where a link attempt is sent when it comes back, signed in already.
+/// Where a link attempt returns to, already signed in.
 ///
-/// The web app's account page. `tab` is left off: that page opens on its
-/// account tab by default, which is where the linked identities are listed.
+/// The web app's account page. `tab` is omitted: the page opens on its account
+/// tab by default, which lists the linked identities.
 const ACCOUNT_PAGE: &str = "/user";
 
 /// One provider a sign-in page may offer.
@@ -93,7 +93,7 @@ pub struct StartQuery {
     ///
     /// Anything that is not a plain path here (another origin, `//host`, a
     /// backslash) is ignored and the browser lands on the home page, so this
-    /// cannot be used to send somebody off-site from our own sign-in.
+    /// cannot turn our own sign-in into an open redirect.
     #[serde(default)]
     pub return_to: Option<String>,
 }
@@ -103,8 +103,8 @@ const MAX_RETURN_TO: usize = 512;
 
 /// `value` if it is a path on this site, and nothing otherwise.
 ///
-/// The browser resolves a `Location` starting with `//` or `/\` against the
-/// scheme alone, so those name another host; only a single slash followed by
+/// Browsers resolve a `Location` starting with `//` or `/\` against the scheme
+/// alone, so those name another host; only a single slash followed by
 /// something else stays on this one.
 fn site_path(value: Option<String>) -> Option<String> {
     value.filter(|path| {
@@ -152,7 +152,7 @@ enum Rejection {
     /// This provider identity is already linked to another account.
     AlreadyLinked,
     /// Linking needs a sign-in within the last few minutes, and this session's
-    /// is older. Sign in again, then link.
+    /// is older. The user must sign in again, then link.
     SignInAgain,
 }
 
@@ -890,11 +890,11 @@ pub async fn link(
         return Err(Error::new(ErrorCode::SessionRequired));
     }
     // A linked provider is a way in that outlasts every session and survives a
-    // password change. Without this, a stolen session cookie could attach the
-    // thief's own GitHub and sign in with it for ever, or sign in with it once
-    // to look freshly signed in and remove the account. A browser follows this
-    // link, so there is no password to ask for; a recent sign-in is the proof,
-    // the same one an account without a password gives everywhere else.
+    // password change. Without this check, a stolen session cookie could link
+    // the thief's own GitHub and sign in with it indefinitely, or sign in once
+    // to look freshly authenticated and then delete the account. A browser
+    // follows this link, so there is no password to ask for; a recent sign-in
+    // is the proof, as for an account without a password everywhere else.
     let since = OffsetDateTime::now_utc() - crate::api::auth::REAUTHENTICATION_WINDOW;
     if !current.credential.signed_in_since(since) {
         return Ok(to(ACCOUNT_PAGE, Some(Rejection::SignInAgain)));

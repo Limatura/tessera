@@ -1548,7 +1548,7 @@ async fn an_administrator_can_remove_a_share_nobody_owns() {
 /// A share whose object is already gone can still be removed.
 ///
 /// The sweep reaps a dead share's content days before its row, and the row
-/// keeps the keys. Deleting by hand in that window must not fail on them.
+/// keeps the keys. Deleting by hand in between must not fail on them.
 #[tokio::test]
 async fn a_share_whose_content_is_already_gone_can_be_removed() {
     use object_store::ObjectStoreExt as _;
@@ -3686,7 +3686,7 @@ async fn the_listing_says_when_a_used_up_shares_content_is_gone() {
 }
 
 /// A batch delete removes the caller's own shares and reports the rest one by
-/// one, someone else's answering like one that does not exist.
+/// one, with another account's share answering like a missing one.
 #[tokio::test]
 async fn a_batch_delete_removes_only_the_callers_shares() {
     let app = TestApp::ready().await;

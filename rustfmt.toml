@@ -1,4 +1,4 @@
-# Stable options — honoured by the pinned toolchain in rust-toolchain.toml.
+# Stable options, honoured by the pinned toolchain in rust-toolchain.toml.
 edition = "2024"
 max_width = 100
 newline_style = "Unix"
@@ -7,8 +7,8 @@ use_try_shorthand = true
 
 # Nightly-only options. Stable `cargo fmt` prints a warning and ignores them;
 # CI runs `cargo +nightly fmt --check` so import grouping is actually enforced.
-# Keeping them here (rather than in a separate nightly config) means a developer
-# who happens to run nightly gets identical output to CI.
+# Keeping them here (not in a separate nightly config) means a developer on
+# nightly gets the same output as CI.
 unstable_features = true
 # std / external crates / crate-local, separated by a blank line.
 group_imports = "StdExternalCrate"

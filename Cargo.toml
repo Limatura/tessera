@@ -15,8 +15,8 @@ rust-version = "1.97"
 publish = false
 
 [workspace.dependencies]
-# Versions are pinned once here so the two crates can never disagree about a
-# shared dependency — the classic source of "works in core, breaks in server".
+# Versions are pinned once here so the crates can never disagree about a shared
+# dependency, the classic source of "works in core, breaks in server".
 tessera-core = { path = "crates/tessera-core" }
 tessera-crypto = { path = "crates/tessera-crypto" }
 
@@ -28,16 +28,16 @@ ulid = { version = "3", features = ["serde"] }
 tracing = "0.1"
 utoipa = { version = "5.5", features = ["axum_extras", "time"] }
 
-# Lint policy is declared once for the whole workspace; each crate opts in with
-# `[lints] workspace = true`. Two tiers, on purpose:
+# Lint policy is declared once for the workspace; each crate opts in with
+# `[lints] workspace = true`. Two tiers, by design:
 #
-#   deny  — wrong at any moment, including mid-experiment. Blocks `cargo run`.
-#   warn  — should not merge, but must not stop you iterating. CI runs
-#           `-D warnings`, which promotes every one of these to an error there.
+#   deny   wrong at any moment, even mid-experiment. Blocks `cargo run`.
+#   warn   must not merge, but must not block iterating. CI runs
+#          `-D warnings`, which turns every one of these into an error there.
 #
-# The split is what keeps a strict policy from making the crate unpleasant to
-# work in: a contributor with twelve pedantic warnings can still run the server
-# and the tests, and finds out at PR time — usually fixable with `clippy --fix`.
+# The split keeps a strict policy from making the crate unpleasant to work in:
+# a contributor with twelve pedantic warnings can still run the server and the
+# tests, and finds out at review time, usually fixable with `clippy --fix`.
 [workspace.lints.rust]
 unsafe_code = "forbid"
 
@@ -82,9 +82,9 @@ as_conversions = "deny"
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 
-# `nursery` and `cargo` are cherry-picked rather than enabled wholesale: both
-# groups are explicitly unstable, and adopting one as a block means a toolchain
-# bump can break the build on a lint nobody chose.
+# `nursery` and `cargo` are cherry-picked instead of enabled wholesale: both
+# groups are explicitly unstable, and enabling one as a block means a toolchain
+# bump can break the build on a lint no one chose.
 cognitive_complexity = "warn"
 use_self = "warn"
 missing_const_for_fn = "warn"
@@ -96,12 +96,12 @@ or_fun_call = "warn"
 negative_feature_names = "warn"
 redundant_feature_names = "warn"
 wildcard_dependencies = "warn"
-# `redundant_pub_crate` is deliberately absent: it contradicts `unreachable_pub`.
-# Inside a test binary nothing is reachable outside the crate, so `pub` trips one
-# and `pub(crate)` trips the other, with no third option. `unreachable_pub` is
-# stable and guards the library's real surface, so it wins.
+# `redundant_pub_crate` is intentionally absent: it contradicts
+# `unreachable_pub`. In a test binary nothing is reachable outside the crate,
+# so `pub` trips one and `pub(crate)` the other, with no third option.
+# `unreachable_pub` is stable and guards the library's real surface, so it wins.
 #
-# `same_name_method` is likewise absent: its only hit is the inherent `get` that
+# `same_name_method` is absent too: its only hit is the inherent `get` that
 # rust-embed's derive generates alongside `Embed::get`, which we cannot change.
 
 # Restriction lints, chosen for a network service that parses hostile input.
@@ -136,8 +136,8 @@ try_err = "warn"
 
 [profile.release]
 # Single-binary distribution: optimise for size and startup, not compile time.
-# `panic` is deliberately left at "unwind" — tower-http's CatchPanicLayer can only
-# turn a panicking handler into a 500 if the panic is unwindable.
+# `panic` stays at "unwind": tower-http's CatchPanicLayer can only turn a
+# panicking handler into a 500 if the panic unwinds.
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
@@ -145,8 +145,8 @@ strip = "symbols"
 
 # The browser's build of `tessera-crypto`, made by `scripts/crypto-wasm.sh`.
 #
-# Speed rather than size, unlike release: the module is tens of kilobytes either
-# way, and encryption sits between the file and the network. `panic` is abort
+# Speed over size, unlike release: the module is tens of kilobytes either way,
+# and encryption sits between the file and the network. `panic` is abort
 # because nothing on `wasm32-unknown-unknown` can catch an unwind.
 [profile.wasm]
 inherits = "release"
