@@ -1281,7 +1281,12 @@ async fn a_ranged_raw_response_is_still_hardened() {
             .and_then(|v| v.to_str().ok()),
         Some("nosniff")
     );
-    assert!(headers.contains_key(header::CONTENT_SECURITY_POLICY));
+    assert_eq!(
+        headers
+            .get(header::CONTENT_SECURITY_POLICY)
+            .and_then(|v| v.to_str().ok()),
+        Some("default-src 'none'; frame-ancestors 'none'; sandbox")
+    );
     assert_eq!(
         headers
             .get(header::CONTENT_DISPOSITION)
