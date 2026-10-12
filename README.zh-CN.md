@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
 </p>
 
-<p align="center"><a href="#-快速开始">🚀 快速开始</a> · <a href="#-系统架构">🧱 系统架构</a> · <a href="#%EF%B8%8F-支持的存储后端">📦 存储后端</a> · <a href="apps/fumadocs">📚 文档</a></p>
+<p align="center"><a href="#-快速开始">🚀 快速开始</a> · <a href="#-系统架构">🧱 系统架构</a> · <a href="#%EF%B8%8F-支持的存储后端">📦 存储后端</a> · <a href="https://github.com/Limatura/tessera-docs">📚 文档</a></p>
 
 ---
 

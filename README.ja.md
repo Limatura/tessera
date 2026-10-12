@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/storage-S3--compatible-16a085?style=flat&logo=amazons3&logoColor=white" alt="S3 compatible storage" />
 </p>
 
-<p align="center"><a href="#-クイックスタート">🚀 クイックスタート</a> · <a href="#-アーキテクチャ">🧱 アーキテクチャ</a> · <a href="#%EF%B8%8F-対応ストレージ">📦 ストレージ</a> · <a href="apps/fumadocs">📚 ドキュメント</a></p>
+<p align="center"><a href="#-クイックスタート">🚀 クイックスタート</a> · <a href="#-アーキテクチャ">🧱 アーキテクチャ</a> · <a href="#%EF%B8%8F-対応ストレージ">📦 ストレージ</a> · <a href="https://github.com/Limatura/tessera-docs">📚 ドキュメント</a></p>
 
 ---
 
