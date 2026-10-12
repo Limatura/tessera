@@ -47,7 +47,7 @@ permissions:
 jobs:
   disk:
     name: cap the disk
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       # First, and without touching Docker. This is the big one and it needs no

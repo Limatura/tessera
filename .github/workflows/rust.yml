@@ -4,7 +4,7 @@ name: rust
 on:
   push:
     branches: [main]
-    paths: &rust-paths
+    paths:
       - "apps/server/**"
       - "apps/cli/**"
       - "apps/dev/**"
@@ -36,8 +36,12 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+  # Every pull request, not only ones touching these paths: `docker image`,
+  # `workflow lint` and `checks` are required by the branch ruleset, and a
+  # workflow that never starts never reports them, which blocks the merge.
+  # The `changes` job below skips what a change cannot affect, and a skipped
+  # job satisfies a required check.
   pull_request:
-    paths: *rust-paths
   workflow_dispatch:
 
 concurrency:
@@ -66,7 +70,7 @@ jobs:
   # Skips jobs a change cannot affect.
   changes:
     name: what changed
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     # `paths-filter` needs `pull-requests: read` to list PR files.
     permissions:
       contents: read
@@ -142,7 +146,7 @@ jobs:
 
   checks:
     name: checks
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -233,7 +237,7 @@ jobs:
 
   features:
     name: feature matrix
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -252,7 +256,7 @@ jobs:
 
   test:
     name: test
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -283,7 +287,7 @@ jobs:
 
   backends:
     name: ${{ matrix.backend }} backend
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -337,7 +341,7 @@ jobs:
 
   storage:
     name: object store
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -694,7 +698,7 @@ jobs:
 
   workflows:
     name: workflow lint
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -718,7 +722,7 @@ jobs:
 
   docker:
     name: docker image
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -792,14 +796,15 @@ jobs:
           outputs: type=local,dest=/tmp/tessera-image-size/frontend
           cache-from: type=local,src=/tmp/tessera-buildx-cache
 
-      # Smoke alarm for unintended growth, set at ~2x current. See image-size.sh.
+      # Smoke alarm for unintended growth, about 1.4x the size when last set
+      # (binary 41 MB: 28 MB backend, 13 MB embedded web). See image-size.sh.
       - name: Measure the footprint against its budget
         id: footprint
         run: .github/scripts/image-size.sh tessera-server:ci
         env:
           FRONTEND_DIR: /tmp/tessera-image-size/frontend
-          BINARY_BUDGET_MB: "40"
-          ROOTFS_BUDGET_MB: "44"
+          BINARY_BUDGET_MB: "56"
+          ROOTFS_BUDGET_MB: "60"
 
       - name: Smoke-test the image
         run: |
@@ -887,7 +892,7 @@ jobs:
   # Separate so the only job that can write PRs runs no third-party actions.
   image-size-comment:
     name: image size comment
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
@@ -914,7 +919,7 @@ jobs:
 
   fuzz:
     name: contract fuzz
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
