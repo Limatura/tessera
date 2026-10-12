@@ -3,16 +3,18 @@
 The Rust backend. All business logic lives here; `apps/web` is a pure SPA whose
 build output is compiled into this binary.
 
-A release build is **one executable** — API, static assets and Swagger UI in a
-single process, with no nginx and no Node runtime in front of it.
+A release build is **one executable** — API and static assets in a single
+process, with no nginx and no Node runtime in front of it.
 
 ## Quick start
 
 ```bash
 cargo run --bin tessera-server     # http://127.0.0.1:8787
 curl localhost:8787/health
-open http://localhost:8787/docs
 ```
+
+The browsable API docs at `/docs` are off by default; see
+`TESSERA_FEATURES__DOCS` below.
 
 From the repository root the same things are available as `pnpm server:dev`,
 `server:test`, `server:lint`, `server:doc`, `server:audit`, `server:openapi`, and
