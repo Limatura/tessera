@@ -23,6 +23,29 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore(deps)
+    # `utoipa-axum` and `utoipa-scalar` each require the `utoipa` major they
+    # were built for, so bumped one at a time none of them compiles.
     groups:
+      utoipa:
+        patterns: ["utoipa*"]
       cargo-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # `markup5ever_rcdom` requires `html5ever` 0.39, and the two must agree.
+      # Drop this once it has a release for the newer one.
+      - dependency-name: html5ever
+        versions: [">=0.40"]
+
+  # The web app and the shared packages. One pnpm workspace, so one entry at the
+  # root covers every `package.json` in it, and the catalog in
+  # `pnpm-workspace.yaml` is bumped in place.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      npm-minor-patch:
         update-types: [minor, patch]

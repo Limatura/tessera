@@ -7,7 +7,6 @@
 # Frontend
 /apps/web/ @sao-coding
 /apps/extension/ @sao-coding
-/apps/docs/ @sao-coding
 /apps/tui/ @sao-coding
 /packages/ui/ @sao-coding
 
@@ -32,4 +31,3 @@
 /.github/ @sao-coding @timo9378
 /docker-compose.yml @sao-coding @timo9378
 /rust-toolchain.toml @sao-coding @timo9378
-/tessera.yaml @sao-coding @timo9378
