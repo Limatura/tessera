@@ -90,16 +90,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=local,src=/tmp/tessera-buildx-cache
+          # Written by main's `:main` build in rust.yml.
+          cache-from: type=gha,scope=publish
           build-args: |
             TESSERA_BUILD_REV=${{ steps.source.outputs.rev }}
-
-      # Self-hosted: builders persist unless removed.
-      - name: Remove the builder
-        if: always()
-        run: docker buildx rm --force "$BUILDER" 2>/dev/null || true
-        env:
-          BUILDER: ${{ steps.buildx.outputs.name }}
 
   github-release:
     name: GitHub Release

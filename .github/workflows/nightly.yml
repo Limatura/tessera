@@ -226,7 +226,8 @@ jobs:
             ${{ steps.image.outputs.name }}:nightly
             ${{ steps.image.outputs.name }}:nightly-${{ steps.version.outputs.stamp }}
             ${{ steps.image.outputs.name }}:sha-${{ steps.gate.outputs.sha }}
-          cache-from: type=local,src=/tmp/tessera-buildx-cache
+          # Written by main's `:main` build in rust.yml.
+          cache-from: type=gha,scope=publish
           build-args: |
             TESSERA_BUILD_REV=${{ steps.gate.outputs.sha }}
 
@@ -246,10 +247,3 @@ jobs:
             --prerelease \
             --title "Nightly $VERSION" \
             --notes-file "$RUNNER_TEMP/notes.md"
-
-      # Self-hosted: builders persist unless removed.
-      - name: Remove the builder
-        if: always() && steps.gate.outputs.build == 'true'
-        run: docker buildx rm --force "$BUILDER" 2>/dev/null || true
-        env:
-          BUILDER: ${{ steps.buildx.outputs.name }}

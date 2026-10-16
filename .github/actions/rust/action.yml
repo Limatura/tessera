@@ -1,136 +1,36 @@
 name: Rust toolchain
 description: >-
-  Makes sure rustup and the pinned toolchain are present, on a machine that may never have had them.
+  Installs the pinned toolchain and restores the build cache for one kind of build.
+
+inputs:
+  cache-key:
+    description: >-
+      Jobs that compile the same thing share a key, so one cache serves them all. Different feature sets or profiles get their own.
+    required: true
+  save-cache:
+    description: Whether this job may write the cache. Only main writes it either way.
+    default: "true"
 
 runs:
   using: composite
   steps:
-    # Before anything else, because the thing this is clearing is memory and the
-    # step after it starts a compiler.
-    #
-    # A `rustc` whose parent is gone was reparented to PID 1: the job that
-    # started it is not coming back for it, and on a self-hosted runner nothing
-    # else will. Enough of them and the machine runs out of memory — which is
-    # what a runner being `SIGTERM`ed mid-job looks like from the outside.
-    #
-    # Orphans only. A live build's compiler has the shell that spawned it as its
-    # parent, so this cannot reach one; the age floor is a second guard against a
-    # process the kernel has only just reparented.
-    - name: Reap compilers nobody is waiting for
-      shell: bash
-      run: |
-        reaped=0
-        while read -r pid ppid age comm; do
-          [ "$ppid" = "1" ] || continue
-          [ "$age" -gt 60 ] || continue
-          case "$comm" in
-            rustc|cargo) ;;
-            *) continue ;;
-          esac
-          kill -9 "$pid" 2>/dev/null && reaped=$((reaped + 1))
-        done <<< "$(ps -eo pid=,ppid=,etimes=,comm=)"
-        [ "$reaped" -eq 0 ] || echo "reaped ${reaped} orphaned compilers"
-
-    # Same class of problem as the orphaned compilers above, and a bigger one.
-    #
-    # `docker buildx` runs its builder in a container. The image job removes its
-    # own at both ends, but neither of those steps runs when the job is
-    # cancelled or when the runner goes away mid-job, and then the builder
-    # outlives the whole run.
-    #
-    # Measured on 2026-08-29: one left over that way, holding 2.25 GB of a
-    # 4.9 GB machine and still at 100% CPU with no job attached. That leaves
-    # about 2.4 GB for a compiler, and an `--all-features` build of this
-    # workspace does not fit in it, so `rustc` is killed and the job reports
-    # exit 143 with nothing in the log saying why.
-    #
-    # The image job cannot clear it in time: it is one job among nine, and the
-    # ones that compile come before it. So the cleanup goes where the memory is
-    # needed instead of where the builder was made. The layer cache lives on
-    # disk under `/tmp/tessera-buildx-cache`, so taking the builder away loses
-    # nothing.
-    #
-    # There is one runner and its jobs are serial, so no live build owns a
-    # builder while this runs. The image job creates its own afterwards.
-    - name: Take back what an interrupted image build is still holding
-      shell: bash
-      run: |
-        command -v docker >/dev/null 2>&1 || exit 0
-        timeout 120 docker buildx ls --format '{{.Name}}' 2>/dev/null \
-          | grep -v '^default$' \
-          | xargs -r -I{} timeout 60 docker buildx rm --force {} 2>/dev/null || true
-
-    # The shared target directory is what actually fills the disk, and nothing
-    # was bounding it.
-    #
-    # Measured on 2026-08-28: this workspace's `target/debug` reaches 64 GB, on a
-    # runner whose whole root filesystem is about 55. Across an hour of runs the
-    # free space went 21 GB, 8 GB, 9 GB — and the failure that produced was not
-    # a message about disk. The object stores came up, took connections, and
-    # then answered every write with an error their gateways report as a plain
-    # `500`, because a volume server out of room marks its volumes read-only.
-    # The run failed three minutes later in whichever test wrote first, saying
-    # `internal error`.
-    #
-    # A cap rather than a clean every time: the directory is shared between jobs
-    # precisely so a build does not start from nothing, and throwing it away on
-    # every run would trade an hour of disk for an hour of compiling. Over the
-    # cap, the next build pays for one cold start and the disk comes back.
-    #
-    # Fourteen because the number has to leave the rest of the job room on a
-    # 55 GB disk, and 25 did not: measured on 2026-08-29 the directory sat at
-    # 23 GB, under that cap and therefore kept, with 17 GB free — and the job
-    # was then stopped by its own floor. A cap only helps if it binds.
-    - name: Keep the shared target directory under a cap
-      shell: bash
-      run: |
-        CAP_GB=14
-        target="${CARGO_TARGET_DIR:-}"
-        if [ -z "$target" ] || [ ! -d "$target" ]; then
-          echo "no shared target directory yet"
-          exit 0
-        fi
-        size_gb=$(du -s --block-size=1G "$target" 2>/dev/null | cut -f1)
-        size_gb=${size_gb:-0}
-        echo "cargo target directory is ${size_gb} GB (cap ${CAP_GB} GB)"
-        if [ "$size_gb" -gt "$CAP_GB" ]; then
-          echo "over the cap; the next build starts from an empty one"
-          rm -rf "$target"
-        fi
-
-    # GitHub's hosted images ship with rustup, so this never had to be said. A
-    # self-hosted runner is whatever somebody installed on it, and a job that
-    # fails with `rustup: command not found` sends the reader to look at the
-    # workflow rather than at the machine.
-    #
-    # Look in `~/.cargo/bin` before asking PATH. That is where rustup puts
-    # itself, and the job's PATH does not include it until the
-    # `$GITHUB_PATH` line below has run — so `command -v` alone answered "no
-    # rustup" on a machine that had one, and every job spent about eight
-    # minutes re-running the installer over the top of it (7.5–8.3 min per job
-    # measured on 2026-10-07; the log shows the installer warning about an
-    # existing `~/.rustup/settings.toml`).
-    - name: Install rustup if the machine has none
-      shell: bash
-      run: |
-        export PATH="$HOME/.cargo/bin:$PATH"
-        if command -v rustup > /dev/null; then
-          echo "rustup is already here"
-        else
-          echo "no rustup on this machine; installing"
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-            | sh -s -- -y --default-toolchain none --profile minimal
-        fi
-        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-
     # `rust-toolchain.toml` is what pins the version. This only makes rustup act
     # on it now, so the first `cargo` call is not the thing that downloads a
-    # compiler in the middle of a timed step.
+    # compiler in the middle of a timed step, and so the cache below is keyed on
+    # the right compiler.
     - name: Materialise the pinned toolchain
       shell: bash
-      run: |
-        export PATH="$HOME/.cargo/bin:$PATH"
-        rustup show active-toolchain || rustup show
+      run: rustup show active-toolchain || rustup show
+
+    # Saved from main only. A pull request reads main's cache and writes none,
+    # so pull requests do not each store a copy and push main's out of the 10 GB
+    # the repository gets.
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      with:
+        shared-key: ${{ inputs.cache-key }}
+        save-if: ${{ github.ref == 'refs/heads/main' && inputs.save-cache == 'true' }}
+        # Tools come from taiki-e/install-action, pinned per job.
+        cache-bin: "false"
 
     # `build.rs` watches `apps/web/dist`, and a watched path that does not exist
     # reruns it on every cargo call, which recompiles the server each time. Jobs

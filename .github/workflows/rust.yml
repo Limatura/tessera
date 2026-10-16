@@ -52,13 +52,10 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  # Outside the checkout, which `actions/checkout` wipes every run.
-  CARGO_TARGET_DIR: ${{ github.workspace }}/../.cargo-target
-  # Incremental artefacts reached 28 GB against 4.5 GB of output.
+  # Incremental artefacts are never reused by a fresh runner, only cached.
   CARGO_INCREMENTAL: "0"
-  # 8 GB RAM: the default (10 jobs) gets OOM-killed as a silent `exit 143`.
-  CARGO_BUILD_JOBS: "4"
-  # Halves the target dir; local `cargo test` keeps full debug info.
+  # Halves the target dir, and with it the cache; local `cargo test` keeps full
+  # debug info.
   CARGO_PROFILE_DEV_DEBUG: line-tables-only
   # Lints are `warn` locally; CI makes them blocking.
   RUSTFLAGS: -D warnings
@@ -162,6 +159,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
+        with:
+          cache-key: checks
       - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
         # Must match the wasm-bindgen version pinned in crates/tessera-crypto.
         with: { tool: "cargo-deny,cargo-machete,wasm-bindgen@0.2.128" }
@@ -252,6 +251,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
+        with:
+          cache-key: features
       - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
         with: { tool: cargo-hack }
 
@@ -270,6 +271,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
+        with:
+          cache-key: test
       - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
         with: { tool: cargo-nextest }
 
@@ -327,6 +330,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
+        with:
+          cache-key: test
+          # `test` saves the cache these share.
+          save-cache: "false"
       - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
         with: { tool: cargo-nextest }
 
@@ -350,35 +357,12 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
+        with:
+          cache-key: test
+          # `test` saves the cache these share.
+          save-cache: "false"
       - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
         with: { tool: cargo-nextest }
-
-      - name: Check the runner has room and free ports
-        run: |
-          # Below ~10 GB free the stores fail every write with a bare 500.
-          FLOOR_GB=12
-          free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
-          echo "root filesystem ${free_gb} GB free (floor ${FLOOR_GB} GB)"
-          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
-            echo "short on room; clearing unused images"
-            timeout 300 docker system prune -a -f || true
-            free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
-            echo "after clearing: ${free_gb} GB free"
-          fi
-          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
-            echo "::error::runner has ${free_gb} GB free, under the ${FLOOR_GB} GB floor; the object stores need room to write"
-            exit 1
-          fi
-          # Leftovers from cancelled runs.
-          docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
-            tessera-minio tessera-seaweed tessera-versity tessera-s3proxy 2>/dev/null || true
-
-          for port in 3900 39002 31000 38080 39100 38333 38111 38090; do
-            if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN; then
-              echo "::error::port $port is already in use on this runner"
-              exit 1
-            fi
-          done
 
       # Not `services:`: Garage needs a config file.
       - name: Start Garage
@@ -682,17 +666,7 @@ jobs:
               echo "::endgroup::"
             fi
           done
-          df -h /
-          echo '::group::what else is on this machine'
-          ss -ltnp 2>/dev/null || netstat -ltnp 2>/dev/null || true
           docker ps -a --format '{{.Names}}\t{{.Status}}\t{{.Ports}}' || true
-          echo '::endgroup::'
-
-      - name: Stop the stores
-        if: always()
-        run: |
-          docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
-            tessera-minio tessera-seaweed tessera-versity tessera-s3proxy 2>/dev/null || true
 
   workflows:
     name: workflow lint
@@ -705,9 +679,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/rust
 
-      # Container, not the wrapper action (unsupported on this runner). 1.7.7 rejects YAML anchors.
+      # The container rather than a wrapper action. 1.7.7 rejects YAML anchors.
       - name: actionlint
         run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml
 
@@ -736,32 +709,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/rust
-      - name: Clear what previous runs left
-        run: |
-          timeout 120 docker buildx ls --format '{{.Name}}' 2>/dev/null \
-            | grep -v '^default$' \
-            | xargs -r -I{} timeout 60 docker buildx rm --force {} 2>/dev/null || true
-          timeout 60 docker container prune -f 2>/dev/null || true
-          timeout 60 docker volume prune -f 2>/dev/null || true
-
-          # A publish build pulls ~10 GB of toolchains and cache.
-          FLOOR_GB=12
-          free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
-          used_pct=$(df --output=pcent / | tail -1 | tr -dc '0-9')
-          echo "root filesystem ${used_pct}% full, ${free_gb} GB free (floor ${FLOOR_GB} GB)"
-          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
-            echo "short on room; clearing images and caches too"
-            timeout 300 docker system prune -a --volumes -f || true
-            rm -rf /tmp/tessera-buildx-cache
-            free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
-            echo "after clearing: ${free_gb} GB free"
-          fi
-          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
-            echo "::error::runner has ${free_gb} GB free, under the ${FLOOR_GB} GB floor"
-            exit 1
-          fi
-          df -h / | tail -1
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         id: buildx
@@ -773,16 +720,16 @@ jobs:
           file: apps/server/Dockerfile
           tags: tessera-server:ci
           load: true
-          # Local cache: the runner keeps its disk.
-          cache-from: type=local,src=/tmp/tessera-buildx-cache
-          cache-to: type=local,dest=/tmp/tessera-buildx-cache,mode=max
+          # Main writes the layer cache; pull requests read it.
+          cache-from: type=gha,scope=server
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,scope=server,mode=max' || '' }}
           # `.git` is not in the context; without this /health reports `unknown`.
           build-args: |
             TESSERA_BUILD_REV=${{ github.sha }}
 
       # The two bundles the binary embeds, so the report can split it into
-      # backend and frontend. Every layer is in the cache the step above just
-      # wrote, so this only copies files out.
+      # backend and frontend. The builder still holds every layer from the step
+      # above, so this only copies files out.
       - name: Export the embedded frontend
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -790,7 +737,6 @@ jobs:
           file: apps/server/Dockerfile
           target: frontend-dist
           outputs: type=local,dest=/tmp/tessera-image-size/frontend
-          cache-from: type=local,src=/tmp/tessera-buildx-cache
 
       # The last main build's figures. Restored on main too, so a push compares
       # against the one before it.
@@ -891,23 +837,14 @@ jobs:
           tags: |
             ${{ steps.image.outputs.name }}:main
             ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
-          cache-from: type=local,src=/tmp/tessera-buildx-cache
+          # Both platforms, unlike the build above; `nightly.yml` and
+          # `release.yml` read this cache.
+          cache-from: |
+            type=gha,scope=server
+            type=gha,scope=publish
+          cache-to: type=gha,scope=publish,mode=max
           build-args: |
             TESSERA_BUILD_REV=${{ github.sha }}
-
-      # Self-hosted: images, builders and volumes persist unless removed.
-      - name: Remove what this job put on the machine
-        if: always()
-        run: |
-          docker rm -f tessera-smoke 2>/dev/null || true
-          docker image rm -f tessera-server:ci 2>/dev/null || true
-          rm -f /tmp/tessera-image-size/image.tar /tmp/tessera-image-size/binary
-          docker image prune -f
-          docker buildx rm --force "$BUILDER" 2>/dev/null || true
-          docker volume prune -f 2>/dev/null || true
-          df -h / | tail -1
-        env:
-          BUILDER: ${{ steps.buildx.outputs.name }}
 
   # Separate so the only job that can write PRs runs no third-party actions.
   image-size-comment:
@@ -952,7 +889,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          cache-key: server
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v6
 
       - run: cargo build --locked --bin tessera-server
@@ -960,26 +898,11 @@ jobs:
       - name: Start an instance and seed it
         id: instance
         run: |
-          # A leftover server on 13999 would answer /health and get fuzzed instead.
-          if command -v fuser >/dev/null 2>&1; then
-            fuser -k 13999/tcp 2>/dev/null || true
-          else
-            pkill -f 'tessera-server' 2>/dev/null || true
-          fi
-          for _ in $(seq 1 20); do
-            ss -ltn 'sport = :13999' 2>/dev/null | grep -q LISTEN || break
-            sleep 0.5
-          done
-          if ss -ltn 'sport = :13999' 2>/dev/null | grep -q LISTEN; then
-            echo "::error::port 13999 is still held by something this job did not start"
-            exit 1
-          fi
-
           mkdir -p /tmp/fuzz
           TESSERA_DATABASE__URL='sqlite:///tmp/fuzz/fuzz.db?mode=rwc' \
           TESSERA_SERVER__DATA_DIR=/tmp/fuzz \
           TESSERA_SERVER__PORT=13999 \
-            "$CARGO_TARGET_DIR/debug/tessera-server" > /tmp/fuzz/server.log 2>&1 &
+            target/debug/tessera-server > /tmp/fuzz/server.log 2>&1 &
           echo $! > /tmp/fuzz/server.pid
           for _ in $(seq 1 60); do
             curl -fsS http://127.0.0.1:13999/health > /dev/null 2>&1 && break
