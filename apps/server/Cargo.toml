@@ -227,7 +227,7 @@ reqwest = { version = "0.13", default-features = false, features = [
 
 # --- contract ---
 utoipa = { workspace = true }
-utoipa-axum = "0.2"
+utoipa-axum = "0.3"
 # Scalar instead of Swagger UI. Measured: swagger-ui embeds 16.7 MB of unpacked
 # assets (over half of them source maps and `.jsx` sources with no runtime
 # purpose), which was 11.3 MB of a 23.8 MB binary. utoipa-scalar is 11 KB and
