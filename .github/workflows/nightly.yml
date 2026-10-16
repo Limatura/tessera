@@ -102,11 +102,14 @@ jobs:
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         if: steps.gate.outputs.build == 'true'
+      # No pnpm cache: this workflow publishes, and a cache any PR can write is
+      # not one it should restore (zizmor's `cache-poisoning`). setup-node turns
+      # it on by itself from `packageManager`, so it is turned off explicitly.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: steps.gate.outputs.build == 'true'
         with:
           node-version: 24
-          cache: pnpm
+          package-manager-cache: false
       - name: Install dependencies
         if: steps.gate.outputs.build == 'true'
         run: pnpm install --frozen-lockfile
