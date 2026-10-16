@@ -113,14 +113,12 @@ jobs:
               - ".github/scripts/**"
               - ".github/workflows/**"
               - "!**/*.md"
-            # The powerset only matters when features or `cfg`s move.
+            # The powerset only matters when features move, and they are
+            # declared in the manifests.
             features:
               - "Cargo.toml"
               - "apps/server/Cargo.toml"
               - "crates/*/Cargo.toml"
-              - "Cargo.lock"
-              - ".github/actions/**"
-              - ".github/workflows/**"
             contract: *rust
             # The SPA is embedded in the image.
             image:
@@ -257,7 +255,12 @@ jobs:
         with: { tool: cargo-hack }
 
       # No `--locked`: `--no-dev-deps` rewrites the manifest, which it forbids.
-      - run: cargo hack --feature-powerset --depth 2 --no-dev-deps check -p tessera-server
+      # Pairs of features are about 67 checks and each feature alone about 12,
+      # so pull requests check each feature and main checks the pairs.
+      - name: cargo hack
+        env:
+          DEPTH: ${{ github.event_name == 'pull_request' && '1' || '2' }}
+        run: cargo hack --feature-powerset --depth "$DEPTH" --no-dev-deps check -p tessera-server
 
   test:
     name: test
@@ -289,20 +292,14 @@ jobs:
           if-no-files-found: ignore
 
   backends:
-    name: ${{ matrix.backend }} backend
+    # One job for both: the build is the expensive part, and it is the same for
+    # each database.
+    name: database backends
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
     if: >-
       needs.changes.outputs.rust == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - backend: postgres
-            url: postgres://tessera:tessera@localhost:5432/tessera_test
-          - backend: mysql
-            url: mysql://tessera:tessera@localhost:3306/tessera_test
     services:
       postgres:
         image: postgres:17-alpine
@@ -338,11 +335,20 @@ jobs:
         with: { tool: cargo-nextest }
 
       # These tests are `#[ignore]`d; `--run-ignored all` opts in.
-      - name: Run the backend suite
+      - name: Run the backend suite against PostgreSQL
         env:
-          TESSERA_TEST_DATABASE_URL: ${{ matrix.url }}
+          TESSERA_TEST_DATABASE_URL: postgres://tessera:tessera@localhost:5432/tessera_test
         run: |
-          cargo nextest run --profile ci --all-features \
+          cargo nextest run --locked --profile ci --all-features \
+            --run-ignored all -E 'binary(backends)'
+
+      # Runs even when PostgreSQL failed, so one run reports both.
+      - name: Run the backend suite against MySQL
+        if: ${{ !cancelled() }}
+        env:
+          TESSERA_TEST_DATABASE_URL: mysql://tessera:tessera@localhost:3306/tessera_test
+        run: |
+          cargo nextest run --locked --profile ci --all-features \
             --run-ignored all -E 'binary(backends)'
 
   storage:
@@ -695,7 +701,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
     timeout-minutes: 30
     needs: changes
     # Set before the budget check, so an over-budget build still reports.
@@ -805,47 +810,6 @@ jobs:
           path: /tmp/tessera-image-size/main.txt
           key: image-size-main-${{ github.sha }}
 
-      # Off until the repo is public (`PUBLISH_IMAGES`). arm64 is only built here.
-      - name: Sign in to GHCR
-        if: >-
-          github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Image names must be lowercase; the owner is `Limatura`.
-      - name: Image name
-        id: image
-        if: >-
-          github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
-        run: echo "name=ghcr.io/${REPO,,}" >> "$GITHUB_OUTPUT"
-        env:
-          REPO: ${{ github.repository }}
-
-      # Rolling `:main`; versioned tags and `:latest` come from release.yml.
-      - name: Publish to GHCR
-        if: >-
-          github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: apps/server/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ${{ steps.image.outputs.name }}:main
-            ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
-          # Both platforms, unlike the build above; `nightly.yml` and
-          # `release.yml` read this cache.
-          cache-from: |
-            type=gha,scope=server
-            type=gha,scope=publish
-          cache-to: type=gha,scope=publish,mode=max
-          build-args: |
-            TESSERA_BUILD_REV=${{ github.sha }}
-
   # Separate so the only job that can write PRs runs no third-party actions.
   image-size-comment:
     name: image size comment
@@ -876,6 +840,60 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           MARKER: "<!-- tessera:image-size -->"
           BODY: ${{ needs.docker.outputs.report }}
+
+  # Its own job so that only a push to main holds `packages: write`. The
+  # docker job builds what pull requests send, and so must not.
+  publish:
+    name: publish main image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 30
+    needs: docker
+    # Off until `PUBLISH_IMAGES` is set. arm64 is only built here.
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      vars.PUBLISH_IMAGES == 'true' && needs.docker.result == 'success'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Sign in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Image names must be lowercase; the owner is `Limatura`.
+      - name: Image name
+        id: image
+        run: echo "name=ghcr.io/${REPO,,}" >> "$GITHUB_OUTPUT"
+        env:
+          REPO: ${{ github.repository }}
+
+      # Rolling `:main`; versioned tags and `:latest` come from release.yml.
+      - name: Publish to GHCR
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:main
+            ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+          # Both platforms, unlike the docker job's build; `nightly.yml` and
+          # `release.yml` read this cache.
+          cache-from: |
+            type=gha,scope=server
+            type=gha,scope=publish
+          cache-to: type=gha,scope=publish,mode=max
+          build-args: |
+            TESSERA_BUILD_REV=${{ github.sha }}
 
   fuzz:
     name: contract fuzz
