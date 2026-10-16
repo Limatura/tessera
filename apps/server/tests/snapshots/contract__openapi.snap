@@ -700,6 +700,12 @@ expression: document
             "description": "Whether a caller without a session may upload.\n\nIndependent of [`accounts`](Self::accounts): an instance can have\naccounts *and* accept anonymous uploads, the default.",
             "type": "boolean"
           },
+          "code_length": {
+            "description": "Number of characters in a retrieval code on this instance\n(`share.code_length`), so the page that collects one can draw the right\nnumber of boxes. Codes already issued keep the length they had, so this\nis what *new* shares get, not a promise about every code in existence.",
+            "example": 8,
+            "minimum": 1,
+            "type": "integer"
+          },
           "default_expiry_hours": {
             "description": "How long a share lasts when the uploader does not choose, in hours.\n\nThe upload form needs this to say what \"leave it alone\" means. `null`\nwhen this instance lets shares live forever by default.",
             "example": 168,
@@ -785,6 +791,7 @@ expression: document
           "registration_requires_confirmation",
           "password_reset",
           "access_log",
+          "code_length",
           "max_upload_bytes",
           "version"
         ],
