@@ -46,7 +46,9 @@ on:
 
 concurrency:
   group: rust-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Only pull requests: a newer push makes an older PR run moot, but each push
+  # to main publishes an image and records a baseline of its own.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -273,17 +275,14 @@ jobs:
 
       - run: cargo nextest run --locked --workspace --profile ci --all-features
 
-      # `upload-artifact` rejects paths containing `..`.
-      - name: Collect the test report
-        if: always()
-        run: cp "$CARGO_TARGET_DIR/nextest/ci/junit.xml" junit.xml || true
-
+      # nextest writes under `[store] dir` in `.config/nextest.toml`, which is in
+      # the checkout, not `CARGO_TARGET_DIR`.
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nextest-junit
-          path: junit.xml
+          path: target/nextest/ci/junit.xml
           if-no-files-found: ignore
 
   backends:
@@ -793,6 +792,15 @@ jobs:
           outputs: type=local,dest=/tmp/tessera-image-size/frontend
           cache-from: type=local,src=/tmp/tessera-buildx-cache
 
+      # The last main build's figures. Restored on main too, so a push compares
+      # against the one before it.
+      - name: Restore main's image-size baseline
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/tessera-image-size/main.txt
+          key: image-size-main-${{ github.sha }}
+          restore-keys: image-size-main-
+
       # Smoke alarm for unintended growth, about 1.4x the size when last set
       # (binary 41 MB: 28 MB backend, 13 MB embedded web). See image-size.sh.
       - name: Measure the footprint against its budget
@@ -844,6 +852,12 @@ jobs:
       - name: Record this build as the baseline
         if: github.ref == 'refs/heads/main'
         run: cp /tmp/tessera-image-size/current.txt /tmp/tessera-image-size/main.txt
+      - name: Save this build as the cached baseline
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/tessera-image-size/main.txt
+          key: image-size-main-${{ github.sha }}
 
       # Off until the repo is public (`PUBLISH_IMAGES`). arm64 is only built here.
       - name: Sign in to GHCR

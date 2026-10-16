@@ -131,3 +131,11 @@ runs:
       run: |
         export PATH="$HOME/.cargo/bin:$PATH"
         rustup show active-toolchain || rustup show
+
+    # `build.rs` watches `apps/web/dist`, and a watched path that does not exist
+    # reruns it on every cargo call, which recompiles the server each time. Jobs
+    # here never build the web app, so an empty one stands in; build.rs serves
+    # its placeholder for an empty directory as for a missing one.
+    - name: Give build.rs a web bundle directory to watch
+      shell: bash
+      run: mkdir -p apps/web/dist
