@@ -5,8 +5,7 @@ description: >-
 inputs:
   cache-key:
     description: >-
-      Jobs that compile the same thing share a key, so one cache serves them
-      all. Different feature sets or profiles get their own.
+      Jobs that compile the same thing share a key, so one cache serves them all. Different feature sets or profiles get their own.
     required: true
   save-cache:
     description: Whether this job may write the cache. Only main writes it either way.
