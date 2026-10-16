@@ -1,0 +1,7 @@
+# Reserved for workspace-wide cargo settings.
+#
+# `SQLX_OFFLINE` used to live here, when the data layer used `sqlx::query!` and
+# needed committed `.sqlx` metadata to build without a database. SeaORM builds
+# its queries at runtime, so that machinery (the environment variable, the
+# `.sqlx` directory, the "did you run `cargo sqlx prepare`" step) is gone.
+# Nothing replaces it: `cargo build` needs no database.

@@ -1,0 +1,244 @@
+name: nightly
+
+# A rolling `nightly` build of `main`, in the shape rustdesk uses: a cron, one
+# moving prerelease, no version PR. It sits beside `version.yml` / `release.yml`
+# and never touches them: nothing here consumes a pending changeset, creates a
+# `v*` tag or moves `latest`.
+#
+# The version is computed, not committed. With changesets pending, `changeset
+# version --snapshot nightly` (see `snapshot` in .changeset/config.json) is run
+# in a throwaway tree to read what `tessera-server` would become, then the tree
+# is reset; with none pending it is the current version. Either way the result
+# is `<version>-nightly.<date>.g<sha>`, which sorts below the real release.
+#
+# `changeset version --snapshot` refuses to run in pre mode, and this repository
+# is in it while `.changeset/pre.json` exists (the `rc` line). Then the
+# snapshot is skipped and the nightly is named after the current version, e.g.
+# `0.1.0-rc.1-nightly.<date>.g<sha>`. It starts working on its own after
+# `changeset pre exit`.
+#
+# Three reasons it stays quiet instead of going red:
+#   - no new commit on `main` since the last nightly   -> nothing to do
+#   - `rust` or `web` has failed on that commit        -> do not ship it
+#   - `PUBLISH_IMAGES` is off                           -> same switch as the
+#     per-push publish in `rust.yml`
+# A red cron nobody acts on trains everybody to ignore a failing workflow.
+on:
+  schedule:
+    # 20:00 UTC is 04:00 in Taipei, after the day's merges and before anyone is
+    # waiting on a build. Off the hour on purpose: `:00` is when GitHub's
+    # scheduler is busiest and cron runs are delayed or dropped.
+    - cron: "17 20 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if main has not moved since the last nightly
+        type: boolean
+        default: false
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+# Read-only by default; the one job that publishes says what it needs.
+permissions:
+  contents: read
+
+jobs:
+  nightly:
+    name: nightly build
+    if: github.repository_owner == 'Limatura' && vars.PUBLISH_IMAGES == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write # move the `nightly` tag and its prerelease
+      packages: write # push to GHCR
+      actions: read # read the `rust` and `web` runs for this commit
+    steps:
+      # Full history: the notes list commits since the previous nightly, and
+      # `changeset status` diffs against `main`.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Decide whether there is anything to build
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short=${sha::7}" >> "$GITHUB_OUTPUT"
+
+          # `target_commitish` of the existing prerelease is the commit the last
+          # nightly was built from; empty on the first run.
+          last=$(gh api "repos/$REPO/releases/tags/nightly" --jq .target_commitish 2>/dev/null || true)
+          echo "last=$last" >> "$GITHUB_OUTPUT"
+
+          if [ "$last" = "$sha" ] && [ "$FORCE" != "true" ]; then
+            echo "main is still at ${sha::7}, the last nightly. Nothing to do."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Skip a commit the pipeline has rejected. "none" (no run, or paths
+          # filtered it out) is fine; an unfinished run counts as not passed.
+          for wf in rust.yml web.yml; do
+            concl=$(gh run list --repo "$REPO" --workflow "$wf" --branch main \
+              --commit "$sha" --limit 1 --json status,conclusion \
+              --jq '.[0] | if . == null then "none" elif .status != "completed" then "running" else .conclusion end')
+            echo "$wf on ${sha::7}: $concl"
+            if [ "$concl" != "success" ] && [ "$concl" != "none" ]; then
+              echo "::notice::$wf is '$concl' on ${sha::7}; skipping tonight's nightly."
+              echo "build=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "build=true" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: steps.gate.outputs.build == 'true'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.gate.outputs.build == 'true'
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        if: steps.gate.outputs.build == 'true'
+        run: pnpm install --frozen-lockfile
+
+      # Throwaway: `changeset version --snapshot` rewrites package.json files,
+      # deletes the changeset files and writes CHANGELOGs. All of it is reset
+      # before anything is built, so the image is built from `main` as it is.
+      - name: Compute the version
+        id: version
+        if: steps.gate.outputs.build == 'true'
+        env:
+          SHORT: ${{ steps.gate.outputs.short }}
+          # changelog-github looks up PRs and authors through the API.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          stamp=$(date -u +%Y%m%d)
+          pending=$(find .changeset -name '*.md' ! -name README.md | wc -l)
+          base=$(node -p "require('./apps/server/package.json').version")
+          bumped=none
+          if [ "$pending" -gt 0 ] && [ -f .changeset/pre.json ]; then
+            echo "pre mode: skipping the snapshot, using $base"
+          elif [ "$pending" -gt 0 ]; then
+            # Best effort: the preview must never be the reason a nightly is
+            # skipped, so a failure falls back to the current version.
+            if pnpm exec changeset version --snapshot nightly > /dev/null 2>&1; then
+              base=$(node -p "require('./apps/server/package.json').version")
+              bumped=$(git diff --name-only -- '*package.json' | sed 's/^/- /')
+            else
+              echo "::warning::changeset version --snapshot failed; using $base"
+            fi
+            git checkout -- .
+            git clean -fdq -e node_modules
+          fi
+          # A snapshot version already ends in `-nightly.<datetime>`.
+          case "$base" in
+            *-nightly.*) version="$base" ;;
+            *) version="${base}-nightly.${stamp}.g${SHORT}" ;;
+          esac
+          echo "stamp=$stamp" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "pending=$pending" >> "$GITHUB_OUTPUT"
+          echo "version: $version ($pending pending changesets)"
+          {
+            echo "bumped<<EOF"
+            echo "$bumped"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write the notes
+        if: steps.gate.outputs.build == 'true'
+        env:
+          SHA: ${{ steps.gate.outputs.sha }}
+          LAST: ${{ steps.gate.outputs.last }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PENDING: ${{ steps.version.outputs.pending }}
+          BUMPED: ${{ steps.version.outputs.bumped }}
+          REPO: ${{ github.repository }}
+        run: |
+          {
+            echo "Nightly build of \`main\` at ${SHA::7}. **Not a release**: it can break, and downgrades are not supported. Use a \`v*\` release for anything that matters."
+            echo
+            echo '```sh'
+            echo "docker pull ghcr.io/${REPO,,}:nightly"
+            echo '```'
+            echo
+            echo "Version: \`$VERSION\`"
+            if [ "$PENDING" -gt 0 ]; then
+              echo
+              echo "### Unreleased changesets ($PENDING)"
+              echo "$BUMPED"
+            fi
+            echo
+            echo "### Commits since the last nightly"
+            if [ -n "$LAST" ] && git cat-file -e "$LAST^{commit}" 2>/dev/null; then
+              git log --no-merges --pretty='- %s (%h)' "$LAST..$SHA" | head -50
+            else
+              git log --no-merges --pretty='- %s (%h)' -20 "$SHA"
+            fi
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        id: buildx
+        if: steps.gate.outputs.build == 'true'
+
+      - name: Sign in to GHCR
+        if: steps.gate.outputs.build == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `latest` and the `major.minor` tags belong to `release.yml`. `nightly`
+      # moves every night; the dated and sha tags are the ones to pin when
+      # reporting a bug.
+      - name: Build and push the image
+        if: steps.gate.outputs.build == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:nightly
+            ghcr.io/${{ github.repository }}:nightly-${{ steps.version.outputs.stamp }}
+            ghcr.io/${{ github.repository }}:sha-${{ steps.gate.outputs.sha }}
+          cache-from: type=local,src=/tmp/tessera-buildx-cache
+          build-args: |
+            TESSERA_BUILD_REV=${{ steps.gate.outputs.sha }}
+
+      # A tag cannot be edited to point elsewhere, so the prerelease is deleted
+      # (with its tag) and made again. Only after the push succeeded, so a failed
+      # build leaves yesterday's nightly intact.
+      - name: Move the nightly prerelease
+        if: steps.gate.outputs.build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.gate.outputs.sha }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release delete nightly --cleanup-tag --yes 2>/dev/null || true
+          gh release create nightly \
+            --target "$SHA" \
+            --prerelease \
+            --title "Nightly $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md"
+
+      # Self-hosted: builders persist unless removed.
+      - name: Remove the builder
+        if: always() && steps.gate.outputs.build == 'true'
+        run: docker buildx rm --force "$BUILDER" 2>/dev/null || true
+        env:
+          BUILDER: ${{ steps.buildx.outputs.name }}

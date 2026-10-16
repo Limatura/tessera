@@ -1,0 +1,2 @@
+-- Postgres stores `TIMESTAMPTZ`, an instant with no 2038 limit, so there is
+-- nothing to do here.

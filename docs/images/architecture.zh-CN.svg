@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+<title id="title">Tessera 系统架构</title><desc id="desc">Web、终端与浏览器扩展连接到 Rust 服务器；服务器提供内嵌 React 前端，并使用 SQL 数据库和可配置的文件存储。</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17100e"/><stop offset="1" stop-color="#0a0605"/></linearGradient>
+  <linearGradient id="server" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d94f2b"/><stop offset="1" stop-color="#9e2f19"/></linearGradient>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity=".28"/></filter>
+  <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#d94f2b"/></marker>
+  <style>.eyebrow{font:700 13px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:3px;fill:#d94f2b}.heading{font:700 23px ui-sans-serif,system-ui,sans-serif;fill:#f5efe9}.sub{font:500 14px ui-sans-serif,system-ui,sans-serif;fill:#bfb2aa}.node{fill:#211714;stroke:#513026;stroke-width:1.5}.line{fill:none;stroke:#d94f2b;stroke-width:2.5;marker-end:url(#arrow)}.tag{font:700 11px ui-monospace,monospace;letter-spacing:1.6px;fill:#d94f2b}</style>
+</defs>
+<rect width="1200" height="620" rx="24" fill="url(#bg)"/>
+<circle cx="1090" cy="70" r="130" fill="#d94f2b" opacity=".06"/><circle cx="80" cy="560" r="170" fill="#f5efe9" opacity=".025"/>
+<text x="54" y="54" class="eyebrow">TESSERA / 系统架构</text><text x="54" y="91" class="heading" font-size="28">一个核心，多种分享方式。</text>
+<text x="54" y="130" class="tag">01 — 客户端</text>
+<g filter="url(#shadow)">
+  <rect x="54" y="151" width="330" height="94" rx="15" class="node"/><rect x="70" y="168" width="38" height="38" rx="10" fill="#d94f2b"/><text x="89" y="193" text-anchor="middle" font-size="21" fill="#fff">↗</text><text x="124" y="184" class="heading" font-size="18">网页应用</text><text x="124" y="208" class="sub">React · TanStack Router</text>
+  <rect x="435" y="151" width="330" height="94" rx="15" class="node"/><rect x="451" y="168" width="38" height="38" rx="10" fill="#f5efe9"/><text x="470" y="193" text-anchor="middle" font-size="19" fill="#0a0605">$_</text><text x="505" y="184" class="heading" font-size="18">终端客户端</text><text x="505" y="208" class="sub">快速、可脚本化的操作</text>
+  <rect x="816" y="151" width="330" height="94" rx="15" class="node"/><rect x="832" y="168" width="38" height="38" rx="10" fill="#8e44ad"/><text x="851" y="193" text-anchor="middle" font-size="20" fill="#fff">⌘</text><text x="886" y="184" class="heading" font-size="18">浏览器扩展</text><text x="886" y="208" class="sub">直接从浏览器分享</text>
+</g>
+<path d="M219 245 V278 H300 V315" class="line"/><path d="M600 245 V315" class="line"/><path d="M981 245 V278 H900 V315" class="line"/>
+<text x="54" y="305" class="tag">02 — 应用核心</text>
+<g filter="url(#shadow)">
+  <rect x="54" y="326" width="1092" height="132" rx="18" fill="url(#server)"/>
+  <text x="82" y="363" font-family="ui-monospace,monospace" font-size="12" font-weight="700" letter-spacing="2" fill="#ffe1d7">RUST 服务器</text>
+  <text x="82" y="397" font-family="ui-sans-serif,system-ui,sans-serif" font-size="26" font-weight="800" fill="#fff8f3">Tessera API</text>
+  <text x="82" y="427" font-family="ui-sans-serif,system-ui,sans-serif" font-size="14" fill="#ffe1d7">认证 · 取件码 · 过期规则 · 管理</text>
+  <path d="M650 348 V436" stroke="#f5efe9" stroke-opacity=".35" stroke-width="1.5"/>
+  <text x="687" y="373" font-family="ui-monospace,monospace" font-size="12" font-weight="700" letter-spacing="1.5" fill="#ffe1d7">内嵌前端</text>
+  <text x="687" y="405" font-family="ui-sans-serif,system-ui,sans-serif" font-size="20" font-weight="700" fill="#fff8f3">React SPA</text>
+  <text x="687" y="429" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" fill="#ffe1d7">由同一个可执行文件提供</text>
+</g>
+<path d="M355 458 V489 H300 V511" class="line"/><path d="M845 458 V489 H900 V511" class="line"/>
+<text x="54" y="493" class="tag">03 — 数据持久化</text>
+<g>
+  <rect x="54" y="520" width="492" height="70" rx="14" fill="#f5efe9"/><circle cx="88" cy="555" r="17" fill="#d94f2b"/><text x="88" y="561" text-anchor="middle" font-size="18" fill="#fff">▤</text><text x="119" y="549" font-family="ui-sans-serif,system-ui,sans-serif" font-size="17" font-weight="800" fill="#0a0605">SQL 数据库</text><text x="119" y="571" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#62534c">SQLite · PostgreSQL · MySQL</text>
+  <rect x="654" y="520" width="492" height="70" rx="14" fill="#f5efe9"/><circle cx="688" cy="555" r="17" fill="#8e44ad"/><text x="688" y="561" text-anchor="middle" font-size="18" fill="#fff">▣</text><text x="719" y="549" font-family="ui-sans-serif,system-ui,sans-serif" font-size="17" font-weight="800" fill="#0a0605">文件存储</text><text x="719" y="571" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#62534c">本地 · S3 兼容 · Azure · WebDAV</text>
+</g>
+</svg>

@@ -1,0 +1,89 @@
+# Generated documentation for the database, drawn by tbls.
+#
+# `scripts/schema-docs.py` replays the migrations into a temporary SQLite file
+# and points tbls at it. The result is committed under `docs/schema/` and CI
+# fails when it drifts, the same arrangement `openapi.json` has: a generated
+# thing that is only useful if it is never stale.
+#
+# The comments below are the part a tool cannot produce. A generated diagram
+# says `file_shares.share_id` is a foreign key; only a person can say that the
+# row's existence is what makes a share a file share.
+
+# The title on the generated pages.
+name: tessera
+
+dsn: sqlite:///work/schema.db
+docPath: /work/out
+
+er:
+  format: mermaid
+  # Without this every line is labelled with its whole `FOREIGN KEY ... ON
+  # DELETE CASCADE MATCH NONE` clause, which is on the table's own page anyway
+  # and here turns the diagram into a wall of text.
+  hideDef: true
+
+exclude:
+  # sea-orm's bookkeeping: which migrations have run. Nothing models it.
+  - seaql_migrations
+
+comments:
+  - table: users
+    tableComment: 'Accounts. An empty `role_id` means signed in and allowed nothing, which is a real state rather than a fault. A deleted account leaves a scrubbed row behind rather than disappearing, because `shares.user_id` points at it and "nobody uploaded this" is a different fact from "whoever uploaded it is gone".'
+  - table: credentials
+    tableComment: 'One password, for an account that has one. A side table rather than a column on `users`, because `identities` is already one row per way of signing in and a password as a column would make one method a column and the other a row. No row means no password, which is exactly what an account that has only ever used a provider is.'
+  - table: identities
+    tableComment: 'One way an account signs in through a provider. Keyed on `(provider, subject)` because the subject is the provider''s own identifier for the person: stable, and never reused within one issuer. An address is not, since providers let people change theirs and some never check it. The `provider` column exists so a second provider is configuration rather than a migration.'
+  - table: auth_flows
+    tableComment: 'A sign-in that has left for a provider and has not come back. Holds the CSRF token, the PKCE secret, and the nonce when the provider issues one, until the callback arrives; then the row is deleted, which is what makes a callback answerable once. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error. `nonce` is null for a plain OAuth 2.0 provider, which issues no token to put one in.'
+  - table: totp_authenticators
+    tableComment: 'An account''s authenticator app, one at most. The secret is sealed with `security.secret_key` rather than hashed, because checking a code means computing it. `confirmed_at` is null while it is being set up, and then sign-in does not ask for a code, so a QR code scanned wrong cannot lock anybody out. `last_used_step` refuses the same code twice.'
+  - table: recovery_codes
+    tableComment: 'Single-use codes for an account whose authenticator is lost. Only the SHA-256 of each is stored. A used one keeps its row with `used_at` set, so how many are left can be counted.'
+  - table: mfa_challenges
+    tableComment: 'A sign-in that passed its password and waits for a code. Keyed on the digest of the ticket the client holds, and deleted when the sign-in finishes, so a ticket works once. A row rather than a session with a flag, so nothing that accepts a session can mistake half a sign-in for a whole one.'
+  - table: passkeys
+    tableComment: 'Passkeys: a fingerprint, a face or a hardware key in place of a password. Holds the credential id and its public key exactly as the authenticator sent it, a COSE structure, so nothing here depends on how the server checks one and a dump lets nobody in. Looked up by `credential_hash`, the SHA-256 of the id, because an id can be longer than MySQL will index. `sign_count` going backwards means two copies of one key; most synced passkeys keep it at zero.'
+  - table: webauthn_challenges
+    tableComment: 'A challenge handed to a browser and not yet answered. Keyed on its digest and deleted when answered, so each works once. `purpose` keeps a sign-in challenge from registering a key, and `user_id` says whose account a registration adds to; a sign-in has none until the answer names one.'
+  - table: sessions
+    tableComment: 'One sign-in. Expired rows stay, because this table is also the sign-in history and a person needs to be able to see whether somebody else got in. Real removal is `auth.login_history_days`. `origin` says which credential started it, so a provider signing somebody out can end the sessions it issued and leave password ones alone. `provider_sid` is the provider''s own identifier for its side, when it released one.'
+  - table: api_tokens
+    tableComment: 'Credentials for programs. Only a digest is stored; the value itself stops existing the moment it is handed over.'
+  - table: api_token_permissions
+    tableComment: 'What one token may do. What it can actually do is the intersection of this and its owner''s permissions, so demoting a person narrows every token they hold at the same moment.'
+  - table: invites
+    tableComment: 'Invitation codes. Digests only, as above.'
+  - table: password_reset_tokens
+    tableComment: 'One-shot links for setting a password.'
+  - table: pending_registrations
+    tableComment: 'A registration waiting on its address. The account does not exist until the mail is opened, so what would become one waits here instead. That is also what keeps "is this address registered" from being a question anyone can ask.'
+  - table: shares
+    tableComment: 'One share, whatever it holds. The code, the password, the counters and the expiry live here because those rules do not depend on the content. The content does not: it is in `file_shares` and `text_shares`, because a share can hold several files and a column cannot hold several. `role_id` is the role at the moment of upload, `guest` for anonymous, so changing somebody''s role later does not retroactively change who an old share counted against. `user_id` being empty means either anonymous or an uploader whose account was deleted, and nothing tells the two apart. `bytes_served` counts bytes that left this process, not bytes that arrived: a proxy in front inflates it by whatever it holds, and a request a CDN answered is never seen at all. `bytes_redirected` is what downloads sent to the store asked for: requested, not delivered, and kept apart from `bytes_served`, which counts only what left this process.'
+  - table: file_shares
+    tableComment: 'One file of a file share. One row per share today; `position` is there for when a share can hold several.'
+  - table: file_segments
+    tableComment: 'Where the bytes of one file actually are: a backend, a key, an offset and a length. A list rather than a column pair, because a file too large for any single backend has to be spread across several. Every row has one segment until splitting is turned on. `backend` is a name rather than a foreign key on purpose: the set of backends is configuration, and a row naming one nobody configures any more has to be readable enough to say so instead of failing at start-up.'
+  - table: text_shares
+    tableComment: 'The text of a text share. `content` cannot be null, because "the text is somewhere else" is the state this table exists to make impossible.'
+  - table: storage_backends
+    tableComment: 'A blob store this instance can write to, added from the panel. The credentials are sealed with `security.secret_key`, which comes from the environment, so a database dump on its own opens nothing. Without a key, adding a backend is refused rather than written in plaintext. The name is the primary key because `file_segments.backend` names it and that reference has to stay readable after the row is gone. `direct_access` says whether a browser may be sent to the store directly, for a download or an upload''s parts; off unless an operator turns it on, because only they know whether a browser can reach it.'
+  - table: settings
+    tableComment: 'Settings changed from the panel, one row each. The load order is defaults, then the file, then the environment, then this, and this wins: it is the only layer somebody deliberately changed on this machine. Only what can take effect without a restart is here. A bound socket, a built connection pool and an installed log subscriber cannot, so those live in the environment, and the panel never has to say "saved, now restart". Secrets are excluded too: a stored one is plaintext in a table and comes back out of whatever endpoint reads settings. The column is `name` rather than `key` because `key` is reserved in MySQL.'
+  - table: access_events
+    tableComment: 'Who fetched which share, and when. Off by default. A counter is one integer and says nothing about who went where; a row here is an address and a browser string about somebody who followed a link and agreed to nothing. Anonymity is part of why people choose this software, so turning it on is the operator''s decision rather than one a default made for them, and it needs saying on the page, because the people being recorded are the last to know. `ip_address` can be null: behind an untrusted proxy the visible address is the proxy''s, and recording it would be recording the wrong party.'
+  - table: share_tickets
+    tableComment: 'The pass handed out after a correct password. It exists so that seeing and fetching stay separate: a preview should not spend one of a share''s downloads.'
+  - table: roles
+    tableComment: 'The name of a set of permissions. Nothing else decides who may do what.'
+  - table: role_permissions
+    tableComment: 'Which permissions a role holds. The permissions themselves are defined in code rather than stored, because granting one nothing checks grants nothing.'
+  - table: schema_metadata
+    tableComment: 'Which version wrote this database. Read at start-up to refuse a downgrade.'
+  - table: uploads
+    tableComment: 'A file still arriving. A half-uploaded thing is not a `file_shares` row, because every row of that table is content somebody can fetch and this is not yet. `object_key` is chosen when the upload opens and never recomputed, so a resumed upload writes back to the same place. `declared_bytes` is what the client said, and quota counts that rather than what has arrived, or two people could claim the same free space at once.'
+  - table: upload_parts
+    tableComment: 'Each part a store has accepted for a multipart upload. Kept because completing one means handing every part back exactly as it was, and no way of listing them is agreed on by all three clouds. A local filesystem has no rows here; it appends.'
+  - table: upload_segments
+    tableComment: 'Where a resumable upload is putting each piece, when it is spread over more than one backend. A `complete` segment is holding real space in a real bucket while its share does not exist yet, and nothing else could see that: the space was spent, the planner could not count it, and a free-tier bucket filled up with no query able to explain why. Cleaning up means aborting every `open` row and deleting the object behind every `complete` one.'
+  - table: user_preferences
+    tableComment: 'One person''s own choices, one row each. So far that is appearance: a mode, a neutral theme and an accent, held as JSON because language and time zone are already asked for and each would otherwise be a migration. Every field is optional, and absent means no opinion: somebody who picked only an accent keeps following the instance''s default for the rest, including after the operator changes it. The names come from fixed lists in `tessera_core::appearance` and are checked before they are stored, because they end up as attributes on the `<html>` element. No colour is ever stored; each name selects a block of CSS that ships with the frontend.'

@@ -1,0 +1,35 @@
+-- Why a session ended, when it was ended early.
+--
+-- # Sessions are no longer deleted
+--
+-- A session is a login. While alive it is a credential; once over it is the
+-- record of that login, the same row at two moments. So ending one means
+-- marking it, not removing it, and a user's login history is just the list of
+-- their sessions.
+--
+-- # Ending a session means expiring it now
+--
+-- Revoking sets `expires_at` to the current instant. The liveness test stays
+-- `now < expires_at`, one comparison in one place. A separate `ended_at`
+-- column would add a second condition every future query must remember, and
+-- forgetting it once would accept a revoked session.
+--
+-- It also means `expires_at` answers both questions with one value: when the
+-- session stopped being usable, whether it ran out or was cut short.
+--
+-- # Why the secret is kept
+--
+-- An earlier draft cleared `secret_hash` when a session ended, so a historical
+-- row held nothing that had been a credential. That was dropped: the column is
+-- `NOT NULL`, and making it nullable means rebuilding the table on SQLite, a
+-- lot of moving parts for no real benefit. `expires_at` is what refuses an
+-- ended session, and a SHA-256 of 256 random bits is not a credential, so
+-- there is nothing in the row to protect.
+--
+-- # Why the reason decides nothing
+--
+-- `NULL` means the session ran its course. A value means it was ended early,
+-- and says by whom. Nothing reads it to make a decision; it exists to show the
+-- account holder, the only one who can tell "I signed out on the laptop" from
+-- "that was not me".
+ALTER TABLE sessions ADD COLUMN ended_reason TEXT;

@@ -1,0 +1,387 @@
+[package]
+name = "tessera-server"
+description = "Tessera — anonymous file courier backend (single-binary Rust monolith)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "tessera-server"
+path = "src/main.rs"
+
+# Emits the OpenAPI contract. Kept as a separate binary so the contract can be
+# regenerated in CI without booting a database or a storage backend.
+[[bin]]
+name = "tessera-openapi"
+path = "src/bin/openapi.rs"
+
+[[bench]]
+name = "api"
+harness = false
+
+[lints]
+workspace = true
+
+[features]
+# Everything on by default: `docker pull` should give every backend, and no one
+# should have to rebuild to point at S3. The flags exist so someone building
+# from source for a constrained machine can strip it down:
+# `--no-default-features --features sqlite,storage-fs` is much smaller.
+default = ["sqlite", "postgres", "mysql", "storage-fs", "storage-s3", "storage-gcs", "storage-azure", "storage-http", "email", "og-images"]
+
+# --- data ---
+# Each backend pulls in our direct sqlx dependency, which pins the TLS provider
+# to aws-lc-rs. Routing TLS through sea-orm's `runtime-tokio-rustls` would
+# select ring instead, and since cargo features are additive and object_store's
+# cloud backends require aws-lc-rs, the binary ended up with *both* crypto
+# implementations. Only `sqlite` needs sqlx's own driver; the other two reach
+# sqlx through sea-orm.
+sqlite = ["dep:sqlx", "sqlx/sqlite", "sea-orm/sqlx-sqlite"]
+postgres = ["dep:sqlx", "sea-orm/sqlx-postgres"]
+mysql = ["dep:sqlx", "sea-orm/sqlx-mysql"]
+
+# --- storage ---
+storage-fs = []                            # always available; a flag for symmetry
+storage-s3 = ["object_store/aws", "dep:httpdate"]
+storage-gcs = ["object_store/gcp", "dep:httpdate"]
+storage-azure = ["object_store/azure"]
+storage-http = ["object_store/http"]       # WebDAV and plain HTTP stores
+
+# --- link previews ---
+# Renders the image a chat client shows when a share link is pasted.
+#
+# Measured against a blank binary on this project's release profile: takumi
+# with `from-html` costs 5.02 MB, and the five embedded fonts another 3.29 MB.
+# The largest single flag here, hence a flag: an instance whose links are never
+# posted publicly can turn it off and reclaim the space.
+#
+# `from-html` instead of building a node tree in Rust: layouts are HTML so a
+# future layout editor can edit the same source the server renders, instead of
+# a preview and the real output drifting apart as two implementations.
+#
+# `woff2` because the fonts are stored compressed: 3.29 MB instead of 9.06 MB
+# of TrueType.
+#
+# Version pinned exactly, not caret: takumi went from 2.7.1 to 2.12.0 in
+# thirteen days, and `takumi-html` is still 0.x.
+og-images = ["dep:takumi", "dep:syntect", "dep:two-face", "dep:html5ever", "dep:markup5ever_rcdom"]
+
+# --- email ---
+# On by default like every other backend, because it costs 37 KB.
+#
+# Measured: the release binary is 13933 KB without and 13970 KB with. It is that
+# small because the TLS stack is already present: `object_store` pulls in
+# rustls and a crypto provider regardless, so lettre adds only itself.
+#
+# At that price the flag is not about size but about not compiling in a
+# dependency a source build has no use for. Whether an instance sends mail is a
+# *runtime* question: with no `mail` block in the configuration the endpoints
+# are not mounted at all.
+#
+# `aws-lc-rs` instead of `ring`, by design: sqlx already pins the provider, and
+# cargo features are additive, so requesting the other one here would put
+# *both* crypto implementations in the binary. See the note above the data
+# backends.
+#
+# `webpki-roots` instead of the OS trust store: the release binary is static
+# musl on distroless, and bundled roots behave the same everywhere.
+email = [
+  "dep:lettre",
+  "lettre/smtp-transport",
+  "lettre/tokio1-rustls",
+  "lettre/aws-lc-rs",
+  "lettre/webpki-roots",
+  "lettre/builder",
+]
+
+[dependencies]
+tessera-core = { workspace = true }
+
+# Optional; see the `email` feature for why it is not on by default.
+lettre = { version = "0.11", default-features = false, optional = true }
+
+# --- web ---
+axum = { version = "0.8.9", features = ["macros", "http2"] }
+tokio = { version = "1.53", features = [
+  "rt-multi-thread",
+  "macros",
+  "signal",
+  "net",
+  "fs",
+  "time",
+  # The malware scanner's clamd protocol is spoken over a raw socket.
+  "io-util",
+] }
+tokio-util = { version = "0.7", features = ["rt"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.7", features = [
+  "trace",
+  "cors",
+  "compression-gzip",
+  "compression-br",
+  "request-id",
+  "timeout",
+  "catch-panic",
+] }
+
+# --- data ---
+# `runtime-tokio`, not `runtime-tokio-rustls`: the latter forwards to
+# `sqlx/tls-rustls`, which selects ring. TLS is configured on the sqlx
+# dependency below instead, so the whole binary uses one crypto provider.
+sea-orm = { version = "2.0", default-features = false, features = [
+  "macros",
+  "runtime-tokio",
+  "with-time",
+] }
+sea-orm-migration = { version = "2.0", default-features = false, features = [
+  "runtime-tokio",
+] }
+
+# sea-orm normally owns sqlx entirely, and does for Postgres and MySQL. SQLite
+# is the exception: `ConnectOptions` exposes pool settings but not
+# `SqliteConnectOptions`, and sqlx's URL parser *rejects* unknown query
+# parameters, so `?journal_mode=WAL` is a hard error, not a workaround. Setting
+# pragmas after connecting does not work either: `journal_mode` persists, but
+# `foreign_keys`, `busy_timeout` and `synchronous` are per-connection, and pool
+# connections open lazily.
+#
+# So for SQLite we build the sqlx pool ourselves and hand it to sea-orm via
+# `SqlxSqliteConnector::from_sqlx_sqlite_pool`. It is the sqlx version sea-orm
+# already depends on, so cargo unifies it and no second driver stack is added.
+# Do not "clean up" this dependency; see db::connect_sqlite.
+#
+# It also owns the TLS choice for the whole binary: `tls-rustls-aws-lc-rs`
+# instead of the default ring, so Postgres/MySQL connections and object_store's
+# cloud backends share one crypto implementation instead of linking two.
+# `sqlite` is added by the `sqlite` feature, not here.
+sqlx = { version = "0.9", default-features = false, features = [
+  "runtime-tokio",
+  "tls-rustls-aws-lc-rs",
+], optional = true }
+
+# --- storage ---
+# AES-256-GCM for backend credentials at rest. Already compiled in as the TLS
+# provider the whole tree pins (see the note above), so naming it here costs a
+# line, not a dependency.
+aws-lc-rs = "1.18"
+# 0.14.2 for `Signer::signed_url_opts`: presigning a multipart part upload
+# needs `partNumber` and `uploadId` folded into the signature.
+object_store = { version = "0.14.2", features = ["fs"] }
+# Reads the `Date` a store responds with, to measure its clock offset before
+# handing out a download URL valid for fifteen seconds. Already in the tree via
+# hyper, so it adds nothing new. Only the two stores that support browser
+# redirects need it.
+httpdate = { version = "1", optional = true }
+# `object_store::parse_url_opts` takes a `Url`; this is the crate it already
+# depends on, so naming it costs nothing beyond the import.
+url = "2"
+
+# PKCE and ID token parts are unpadded base64url, as used throughout the JOSE
+# specs. Already in the tree via other crates; named here because this code
+# uses it directly.
+base64 = "0.23"
+# Reads the CBOR a passkey arrives in: the attestation object and the COSE
+# public key inside it. Already in the tree through the benchmarks, and the
+# smallest of the maintained CBOR readers; see `auth::webauthn` for why the
+# rest of WebAuthn is written here instead of taken from a crate.
+ciborium = { version = "0.2", default-features = false, features = ["std"] }
+
+# Back-channel logout tokens are pushed to us by the provider instead of
+# fetched from it, so the exemption in `auth::oidc::claims` does not cover them
+# and the signature must be checked. `aws_lc_rs` instead of the default
+# backend: sqlx already pins that provider, and cargo features are additive,
+# so requesting the other would put two implementations in the binary.
+jsonwebtoken = { version = "11", default-features = false, features = [
+  "aws_lc_rs",
+  # For the tests, not the server: `tests/common/provider.rs` signs a logout
+  # token with a PEM key, because the endpoint that reads one verifies the
+  # signature and a fixture that cannot sign proves nothing. Cargo unifies
+  # features across normal and dev dependencies, so declaring it separately
+  # would enable it here anyway; this says so instead of hiding it.
+  "use_pem",
+] }
+
+# The two halves of a basic authentication header must be form-urlencoded
+# before joining. Re-exported by `url`, but named here so a `url` upgrade
+# cannot silently remove it.
+form_urlencoded = "1"
+
+# Talking to identity providers: fetching their configuration and exchanging
+# authorisation codes. Already in the tree via `object_store`, so it brings no
+# TLS stack of its own, as with `lettre` above.
+#
+# `rustls` instead of the default TLS: the crypto provider is already pinned to
+# `aws-lc-rs` by sqlx, and cargo features are additive, so the other one would
+# put both implementations in the binary. Same note as the data backends.
+#
+# `form` is for the token exchange: an authorisation code is traded with a
+# form-encoded body, not JSON. `stream` sends a file to an HTTP malware scanner
+# without holding it in memory.
+reqwest = { version = "0.13", default-features = false, features = [
+  "form",
+  "json",
+  "rustls",
+  "stream",
+] }
+
+# --- contract ---
+utoipa = { workspace = true }
+utoipa-axum = "0.2"
+# Scalar instead of Swagger UI. Measured: swagger-ui embeds 16.7 MB of unpacked
+# assets (over half of them source maps and `.jsx` sources with no runtime
+# purpose), which was 11.3 MB of a 23.8 MB binary. utoipa-scalar is 11 KB and
+# loads its assets from a CDN.
+#
+# That trade-off works only because the docs UI is a development convenience,
+# disabled by default (`features.docs`), and a development machine has network
+# access. Vendoring the CDN bundle for offline use was considered and rejected:
+# it would add a 3.7 MB minified blob to the repository that cargo-deny cannot
+# audit and that we would have to keep updated.
+utoipa-scalar = { version = "0.3", features = ["axum"] }
+
+# --- serialization ---
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Already in the tree via axum. Used directly so a request body read as a
+# `Value` first still reports which field was wrong, as axum does.
+serde_path_to_error = "0.1"
+
+# --- errors ---
+thiserror = { workspace = true }
+anyhow = "1"
+
+# --- observability ---
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = [
+  "env-filter",
+  "fmt",
+  "json",
+  "registry",
+] }
+
+# Layered configuration, now environment variables only, since the panel owns
+# every setting a running instance can change. See `settings.rs` for where the
+# line is drawn and why the file layer was removed.
+figment = { version = "0.10", features = ["env"] }
+
+# --- authentication ---
+# Argon2id is OWASP's current recommendation for password storage. The `std`
+# feature brings the PHC string format, so a stored hash carries its own
+# parameters and a future change to them does not invalidate existing passwords.
+argon2 = { version = "0.5", features = ["std"] }
+# Session and API tokens are high-entropy random values, so they are stored
+# under a fast hash instead of Argon2: there is nothing to brute-force, and
+# ~50 ms of key derivation on every authenticated request would be absurd.
+sha2 = "0.11"
+# SHA-1 is not a choice: the Pwned Passwords range API is defined in terms of
+# it. It is used to look a password up, never to protect one.
+sha1 = "0.11"
+# Constant-time comparison, for the one place a secret is compared in process.
+subtle = "2"
+# Cookie jar extractor. `cookie-private`/`cookie-signed` are intentionally not
+# enabled: the session cookie carries an opaque random token that means nothing
+# without the database row, so signing it would protect nothing.
+axum-extra = { version = "0.12", features = ["cookie"] }
+
+# --- misc ---
+# CIDR matching, for deciding whether the connecting peer is a trusted proxy.
+# Already in the tree via reqwest, so it costs nothing new, and hand-rolled
+# prefix comparison across v4 and v6 is easy to get subtly wrong.
+ipnet = "2"
+parking_lot = "0.12"
+rust-embed = "8.12"
+# Checking an operator's own card layout before it is drawn.
+#
+# Already in the tree (`takumi-html` parses with them), but used directly here:
+# the check is about which elements and attributes a layout uses, and takumi
+# returns a laid-out node tree with that information already discarded.
+html5ever = { version = "0.39", optional = true }
+markup5ever_rcdom = { version = "0.39", optional = true }
+
+# Syntax colouring for the card a text share gets.
+#
+# `two-face` instead of syntect's own set, which has 75 syntaxes and lacks
+# TypeScript, TOML, Kotlin, Swift, Zig, Dockerfile and Nix. Measured against a
+# blank binary on the release profile: syntect alone is 1.82 MB with 75
+# languages, with two-face 2.39 MB and 199.
+#
+# `regex-fancy` instead of `regex-onig`: the oniguruma backend is a C library,
+# and this binary is static musl on distroless.
+#
+# One cost to know: the first card in a given language compiles that syntax's
+# regexes (measured at 405 ms for TypeScript), and every later card takes
+# 1.3 ms. It is per process, not per request, and what waits is a crawler.
+syntect = { version = "5", default-features = false, features = [
+  "regex-fancy",
+  "parsing",
+], optional = true }
+two-face = { version = "0.4", default-features = false, features = [
+  "syntect-fancy",
+], optional = true }
+
+# Pinned exactly, not with a caret: see the `og-images` feature note.
+#
+# The explicit feature list saves no bytes (measured, it came out 64 bytes
+# larger than the default set, since link-time optimisation already drops the
+# unused JPEG, WebP and GIF decoders). It is here for compile time and to state
+# what is used. `svg-source` is not used either, but `raster-backend` alone has
+# not compiled since 0.4.13: `node_paint.rs` calls a `draw_image` that only
+# another feature defines. Upstream bug, still present in 0.4.21.
+takumi = { version = "=2.14.0", default-features = false, features = [
+  "raster-backend",
+  "from-html",
+  "woff2",
+  "svg-source",
+], optional = true }
+mime_guess = "2"
+bytes = "1"
+# Writing the archive stream as a loop instead of a hand-rolled state machine.
+# The nested "for each file, for each chunk" shape is what `unfold` makes
+# unreadable.
+async-stream = "0.3"
+# `StreamExt::next`, for walking the object store's chunks while building an
+# archive. `futures-util` would also work but is intentionally not a server
+# dependency (see the note on `http-body-util`); this one is already in the
+# tree via tokio.
+tokio-stream = "0.1"
+# `BodyExt::frame` is how the upload path reads a request body one chunk at a
+# time. The alternative is `futures-util` for `StreamExt::next`, a much larger
+# crate for one method; this is a thin layer over the `http-body` traits axum
+# already uses.
+http-body = "1"
+http-body-util = "0.1"
+ulid = { workspace = true }
+# `storage::health` wraps every store in one that notes how calls to it go, and
+# `ObjectStore` is declared with `#[async_trait]`.
+async-trait = "0.1"
+time = { workspace = true }
+# Reading a password without echoing it. The alternatives are `tcsetattr` via
+# `libc`, ruled out by `unsafe_code = "forbid"`, and `stty -echo`, which the
+# distroless runtime image has no shell to run. Small enough not to contradict
+# what the CLI module says about dependencies: two files, not `clap`.
+rpassword = "7.5.4"
+# Swaps the whole configuration behind a pointer, so a change made in the admin
+# panel reaches the next request without a restart. A `RwLock` would work but
+# would lock on every read of every setting on the request path, for a value
+# that changes once a month.
+arc-swap = "1.9.1"
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["async_tokio"] }
+# `Jail` lets the environment-override tests set variables in a scoped, restored
+# way instead of calling `std::env::set_var`, which is unsound under a threaded
+# test runner (and banned in clippy.toml).
+figment = { version = "0.10", features = ["test"] }
+# Only the tests need to drain a stream (`object_store::list` returns one). The
+# server itself avoids this crate; see the `http-body-util` note.
+futures-util = "0.3"
+http-body = "1"
+http-body-util = "0.1"
+insta = { version = "1.48", features = ["json", "redactions"] }
+# The stand-in identity provider in `tests/common/provider.rs` keeps its
+# scripted answers behind a lock.
+parking_lot = "0.12"
+proptest = "1.11"
+rstest = "0.26"
+tempfile = "3"

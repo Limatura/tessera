@@ -1,0 +1,44 @@
+# systemd unit for a tessera server that is not in a container.
+#
+# Install:
+#   install -m 0755 tessera-server /usr/local/bin/
+#   install -d -o tessera -g tessera /var/lib/tessera
+#   install -m 0600 tessera.env /etc/tessera/tessera.env
+#   systemctl enable --now tessera
+#
+# Everything this file does not set lives in the admin panel, or in
+# `tessera-server settings set` when there is no panel.
+
+[Unit]
+Description=tessera — a self-hosted file courier
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tessera
+Group=tessera
+
+# The settings a running server cannot pick up. See tessera.personal.env.example
+# or tessera.public.env.example for what belongs in here and what does not.
+#
+# `-` so the unit still starts when the file is absent: an instance configured
+# entirely from the panel needs nothing here beyond the database URL, and a
+# missing file should say "nothing came from it" rather than refusing to boot.
+EnvironmentFile=-/etc/tessera/tessera.env
+
+WorkingDirectory=/var/lib/tessera
+ExecStart=/usr/local/bin/tessera-server
+
+Restart=on-failure
+RestartSec=5s
+
+# It writes to its data directory and nowhere else.
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tessera
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

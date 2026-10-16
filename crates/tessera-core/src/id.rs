@@ -1,0 +1,297 @@
+//! Identifiers.
+//!
+//! Every entity gets its own identifier type instead of sharing one. Passing a
+//! [`SessionId`] where a [`UserId`] belongs is then a compile error and not
+//! a query that quietly returns nothing, as happens when both are `String`, and
+//! costs an afternoon to find.
+
+use std::{fmt, str::FromStr};
+
+use serde::{Deserialize, Serialize};
+use ulid::Ulid;
+
+use crate::DomainError;
+
+/// Defines an identifier newtype over a ULID.
+///
+/// A macro because the alternative is three identical files, and the third copy
+/// is where a subtle difference creeps in.
+macro_rules! declare_id {
+    ($(#[$meta:meta])* $name:ident, $field:literal) => {
+        $(#[$meta])*
+        ///
+        /// A ULID, not an auto-incrementing integer or a UUIDv4:
+        ///
+        /// - Sequential integers leak how many rows exist and let anyone
+        ///   enumerate them, which matters for a service that may face the
+        ///   internet.
+        /// - UUIDv4 fixes that but is random, so an index on it scatters writes
+        ///   across the B-tree, the usual reason a table slows as it grows.
+        ///
+        /// ULIDs are time-ordered *and* unguessable, so inserts stay at the hot
+        /// end of the index and the value still gives nothing away. They are
+        /// also shorter than a UUID in text form, the form that ends up
+        /// in URLs and logs.
+        #[derive(
+            Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+        )]
+        #[serde(try_from = "String", into = "String")]
+        pub struct $name(Ulid);
+
+        impl $name {
+            /// Mints a new identifier.
+            ///
+            /// Takes no clock argument, unlike the rules in this crate: a fresh
+            /// identifier has no observable behaviour to test against a fixed
+            /// time, and threading a timestamp through every construction would
+            /// buy nothing.
+            #[must_use]
+            pub fn generate() -> Self {
+                Self(Ulid::generate())
+            }
+
+            /// Reconstructs an identifier from its canonical text form.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`DomainError`] if the value is not a 26-character
+            /// Crockford base32 ULID.
+            pub fn parse(raw: &str) -> Result<Self, DomainError> {
+                Ulid::from_string(raw.trim())
+                    .map(Self)
+                    .map_err(|_| DomainError::Malformed {
+                        field: $field,
+                        rule: "not_an_identifier",
+                        reason: "is not a valid identifier",
+                    })
+            }
+
+            /// The underlying ULID, for callers that need its timestamp.
+            #[must_use]
+            pub const fn as_ulid(self) -> Ulid {
+                self.0
+            }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl FromStr for $name {
+            type Err = DomainError;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                Self::parse(s)
+            }
+        }
+
+        impl TryFrom<String> for $name {
+            type Error = DomainError;
+
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                Self::parse(&value)
+            }
+        }
+
+        impl From<$name> for String {
+            fn from(value: $name) -> Self {
+                value.to_string()
+            }
+        }
+    };
+}
+
+declare_id!(
+    /// Identifies a user account.
+    UserId,
+    "user_id"
+);
+
+declare_id!(
+    /// Identifies a browser session.
+    SessionId,
+    "session_id"
+);
+
+declare_id!(
+    /// Identifies an API token.
+    ApiTokenId,
+    "api_token_id"
+);
+
+declare_id!(
+    /// Identifies one file still arriving across several requests.
+    UploadId,
+    "upload_id"
+);
+
+declare_id!(
+    /// Identifies one registration waiting on its address to be confirmed.
+    PendingRegistrationId,
+    "pending_registration_id"
+);
+
+declare_id!(
+    /// Identifies one invite code.
+    InviteId,
+    "invite_id"
+);
+
+declare_id!(
+    /// Identifies one role.
+    ///
+    /// The two seeded roles have fixed identifiers written into the migration
+    /// and not generated ones, so every instance and every dialect
+    /// names them the same way.
+    RoleId,
+    "role_id"
+);
+
+/// The roles the `is_admin` boolean used to mean.
+///
+/// Written into the migration as literals, so they are named here as literals
+/// too. The test below is the only thing tying the two spellings together;
+/// without it a typo in either shows up as an instance with no administrator
+/// at all.
+impl RoleId {
+    /// Helping run the instance, short of the three destructive powers.
+    pub const ADMIN: &'static str = "00ADMN00000000000000000000";
+    /// Signed in and allowed nothing.
+    ///
+    /// Reads as `GEST` for the same reason `admin` reads as `ADMN`: Crockford
+    /// base32 has no `U`.
+    pub const GUEST: &'static str = "00GEST00000000000000000000";
+    /// Upload, and manage what you uploaded.
+    pub const MEMBER: &'static str = "00MEMBER000000000000000000";
+    /// Everything, including removing accounts and other people's content.
+    pub const OWNER: &'static str = "00WNER00000000000000000000";
+}
+
+declare_id!(
+    /// Identifies one password reset link.
+    PasswordResetTokenId,
+    "password_reset_token_id"
+);
+
+declare_id!(
+    /// Identifies one link proving an account's address.
+    EmailVerificationId,
+    "email_verification_id"
+);
+
+declare_id!(
+    /// Identifies one authorisation to retrieve a share.
+    ShareTicketId,
+    "share_ticket_id"
+);
+
+declare_id!(
+    /// Identifies one recorded retrieval of a share.
+    AccessEventId,
+    "access_event_id"
+);
+
+declare_id!(
+    /// Identifies a share.
+    ///
+    /// Distinct from its [`RetrievalCode`](crate::RetrievalCode): this is the
+    /// share's identity, that is how a person refers to it. Keeping them apart
+    /// lets a code be regenerated without rewriting anything that points here.
+    ShareId,
+    "share_id"
+);
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+    use rstest::rstest;
+
+    use super::*;
+
+    #[test]
+    fn round_trips_through_text() {
+        let id = UserId::generate();
+        assert_eq!(UserId::parse(&id.to_string()).unwrap(), id);
+    }
+
+    #[test]
+    fn generated_identifiers_are_distinct() {
+        let ids: std::collections::BTreeSet<_> = (0..1_000).map(|_| UserId::generate()).collect();
+        assert_eq!(ids.len(), 1_000);
+    }
+
+    /// The property that makes ULIDs worth choosing over UUIDv4: text order
+    /// matches creation order, so a database index stays append-mostly.
+    #[test]
+    fn identifiers_sort_in_creation_order() {
+        let earlier = UserId::generate();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        let later = UserId::generate();
+        assert!(earlier < later);
+        assert!(earlier.to_string() < later.to_string());
+    }
+
+    /// The reason each entity gets its own type: one cannot stand in for
+    /// another. A compile-time property, so the test is that the code below
+    /// does *not* compile, asserted by construction and not by running.
+    #[test]
+    fn identifier_types_do_not_interchange() {
+        let user = UserId::generate();
+        let session = SessionId::generate();
+        // `user == session` would not compile: different types, no `PartialEq`
+        // between them. Text is all they have in common.
+        assert_ne!(user.to_string(), session.to_string());
+    }
+
+    #[rstest]
+    #[case::empty("")]
+    #[case::too_short("01ARZ3NDEK")]
+    #[case::not_base32("01ARZ3NDEKTSV4RRFFQ69G5FAU!")]
+    #[case::plain_text("hello")]
+    fn rejects_values_that_are_not_identifiers(#[case] raw: &str) {
+        assert!(UserId::parse(raw).is_err(), "should have rejected `{raw}`");
+        assert!(SessionId::parse(raw).is_err());
+        assert!(ApiTokenId::parse(raw).is_err());
+    }
+
+    /// The rejection must name the field it came from, or an error message
+    /// cannot say which identifier was wrong.
+    #[test]
+    fn rejections_name_their_field() {
+        assert_eq!(UserId::parse("nope").unwrap_err().field(), "user_id");
+        assert_eq!(SessionId::parse("nope").unwrap_err().field(), "session_id");
+        assert_eq!(
+            ApiTokenId::parse("nope").unwrap_err().field(),
+            "api_token_id"
+        );
+    }
+
+    proptest! {
+        /// Arbitrary input is rejected, never panics, never yields an identifier
+        /// that fails to round-trip.
+        #[test]
+        fn parsing_arbitrary_text_is_total(raw in ".{0,60}") {
+            if let Ok(id) = UserId::parse(&raw) {
+                prop_assert_eq!(UserId::parse(&id.to_string()).unwrap(), id);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod seeded_role_tests {
+    use super::RoleId;
+
+    /// The migration inserts these two strings. If either stops being a valid
+    /// identifier, every request loading a role fails to parse the row, and the
+    /// symptom is "there is no administrator", which points nowhere near here.
+    #[test]
+    fn the_seeded_roles_are_valid_identifiers() {
+        for id in [RoleId::OWNER, RoleId::ADMIN, RoleId::MEMBER] {
+            assert!(RoleId::parse(id).is_ok(), "{id}");
+            assert_eq!(id.len(), 26, "{id}");
+        }
+    }
+}

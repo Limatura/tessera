@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@4.0.1/schema.json",
+  "baseBranch": "main",
+  "access": "restricted",
+  "format": "auto",
+  "changelog": [
+    "@changesets/changelog-github",
+    {
+      "repo": "Limatura/tessera"
+    }
+  ],
+  "commit": false,
+  "privatePackages": { "version": true, "tag": false },
+  "ignore": [],
+  "fixed": [["tessera-server", "web", "tui", "extension"]],
+  "linked": [],
+  "updateInternalDependencies": "patch",
+  "snapshot": {
+    "useCalculatedVersion": true,
+    "prereleaseTemplate": "{tag}.{datetime}"
+  }
+}

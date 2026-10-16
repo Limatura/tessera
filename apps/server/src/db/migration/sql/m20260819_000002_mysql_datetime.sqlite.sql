@@ -1,0 +1,2 @@
+-- SQLite stores RFC 3339 text with an explicit `Z`, so there is nothing here
+-- for it to do.

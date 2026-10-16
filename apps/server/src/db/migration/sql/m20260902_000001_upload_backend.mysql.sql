@@ -1,0 +1,16 @@
+-- Which backend a resumable upload is writing to.
+--
+-- Direct uploads were placed across the pool, resumable ones were not: the
+-- session opens a multipart before the file size is known, and there was
+-- nowhere to record the choice, so every one went to the `storage.url`
+-- backend. An instance that had filled it refused resumable uploads while
+-- other backends sat empty.
+--
+-- Written at session creation and never changed, for the same reason as
+-- `shares.role_id`: it records where the bytes are going, not whatever the
+-- configuration says now. Changing the default backend mid-upload must not
+-- strand parts already written.
+--
+-- Nullable, because sessions predating this are already writing somewhere,
+-- namely the `storage.url` backend; that is what NULL means.
+ALTER TABLE uploads ADD COLUMN backend VARCHAR(191);

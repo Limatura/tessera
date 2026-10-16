@@ -1,0 +1,6 @@
+[toolchain]
+# Pinned so every developer, CI runner and Docker build compiles with the exact
+# same compiler. Bump deliberately, never implicitly.
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

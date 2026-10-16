@@ -1,0 +1,358 @@
+name: web
+
+# Separate from `rust.yml` and outside the Rust pipeline for the same reason
+# that one says: the two toolchains share no cache, no dependency graph and no
+# failure modes, so a frontend change should not wait on a Rust rebuild.
+#
+# No `paths:` filter here — unlike `rust.yml`, which needs `dorny/paths-filter`
+# because Cargo has no package graph GitHub Actions can query. Turborepo does:
+# `turbo run ... --affected` walks that graph itself (a `packages/ui` change
+# marks every app that depends on it, not every app in the repo), so the
+# workflow triggers on every push/PR and lets `--affected` decide per package
+# rather than this file guessing from glob patterns. That is also why a commit
+# touching only `apps/tui` or `apps/extension` no longer runs `web`
+# work for nothing — those two apps have no `build`/`check-types`/`test` tasks
+# of their own, so `--affected` finds nothing to run for them.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: web-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: types & lint
+    runs-on: ubuntu-latest
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    # `report` is read by `bundle-size-comment`. `web` is for the `e2e` job
+    # below, paused until the move to GitHub-hosted runners.
+    outputs:
+      report: ${{ steps.bundle-size.outputs.report }}
+      # web: ${{ steps.affected.outputs.web }}
+    steps:
+      # `fetch-depth: 0` — full history, not the default shallow clone.
+      # `--affected` below works by asking git for the merge base against
+      # main; a shallow clone may not contain it, and turbo then falls back to
+      # treating everything as affected, which is silently the same cost this
+      # change exists to avoid.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # `--frozen-lockfile` is what catches a dependency that was imported but
+      # never declared: it refuses to update the lock file, so the install fails
+      # instead of quietly resolving from the store.
+      - run: pnpm install --frozen-lockfile
+
+      # `--affected` asks turbo's own package graph which packages actually
+      # changed — direct edits or a changed internal dependency — instead of
+      # this file's own guess at which globs matter. On `pull_request` it
+      # diffs against the PR's base ref; on `push` to main, against the
+      # previous commit. A run with nothing affected still passes: there is
+      # simply nothing for these tasks to do.
+      #
+      # Order matters, and it is the reason this job did not exist for so
+      # long. `paraglide`'s runtime and `routeTree.gen.ts` are produced by
+      # Vite plugins at build time and are both gitignored, so on a fresh
+      # checkout `tsc` cannot resolve `@/paraglide/runtime.js` and reports a
+      # dozen errors that say nothing about the code. Build first, then check.
+      - run: pnpm turbo run build --affected
+
+      # The point of this job. `vite build` hands the file to esbuild, which
+      # strips types without checking them — a build that passes says nothing
+      # about whether the types are right.
+      - run: pnpm turbo run check-types --affected
+
+      # Format and lint, from the root vite.config.ts. apps/docs is a separate
+      # git submodule (tessera-docs) with its own config; Vite+ uses the root
+      # config and never a nested one, and apps/docs is in its ignore patterns.
+      #
+      # Not filtered by --affected: it walks the whole tree in one process
+      # either way, so narrowing its input would only add bookkeeping for no
+      # saved work.
+      - run: pnpm exec vp check
+
+      # Unit tests of pure functions (language detection, byte formatting, how
+      # PATCH requests are built). No browser needed, so they are quick; last,
+      # as the final gate.
+      - run: pnpm turbo run test --affected --filter=web --filter=@tessera/crypto
+
+      # Bundle size only means anything for a package that just built — a
+      # `dist` from an unrelated earlier run would report stale numbers as
+      # this run's own, and `bundle-size.sh` errors outright if `--affected`
+      # skipped the build and `dist` was never produced at all. So each
+      # measure/restore/save step below asks about its own app first.
+      #
+      # The answer comes from the `length` in turbo's own JSON, not from
+      # `--exit-code`: that flag exits 0 whether the query matched anything
+      # or not — it does so even for a package name that does not exist — so
+      # reading it marked both apps affected on every run. The first push to
+      # main that built neither, a docs-only merge, then failed here.
+      - name: Which apps are affected
+        id: affected
+        run: |
+          for app in web; do
+            count=$(pnpm turbo query affected --packages "$app" \
+              | sed -n '/^{/,$p' \
+              | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(String(JSON.parse(s).data.affectedPackages.length)))')
+            if [ "$count" -gt 0 ]; then
+              echo "${app}=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "${app}=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+
+      # $STATE_DIR is a fixed path on a self-hosted box, not a fresh per-run
+      # directory — nothing else clears it between runs. Wipe it up front so
+      # a previous run's report/current.txt never leaks into this one, and so
+      # a stale main.txt is never read before the restore below decides
+      # whether one exists at all.
+      - name: Reset the bundle-size scratch dir
+        run: rm -rf /tmp/tessera-bundle-size
+
+      # The baseline must be *this* PR's diff against main, not whatever the
+      # last main build happened to leave on whichever self-hosted box this
+      # run lands on. Caching main.txt by commit means the restore always
+      # reflects the actual main tip, keyed on the same commit that pushed it,
+      # regardless of which box ran that push.
+      #
+      # Restored on main pushes too, not only PRs: `--affected` means a push
+      # that did not touch `web` never regenerates `web/main.txt`, and without
+      # this restore the save step below would cache that push's baseline
+      # missing it entirely.
+      - name: Restore main's bundle-size baseline
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            /tmp/tessera-bundle-size/web/main.txt
+          key: bundle-size-main-${{ github.sha }}
+          restore-keys: bundle-size-main-
+
+      # Runs after everything above so a build that fails type-checking never
+      # gets a size reported for it. Guarded by the same affected check that
+      # gated its build, so a PR that did not touch `web` does not report a
+      # stale `dist` — or error outright.
+      - name: Measure web
+        if: steps.affected.outputs.web == 'true'
+        run: .github/scripts/bundle-size.sh web apps/web/dist
+      - name: Assemble the bundle-size report
+        id: bundle-size
+        if: steps.affected.outputs.web == 'true'
+        run: .github/scripts/bundle-size-finalize.sh
+
+      # Only main, and only once every check above has passed — the same
+      # reasoning as the server image's baseline, in `rust.yml`. Guarded the
+      # same way: a `main.txt` from an app that did not build this run must not
+      # be overwritten with nothing.
+      - name: Record this build as the baseline
+        if: github.ref == 'refs/heads/main' && steps.affected.outputs.web == 'true'
+        run: cp /tmp/tessera-bundle-size/web/current.txt /tmp/tessera-bundle-size/web/main.txt
+      - name: Save this build as the cached baseline
+        if: github.ref == 'refs/heads/main' && steps.affected.outputs.web == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            /tmp/tessera-bundle-size/web/main.txt
+          key: bundle-size-main-${{ github.sha }}
+
+  # A smoke test of the home page (apps/web/src/tests/e2e): a real browser and
+  # a real backend, through upload, retrieval and deletion once.
+  #
+  # Runs only when `web` changed. `--affected` cannot see Cargo's package graph,
+  # so a backend-only PR does not run this: the backend's behaviour is guarded
+  # by rust.yml's tests, and this guards the frontend.
+  #
+  # `needs: check`: if types or lint fail, building the backend and starting a
+  # browser is not worth the time.
+  # ── Paused ────────────────────────────────────────────────────────────
+  # The self-hosted runner lacked the system libraries Chromium needs
+  # (libnss3, libnspr4, ...), and what that machine has installed is not the
+  # workflow's business. To turn it on with GitHub-hosted runners, also:
+  #
+  # - uncomment the `web` output of `check` above, which decides whether this runs
+  # - `runs-on: ubuntu-latest`
+  # - install Chromium with `playwright install --with-deps chromium` (hosted
+  #   runners have passwordless sudo) and drop the ldd check
+  # - cargo: a hosted runner is a new machine each time, with no shared
+  #   `../.cargo-target`. Drop CARGO_TARGET_DIR and `./.github/actions/rust`
+  #   (written for the self-hosted box) and use Swatinem/rust-cache
+  #   (rust-scheduled.yml already pins a version)
+  # - the two steps that clean up a leftover backend do nothing on a fresh VM;
+  #   keeping them is harmless
+  #
+  # It still runs locally: see apps/web/src/tests/e2e/README.md.
+  # ──────────────────────────────────────────────────────────────────
+  #
+  # e2e:
+  #   name: e2e
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   needs: check
+  #   if: needs.check.outputs.web == 'true'
+  #   # Identical to rust.yml's workflow-level env. On one runner both share
+  #   # `../.cargo-target`, and if any value differs (flags, profile, features)
+  #   # cargo treats it as a different build, so the two workflows keep
+  #   # overwriting each other's cache and rebuilding.
+  #   env:
+  #     CARGO_TERM_COLOR: always
+  #     CARGO_TARGET_DIR: ${{ github.workspace }}/../.cargo-target
+  #     CARGO_INCREMENTAL: "0"
+  #     CARGO_BUILD_JOBS: "4"
+  #     CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  #     RUSTFLAGS: -D warnings
+  #     # A fixed path: how the next run finds a backend a cancelled run left
+  #     # behind, and stops it.
+  #     SERVER_PID_FILE: /tmp/tessera-e2e-server.pid
+  #   steps:
+  #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  #       with:
+  #         persist-credentials: false
+  #
+  #     # On a self-hosted runner nobody cleans up after a cancelled run: if the
+  #     # last run's backend still holds :12923, this one cannot bind, and the
+  #     # tests hit the old one.
+  #     - name: Stop a server an earlier run left behind
+  #       run: |
+  #         if [ -f "$SERVER_PID_FILE" ]; then
+  #           kill "$(cat "$SERVER_PID_FILE")" 2>/dev/null || true
+  #           rm -f "$SERVER_PID_FILE"
+  #         fi
+  #
+  #     - uses: ./.github/actions/rust
+  #
+  #     # `--all-features`, as in rust.yml's test job, to share its cache.
+  #     # web is not built first: with no `dist`, build.rs puts in a placeholder
+  #     # page and the backend still compiles. The pages come from the vite dev
+  #     # server Playwright starts below, so a frontend change does not rebuild
+  #     # the backend.
+  #     - run: cargo build --locked --bin tessera-server --all-features
+  #
+  #     - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+  #     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+  #       with:
+  #         node-version: 24
+  #         cache: pnpm
+  #     - run: pnpm install --frozen-lockfile
+  #
+  #     # Full Chromium, not `--only-shell`: the headless shell computes grid
+  #     # rows under `container-type: inline-size` as 0 high (see the e2e README).
+  #     # The browser lives in ~/.cache/ms-playwright, which the self-hosted
+  #     # runner keeps, so it is only downloaded when the version changes.
+  #     #
+  #     # No `--with-deps` for system libraries: that needs sudo apt, and what
+  #     # the machine has installed is not the workflow's business. Listing what
+  #     # is missing for someone to install is clearer than apt failing mid-job.
+  #     - name: Install Chromium for Playwright
+  #       run: |
+  #         pnpm --filter web exec playwright install chromium
+  #         chrome=$(ls -d "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | sort -V | tail -1)
+  #         missing=$(ldd "$chrome" | grep "not found" || true)
+  #         if [ -n "$missing" ]; then
+  #           echo "::error::Chromium is missing system libraries; run 'pnpm --filter web exec playwright install-deps chromium' on the runner once"
+  #           echo "$missing"
+  #           exit 1
+  #         fi
+  #
+  #     # An empty data directory every time: no assertion should depend on
+  #     # shares or settings an earlier run left. All defaults; anonymous upload
+  #     # is on by default, so nothing needs setting.
+  #     - name: Start the server
+  #       run: |
+  #         # The health check below only sees whether :12923 answers, not
+  #         # whether this run's server is the one answering. If something else
+  #         # already is (a leftover the last step missed), the tests would hit
+  #         # it, so stop here.
+  #         if curl -sf -o /dev/null http://127.0.0.1:12923/api/v1/health; then
+  #           echo "::error::something is already answering on :12923; stop it before running e2e"
+  #           exit 1
+  #         fi
+  #         data="$RUNNER_TEMP/tessera-e2e"
+  #         rm -rf "$data" && mkdir -p "$data"
+  #         TESSERA_SERVER__DATA_DIR="$data" \
+  #         TESSERA_DATABASE__URL="sqlite://$data/tessera.db" \
+  #           nohup "$CARGO_TARGET_DIR/debug/tessera-server" > "$RUNNER_TEMP/tessera-e2e-server.log" 2>&1 &
+  #         echo $! > "$SERVER_PID_FILE"
+  #         for _ in $(seq 1 60); do
+  #           if curl -sf -o /dev/null http://127.0.0.1:12923/api/v1/health; then
+  #             exit 0
+  #           fi
+  #           if ! kill -0 "$(cat "$SERVER_PID_FILE")" 2>/dev/null; then
+  #             echo "::error::tessera-server exited during start-up"
+  #             cat "$RUNNER_TEMP/tessera-e2e-server.log"
+  #             exit 1
+  #           fi
+  #           sleep 1
+  #         done
+  #         echo "::error::tessera-server did not answer /api/v1/health within 60 seconds"
+  #         cat "$RUNNER_TEMP/tessera-e2e-server.log"
+  #         exit 1
+  #
+  #     # vite dev is started by playwright.config.ts's webServer and proxies
+  #     # /api to the server above.
+  #     - run: pnpm turbo run test:e2e --filter=web
+  #
+  #     - name: Collect the server log
+  #       if: ${{ !cancelled() }}
+  #       run: cp "$RUNNER_TEMP/tessera-e2e-server.log" apps/web/playwright-report/server.log 2>/dev/null || true
+  #
+  #     # Traces, screenshots and videos are kept only for failing tests (see
+  #     # playwright.config.ts), so on success this is small.
+  #     - name: Upload the Playwright report
+  #       if: ${{ !cancelled() }}
+  #       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+  #       with:
+  #         name: playwright-report
+  #         path: apps/web/playwright-report/
+  #         retention-days: 14
+  #         if-no-files-found: ignore
+  #
+  #     - name: Stop the server
+  #       if: always()
+  #       run: |
+  #         if [ -f "$SERVER_PID_FILE" ]; then
+  #           kill "$(cat "$SERVER_PID_FILE")" 2>/dev/null || true
+  #           rm -f "$SERVER_PID_FILE"
+  #         fi
+
+  # Split out for the same reason `image-size-comment` is split out of
+  # `docker` in rust.yml: `check` runs no third-party action that could abuse
+  # `pull-requests: write`, but keeping the scope on a job that does nothing
+  # else means it stays that way even if one is added here later.
+  bundle-size-comment:
+    name: bundle size comment
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    timeout-minutes: 5
+    needs: check
+    # Not for a fork's pull request: its token is read-only, so the post
+    # would fail and turn a passing run red.
+    if: >-
+      always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.check.outputs.report != ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Post the bundle-size table
+        run: .github/scripts/pr-comment.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: "<!-- tessera:bundle-size -->"
+          BODY: ${{ needs.check.outputs.report }}

@@ -1,0 +1,460 @@
+//! Shared application state.
+
+use std::sync::Arc;
+
+use arc_swap::ArcSwap;
+use object_store::ObjectStore;
+use parking_lot::RwLock;
+use sea_orm::DatabaseConnection;
+use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
+use utoipa::ToSchema;
+
+use crate::{
+    auth::{proxy::TrustedProxies, throttle::Throttles},
+    config::Config,
+    db::repository::{
+        access_event::AccessEventRepository,
+        api_token::ApiTokenRepository,
+        invite::InviteRepository,
+        oidc::OidcRepository,
+        password_reset::PasswordResetRepository,
+        pending_registration::PendingRegistrationRepository,
+        preference::PreferenceRepository,
+        role::RoleRepository,
+        session::SessionRepository,
+        setting::SettingRepository,
+        share::{ShareRepository, ShareTicketRepository},
+        upload::UploadRepository,
+        user::UserRepository,
+    },
+    mail::Mailer,
+};
+
+/// Where the process is in its lifecycle.
+///
+/// Load balancers and `docker healthcheck` need to distinguish "still migrating"
+/// from "draining" from "healthy"; a bare 200/500 cannot express that.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ServiceStatus {
+    /// Booting: connecting to the database, running migrations.
+    Starting,
+    /// Accepting traffic.
+    Ready,
+    /// Refusing new work while in-flight requests finish.
+    Draining,
+}
+
+/// Everything about where blobs go, as one argument.
+///
+/// The pool and the key that opens its rows belong together: taking them from
+/// different places gives a state whose backends and key disagree.
+#[derive(Debug, Clone)]
+pub struct Storage {
+    /// Every backend that opened, and what they were opened from.
+    pub pool: crate::storage::Pool,
+    /// What seals and opens a stored backend's credentials.
+    pub sealer: crate::security::secret::Sealer,
+}
+
+/// State cloned into every request handler.
+///
+/// Cheap to clone: everything inside is an `Arc` or an `Arc`-backed pool.
+#[derive(Debug, Clone)]
+pub struct AppState {
+    /// Validated configuration, as it stands right now.
+    ///
+    /// Behind a swap, not a plain `Arc`, because a change made in the
+    /// admin panel has to reach the next request without a restart. Read it
+    /// through [`AppState::config`], and do not hold the result across an
+    /// await, or it will be acting on a configuration since replaced.
+    config: Arc<ArcSwap<Config>>,
+    /// Relational store. One connection type covers SQLite, Postgres and MySQL.
+    pub db: DatabaseConnection,
+    /// Accounts.
+    pub users: UserRepository,
+    /// Roles, and what each one allows.
+    pub roles: RoleRepository,
+    /// Browser sessions.
+    pub sessions: SessionRepository,
+    /// API tokens.
+    pub tokens: ApiTokenRepository,
+    /// Shares.
+    pub shares: ShareRepository,
+    /// Download authorisations.
+    pub tickets: ShareTicketRepository,
+    /// Settings changed from the admin panel.
+    pub settings: SettingRepository,
+    /// Recorded retrievals, when the operator has asked for them. Written only
+    /// while `share.access_log.enabled` is on.
+    pub events: AccessEventRepository,
+    /// Outstanding password reset links.
+    pub resets: PasswordResetRepository,
+    /// One row per day of what the instance held, for the dashboard's trend.
+    pub stats: crate::db::repository::stats::StatsRepository,
+    /// Outstanding links proving an account's address.
+    pub verifications: crate::db::repository::email_verification::EmailVerificationRepository,
+    /// Invite codes, for an instance that is neither open nor closed.
+    pub invites: InviteRepository,
+    /// Registrations waiting on their address to be confirmed.
+    pub pending: PendingRegistrationRepository,
+    /// Provider identities, and sign-ins in progress at the provider.
+    pub identities: OidcRepository,
+    /// Authenticator apps, recovery codes, and sign-ins waiting on them.
+    pub mfa: crate::db::repository::mfa::MfaRepository,
+    /// Passkeys, and the challenges handed out for them.
+    pub passkeys: crate::db::repository::passkey::PasskeyRepository,
+    /// Each user's choices about how the site looks to them.
+    pub preferences: PreferenceRepository,
+    /// What the malware scanner has yet to check, and its verdicts.
+    pub scans: crate::db::repository::scan::ScanRepository,
+    /// Wakes the scanner after an upload, so a share is not held for up to a
+    /// full interval before it is checked.
+    pub scan_wake: Arc<tokio::sync::Notify>,
+    /// Announced by the scanner after each verdict, for the streams that
+    /// push a share's scan state to its uploader.
+    pub scan_changes: crate::topic::Topic<crate::scan::Change>,
+    /// Whether the scanner is answering, as the worker last saw.
+    pub scanner_health: crate::scan::health::ScannerHealth,
+    /// The relay, when this instance has one.
+    ///
+    /// `None` is the ordinary case and not a fault: an instance with no `mail`
+    /// block does not mount the endpoints that would use it.
+    ///
+    /// Swappable for the same reason the configuration is. `mail.host` and its
+    /// neighbours are settings the panel can change, and a relay left pointed
+    /// at the old server would report success and send nothing.
+    mailer: Arc<ArcSwap<Option<Mailer>>>,
+    /// The proxies this instance will be spoken for by.
+    ///
+    /// Parsed once at start-up, not per request. It is read on every request
+    /// with a throttle behind it, for the same answer every time.
+    proxies: Arc<ArcSwap<TrustedProxies>>,
+    /// Failed-attempt counters.
+    ///
+    /// Shared, not per-request, since the point is that attempts accumulate
+    /// across them. In memory, so this process owns it and loses it
+    /// on restart; see [`Throttles`] for why, and why there is more than one
+    /// counter.
+    pub throttles: Arc<Throttles>,
+    /// The stored backends, and the key that opens them.
+    ///
+    /// Holds the sealer, so the one place that can read a credential is the one
+    /// place that needs to. Nothing above this layer sees the key.
+    pub storage_backends: crate::db::repository::storage_backend::StorageBackendRepository,
+    /// Every configured backend, by name.
+    ///
+    /// An `ArcSwap` because the set changes at runtime when backends are added
+    /// or removed from the panel. Same pattern as `mailer`.
+    pub backends: Arc<ArcSwap<crate::storage::Pool>>,
+    /// Keeps the first upload into a location that does not exist yet from
+    /// racing its siblings. See
+    /// [`FirstWrites`](crate::storage::first_write::FirstWrites).
+    pub first_writes: Arc<crate::storage::first_write::FirstWrites>,
+    /// Bytes arriving right now, which no table knows about yet. See
+    /// [`InFlight`](crate::storage::in_flight::InFlight).
+    pub in_flight: Arc<crate::storage::in_flight::InFlight>,
+    /// Upload sessions.
+    pub uploads: UploadRepository,
+    /// Where the frontend is read from: the compiled-in bundle, or a directory.
+    pub assets: Arc<crate::assets::Source>,
+    /// The identity provider's discovery document, fetched once a day.
+    ///
+    /// Held here, not built per request, so one sign-in pays for the fetch and
+    /// the rest of the day's do not.
+    pub oidc: Arc<crate::auth::oidc::discovery::Discovery>,
+    /// The provider's signing keys, for back-channel logout only.
+    ///
+    /// Separate from [`Self::oidc`]: they are fetched for a different reason,
+    /// from a different URL, and most instances never need them.
+    pub oidc_keys: Arc<crate::auth::oidc::jwks::Keys>,
+    /// Fonts for link-preview cards, decoded once at start-up.
+    ///
+    /// `None` when the embedded faces would not decode. That is a build fault
+    /// and should not stop an instance serving files, so it costs the pictures
+    /// and nothing else: the route answers `404` and the page keeps its words.
+    #[cfg(feature = "og-images")]
+    pub cards: Option<Arc<crate::og::Cards>>,
+    /// How many cards may be rendered at once.
+    ///
+    /// Rendering is CPU work on a public, unthrottled route, and its cost per
+    /// card depends on the operator's layout. Measured: eight kilobytes of
+    /// layout can take three milliseconds or sixteen seconds, since a blur
+    /// costs what it costs. Without a ceiling, images could take the whole
+    /// machine and the rest of the service would stop answering.
+    ///
+    /// Half the cores, at least one. Cards are the least important thing this
+    /// process does, and the other half keeps uploads and downloads moving
+    /// while a crawler works through a sitemap.
+    #[cfg(feature = "og-images")]
+    pub card_renders: Arc<tokio::sync::Semaphore>,
+    /// How far each store's clock is from this one, for download URLs that
+    /// live seconds. See [`crate::storage::clock`].
+    #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+    pub clocks: Arc<crate::storage::clock::Clocks>,
+    /// Cards already rendered, so a burst on one link renders once.
+    #[cfg(feature = "og-images")]
+    pub drawn_cards: Arc<crate::og::cache::Cards>,
+    /// Current lifecycle status.
+    ///
+    /// A `parking_lot::RwLock`, not an async lock. The critical section is a
+    /// single enum write, so an await point here costs more than it saves.
+    status: Arc<RwLock<ServiceStatus>>,
+    /// Cancelled once the status turns to [`ServiceStatus::Draining`], so
+    /// event streams end. Graceful shutdown waits for every open response, and
+    /// a stream left open would hold it until its client went away.
+    draining: tokio_util::sync::CancellationToken,
+    /// When the process started, used for the uptime figure in `/health`.
+    started_at: OffsetDateTime,
+}
+
+impl AppState {
+    /// The configuration as it stands right now.
+    ///
+    /// Cheap: a pointer read, not a lock. The guard must not be held across an
+    /// await point, or the handler is reading a configuration that may already
+    /// have been replaced, and the compiler will not say so.
+    #[must_use]
+    pub fn config(&self) -> arc_swap::Guard<Arc<Config>> {
+        self.config.load()
+    }
+
+    /// The relay, when this instance has one.
+    ///
+    /// `None` is the ordinary case and not a fault: an instance with no `mail`
+    /// block does not mount the endpoints that would use it.
+    #[must_use]
+    pub fn mailer(&self) -> arc_swap::Guard<Arc<Option<Mailer>>> {
+        self.mailer.load()
+    }
+
+    /// The proxies this instance will be spoken for by.
+    #[must_use]
+    pub fn proxies(&self) -> arc_swap::Guard<Arc<TrustedProxies>> {
+        self.proxies.load()
+    }
+
+    /// The store holding a named backend's objects.
+    ///
+    /// `None` when the name is not configured: a share whose backend
+    /// was removed. That has to be answerable, not fatal: the operator
+    /// needs to be told which shares they orphaned, not have the process refuse
+    /// to start.
+    #[must_use]
+    pub fn backend(&self, name: &str) -> Option<Arc<dyn ObjectStore>> {
+        self.backends
+            .load()
+            .open
+            .get(name)
+            .map(|stores| Arc::clone(&stores.store))
+    }
+
+    /// The same, as a multipart store when that backend is one.
+    ///
+    /// `None` for a name that is not configured *and* for one that cannot hold
+    /// a multipart open, such as a local directory or a plain HTTP store. The
+    /// caller tells them apart by asking [`AppState::backend`] first.
+    #[must_use]
+    pub fn backend_multipart(&self, name: &str) -> Option<crate::storage::Multipart> {
+        self.backends
+            .load()
+            .open
+            .get(name)
+            .and_then(|stores| stores.multipart.clone())
+    }
+
+    /// The named backend as a signer, when a client may write parts to it
+    /// directly. See [`crate::storage::Stores::signer`].
+    #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+    #[must_use]
+    pub fn backend_signer(&self, name: &str) -> Option<Arc<dyn object_store::signer::Signer>> {
+        self.backends
+            .load()
+            .open
+            .get(name)
+            .and_then(|stores| stores.signer.clone())
+    }
+
+    /// Whether browsers may be redirected to the named backend directly.
+    ///
+    /// A name with no row is never a redirect target.
+    #[must_use]
+    pub fn direct_access(&self, name: &str) -> bool {
+        self.backends
+            .load()
+            .configured
+            .iter()
+            .any(|backend| backend.name == name && backend.direct_access)
+    }
+
+    /// Replaces the set of backends, so one added from the panel or the command
+    /// line is reachable without a restart.
+    ///
+    /// The map is swapped whole, not mutated. A request already reading
+    /// holds its own `Arc` and finishes against the set it started with, which
+    /// is what makes this safe under load.
+    pub fn replace_backends(&self, pool: crate::storage::Pool) {
+        self.backends.store(Arc::new(pool));
+    }
+
+    /// Replaces the configuration, and everything built from it.
+    ///
+    /// # Why the derived things are rebuilt here
+    ///
+    /// Swapping the configuration alone would leave the mailer talking to the
+    /// old relay and the proxy list trusting the old addresses: a change the
+    /// panel reported as saved that visibly did nothing. Everything derived
+    /// from a setting is rebuilt in the same call, so there is one place to
+    /// look when something turns out not to follow.
+    ///
+    /// The throttles are updated, not rebuilt, because they hold the
+    /// count of who has been failing to sign in. See [`Throttles::apply`].
+    pub fn replace_config(&self, config: Arc<Config>) {
+        // The cached document belongs to the issuer it came from. A new issuer
+        // means different endpoints and a different `iss` to check against.
+        if config.auth.oidc.issuer != self.config().auth.oidc.issuer {
+            self.oidc.forget();
+            self.oidc_keys.forget();
+        }
+        self.throttles.apply(&config.auth.throttle);
+        self.proxies.store(Arc::new(config.server.proxy_trust()));
+        match Mailer::from_config(&config.mail) {
+            Ok(mailer) => self.mailer.store(Arc::new(mailer)),
+            Err(error) => {
+                tracing::error!(
+                    ?error,
+                    "the new mail settings are unusable; keeping the old relay"
+                );
+            }
+        }
+        self.config.store(config);
+    }
+
+    /// Assembles state for a process that has connected its dependencies but is
+    /// not yet serving traffic.
+    #[must_use]
+    pub fn new(
+        config: Arc<Config>,
+        db: DatabaseConnection,
+        storage: Storage,
+        assets: crate::assets::Source,
+    ) -> Self {
+        let Storage {
+            pool: backends,
+            sealer,
+        } = storage;
+        let storage_backends =
+            crate::db::repository::storage_backend::StorageBackendRepository::new(
+                db.clone(),
+                sealer.clone(),
+            );
+        // A relay that will not build is reported and then treated as absent.
+        // Refusing to start would take the service down over the one feature
+        // that exists for when something else has already gone wrong, and the
+        // endpoints check for `Some` anyway.
+        let mailer = match Mailer::from_config(&config.mail) {
+            Ok(mailer) => mailer,
+            Err(error) => {
+                tracing::error!(?error, "mail is configured but unusable; sending is off");
+                None
+            }
+        };
+
+        Self {
+            first_writes: Arc::default(),
+            in_flight: Arc::default(),
+            users: UserRepository::new(db.clone()),
+            roles: RoleRepository::new(db.clone()),
+            resets: PasswordResetRepository::new(db.clone()),
+            stats: crate::db::repository::stats::StatsRepository::new(db.clone()),
+            verifications:
+                crate::db::repository::email_verification::EmailVerificationRepository::new(
+                    db.clone(),
+                ),
+            invites: InviteRepository::new(db.clone()),
+            pending: PendingRegistrationRepository::new(db.clone()),
+            identities: OidcRepository::new(db.clone()),
+            mfa: crate::db::repository::mfa::MfaRepository::new(db.clone(), sealer.clone()),
+            passkeys: crate::db::repository::passkey::PasskeyRepository::new(db.clone()),
+            preferences: PreferenceRepository::new(db.clone()),
+            scans: crate::db::repository::scan::ScanRepository::new(db.clone()),
+            scan_wake: Arc::new(tokio::sync::Notify::new()),
+            scan_changes: crate::topic::Topic::new(),
+            scanner_health: crate::scan::health::ScannerHealth::default(),
+            mailer: Arc::new(ArcSwap::from_pointee(mailer)),
+            sessions: SessionRepository::new(db.clone()),
+            tokens: ApiTokenRepository::new(db.clone()),
+            shares: ShareRepository::new(db.clone()),
+            tickets: ShareTicketRepository::new(db.clone()),
+            settings: SettingRepository::new(db.clone(), sealer),
+            events: AccessEventRepository::new(db.clone()),
+            uploads: UploadRepository::new(db.clone()),
+            assets: Arc::new(assets),
+            oidc: Arc::new(crate::auth::oidc::discovery::Discovery::default()),
+            oidc_keys: Arc::new(crate::auth::oidc::jwks::Keys::default()),
+            #[cfg(feature = "og-images")]
+            cards: match crate::og::Cards::new() {
+                Ok(cards) => Some(Arc::new(cards)),
+                Err(error) => {
+                    tracing::error!(%error, "link-preview cards are unavailable");
+                    None
+                }
+            },
+            #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+            clocks: Arc::default(),
+            #[cfg(feature = "og-images")]
+            drawn_cards: Arc::new(crate::og::cache::Cards::default()),
+            #[cfg(feature = "og-images")]
+            card_renders: Arc::new(tokio::sync::Semaphore::new(
+                std::thread::available_parallelism()
+                    .map_or(1, |cores| cores.get() / 2)
+                    .max(1),
+            )),
+            proxies: Arc::new(ArcSwap::from_pointee(config.server.proxy_trust())),
+            throttles: Arc::new(Throttles::from_config(&config.auth.throttle)),
+            config: Arc::new(ArcSwap::from(config)),
+            db,
+            storage_backends,
+            backends: Arc::new(ArcSwap::from_pointee(backends)),
+            status: Arc::new(RwLock::new(ServiceStatus::Starting)),
+            draining: tokio_util::sync::CancellationToken::new(),
+            started_at: OffsetDateTime::now_utc(),
+        }
+    }
+
+    /// Current lifecycle status.
+    #[must_use]
+    pub fn status(&self) -> ServiceStatus {
+        *self.status.read()
+    }
+
+    /// Transitions to a new lifecycle status.
+    pub fn set_status(&self, status: ServiceStatus) {
+        *self.status.write() = status;
+        if status == ServiceStatus::Draining {
+            self.draining.cancel();
+        }
+    }
+
+    /// Cancelled once this process starts draining. See
+    /// [`crate::api::sse::respond`].
+    #[must_use]
+    pub fn draining(&self) -> tokio_util::sync::CancellationToken {
+        self.draining.clone()
+    }
+
+    /// When the process started.
+    #[must_use]
+    pub const fn started_at(&self) -> OffsetDateTime {
+        self.started_at
+    }
+
+    /// Whole seconds since start-up. Saturates instead of wrapping if the
+    /// system clock steps backwards.
+    #[must_use]
+    pub fn uptime_seconds(&self) -> u64 {
+        let elapsed = OffsetDateTime::now_utc() - self.started_at;
+        u64::try_from(elapsed.whole_seconds()).unwrap_or(0)
+    }
+}

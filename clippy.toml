@@ -1,0 +1,71 @@
+msrv = "1.97"
+
+# Lint *levels* live in Cargo.toml's `[lints]`. This file only tunes how those
+# lints behave.
+
+# The restriction lints denied in Cargo.toml keep panics and untracked output
+# out of production paths. In a test, a panic *is* the reporting mechanism and
+# printing is how a fixture explains itself, so the denial is relaxed here
+# instead of scattering `#[expect(...)]` across test modules.
+#
+# These switches only reach code inside a `#[test]` function body. Helpers
+# outside one (`tests/common/mod.rs`, benchmark setup) restate the exemption
+# with a module-level `#![expect(..., reason = "...")]`.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true
+allow-print-in-tests = true
+allow-useless-vec-in-tests = true
+# Intentionally *not* relaxed: a stray `dbg!` is debugging residue anywhere.
+allow-dbg-in-tests = false
+
+# Default is 128. `figment::Error` is 208 bytes and appears in figment's own
+# callback signatures (`Jail::expect_with`), which we cannot box. Our own error
+# types stay small: `ConfigError::Source` boxes the figment error so this
+# relaxation is not load-bearing for crate code.
+large-error-threshold = 256
+
+# `clippy::cognitive_complexity` is a nursery lint enabled explicitly in
+# Cargo.toml, which is what gives this threshold effect.
+#
+# The default of 25 is kept, not tightened: the lint counts macro expansions,
+# and each `tracing::` call adds roughly six to a function's score. A
+# stricter-looking value would flag every function that logs twice, penalising
+# observability instead of complexity.
+cognitive-complexity-threshold = 25
+too-many-arguments-threshold = 6
+type-complexity-threshold = 250
+
+# Product names that `clippy::doc_markdown` would otherwise demand backticks
+# around. `..` keeps clippy's own default list.
+doc-valid-idents = [
+  "OpenAPI",
+  "SQLite",
+  "MySQL",
+  "MariaDB",
+  "SeaORM",
+  "WebDAV",
+  "ClamAV",
+  "MinIO",
+  "UUIDv4",
+  "ShareX",
+  "FileCodeBox",
+  "WebAuthn",
+  "EdDSA",
+  "..",
+]
+
+# Every suppression in this crate must carry a reason; `allow_attributes_without_reason`
+# enforces it, and this makes clippy accept a preceding comment as that reason too.
+accept-comment-above-attributes = true
+accept-comment-above-statement = true
+
+disallowed-methods = [
+  { path = "std::env::set_var", reason = "mutating the process environment is unsound in a multi-threaded runtime; load configuration through config.rs instead" },
+  { path = "std::env::remove_var", reason = "same unsoundness as set_var; use figment::Jail in tests" },
+]
+disallowed-types = [
+  { path = "std::sync::Mutex", reason = "use parking_lot::Mutex — no poisoning, smaller, faster" },
+  { path = "std::sync::RwLock", reason = "use parking_lot::RwLock — no poisoning, smaller, faster" },
+]

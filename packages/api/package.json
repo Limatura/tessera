@@ -1,0 +1,21 @@
+{
+  "name": "@tessera/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/client.ts",
+    "./schema": "./src/schema.d.ts"
+  },
+  "scripts": {
+    "generate": "openapi-typescript ../../openapi.json -o ./src/schema.d.ts"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.15.0"
+  },
+  "devDependencies": {
+    "@tessera/config": "workspace:*",
+    "openapi-typescript": "^7.10.0",
+    "typescript": "catalog:"
+  }
+}

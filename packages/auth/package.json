@@ -1,0 +1,23 @@
+{
+  "name": "@tessera/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./hooks": "./src/hooks.ts",
+    "./permissions": "./src/permissions.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.5",
+    "@tessera/api": "workspace:*",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@tessera/config": "workspace:*",
+    "@types/react": "catalog:",
+    "typescript": "catalog:"
+  }
+}

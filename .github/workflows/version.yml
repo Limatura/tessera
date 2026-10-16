@@ -1,0 +1,138 @@
+name: version
+
+# Changesets drives the version; this workflow turns it into a release.
+#
+# Pending changesets on main: open or refresh the "Version Packages" PR, which
+# bumps the four apps in lockstep (`fixed` in .changeset/config.json) and copies
+# the number into Cargo.toml. Merging that PR is the decision to release: the
+# next run finds no changesets, sees that `v<version>` does not exist yet, tags
+# it and calls `release.yml`.
+#
+# `release.yml` is called, not triggered by the tag: a tag pushed with
+# GITHUB_TOKEN starts no workflow.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: version-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Every PR: the fixed group and the Cargo workspace must agree, or the image
+  # reports a version the release notes do not.
+  versions:
+    name: versions agree
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compare package.json and Cargo.toml
+        run: |
+          expected=$(node -p "require('./apps/server/package.json').version")
+          status=0
+          for app in web tui extension; do
+            v=$(node -p "require('./apps/$app/package.json').version")
+            if [ "$v" != "$expected" ]; then
+              echo "::error file=apps/$app/package.json::$v, expected $expected (fixed group)"
+              status=1
+            fi
+          done
+          cargo=$(sed -n '/^\[workspace\.package\]/,/^\[/ s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          if [ "$cargo" != "$expected" ]; then
+            echo "::error file=Cargo.toml::$cargo, expected $expected; run scripts/sync-cargo-version.sh"
+            status=1
+          fi
+          echo "version $expected"
+          exit "$status"
+
+  version:
+    name: version PR or tag
+    if: github.event_name == 'push'
+    needs: versions
+    runs-on: ubuntu-latest
+    # The version script builds the server to regenerate openapi.json.
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release: ${{ steps.tag.outputs.release }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # For the PR title and commit, so a release reads as `v0.2.0` in the PR
+      # list and in main's history. Empty when nothing is pending; the action
+      # opens no PR then and the title goes unused.
+      - name: Next version
+        id: next
+        run: |
+          pnpm changeset status --output="$RUNNER_TEMP/status.json" > /dev/null 2>&1 || true
+          version=$(node -p "
+            const fs = require('node:fs');
+            const file = process.env.RUNNER_TEMP + '/status.json';
+            const status = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { releases: [] };
+            status.releases.find((r) => r.name === 'tessera-server')?.newVersion ?? ''
+          ")
+          echo "title=chore: release${version:+ v$version}" >> "$GITHUB_OUTPUT"
+          echo "next version: ${version:-none}"
+
+      # Pushes through the API (`push-with-git-cli` off), so the checkout keeps
+      # no credentials. `version-script` is a file: the action splits the input
+      # on spaces and runs no shell, so quoting or `&&` there breaks.
+      - name: Open or refresh the Version Packages PR
+        id: changesets
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          version-script: ./scripts/version.sh
+          commit-message: ${{ steps.next.outputs.title }}
+          pr-title: ${{ steps.next.outputs.title }}
+          create-github-releases: false
+          push-git-tags: false
+
+      # Idempotent: a re-run, or a push with nothing to release, finds the tag
+      # and stops.
+      - name: Tag the release
+        id: tag
+        if: steps.changesets.outputs.has-changesets == 'false'
+        run: |
+          version=$(node -p "require('./apps/server/package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if gh api "repos/$REPO/git/ref/tags/v$version" > /dev/null 2>&1; then
+            echo "v$version already exists"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh api "repos/$REPO/git/refs" -f ref="refs/tags/v$version" -f sha="$SHA" > /dev/null
+          echo "tagged v$version at $SHA"
+          echo "release=true" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+
+  release:
+    needs: version
+    if: needs.version.outputs.release == 'true'
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ needs.version.outputs.version }}

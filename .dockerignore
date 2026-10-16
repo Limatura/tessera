@@ -1,0 +1,35 @@
+**/node_modules
+.git
+
+# Including apps/web/dist: the image builds the SPA in its own stage now, so a
+# copy from the host would only be a chance to ship whatever happened to be
+# lying around.
+**/dist
+**/build
+**/.next
+**/.nuxt
+**/.output
+**/.svelte-kit
+**/.astro
+**/.turbo
+.turbo
+
+# Rust build output — several GB, and never useful inside an image layer.
+**/target
+apps/server/assets/dist
+
+**/.wrangler
+**/.alchemy
+**/.expo
+**/.vercel
+*.log
+
+Dockerfile
+**/Dockerfile
+docker-compose.yml
+
+# Secrets stay out of image layers; runtime env comes from compose env_file,
+# build-time public values come from compose build args
+**/.env
+**/.env.*
+!**/.env.example

@@ -1,0 +1,38 @@
+[package]
+name = "tessera-cli"
+description = "Send and fetch Tessera shares from a terminal, end-to-end encrypted when asked"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "tessera"
+path = "src/main.rs"
+
+# A client, so the opposite trade-off from the server: the server counts every
+# dependency against one small binary, while this is for people typing
+# commands, where a self-explanatory `--help` is the product.
+[dependencies]
+base64ct = { version = "1.8", features = ["alloc"] }
+clap = { version = "4.6", features = ["derive", "env"] }
+futures-util = "0.3"
+getrandom = "0.3"
+# `rustls` for the same reason the server gives: no system OpenSSL to find.
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
+rpassword = "7.5"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tessera-crypto = { workspace = true }
+thiserror = { workspace = true }
+tokio = { version = "1.53", features = ["fs", "io-std", "io-util", "macros", "rt-multi-thread", "time"] }
+url = "2"
+
+[dev-dependencies]
+axum = "0.8.9"
+tempfile = "3"
+tessera-server = { path = "../server" }
+time = { workspace = true }
+
+[lints]
+workspace = true

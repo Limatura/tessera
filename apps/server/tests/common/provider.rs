@@ -1,0 +1,351 @@
+//! A stand-in identity provider on a loopback port.
+//!
+//! Enough to drive a full sign-in: the discovery document, the token endpoint,
+//! and optionally userinfo. It never signs ID tokens, since nothing on the
+//! other side checks, and it returns exactly the claims a test asks for, which
+//! makes the refusals testable.
+//!
+//! Loopback and `http`, which `auth::oidc::is_private_or_tls` allows and
+//! nothing else does, since a test cannot get a certificate a client trusts.
+
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    sync::Arc,
+};
+
+use axum::{
+    Json, Router,
+    extract::State,
+    routing::{get, post},
+};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use parking_lot::Mutex;
+use tokio::net::TcpListener;
+
+/// What the provider will say next.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Script {
+    /// The claims to put in the ID token, minus `iss` and `aud`, which the
+    /// provider fills in so a test cannot accidentally agree with itself.
+    pub(crate) claims: serde_json::Value,
+    /// Refuse the exchange with this OAuth error instead of issuing a token.
+    pub(crate) refuse: Option<String>,
+    /// Claims to release from the userinfo endpoint instead of in the token.
+    pub(crate) userinfo: Option<serde_json::Value>,
+}
+
+/// Writes one claim, creating the object if the script left it empty.
+fn set(claims: &mut serde_json::Value, key: &str, value: serde_json::Value) {
+    if let Some(fields) = claims.as_object_mut() {
+        fields.insert(key.to_owned(), value);
+        return;
+    }
+    *claims = serde_json::json!({ key: value });
+}
+
+/// A running provider. Stopped when dropped.
+pub(crate) struct FakeProvider {
+    pub(crate) issuer: String,
+    script: Arc<Mutex<Script>>,
+    /// Whether the current script pinned its own nonce.
+    ///
+    /// Tracked here instead of read from the claims, because by then this
+    /// provider may have written its own and the two can no longer be told
+    /// apart.
+    nonce_is_pinned: Mutex<bool>,
+    handle: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for FakeProvider {
+    fn drop(&mut self) {
+        self.handle.abort();
+    }
+}
+
+#[derive(Clone)]
+struct Shared {
+    issuer: String,
+    client_id: String,
+    script: Arc<Mutex<Script>>,
+}
+
+impl FakeProvider {
+    /// Starts one on an OS-assigned port, so tests can run in parallel.
+    pub(crate) async fn start(client_id: &str) -> Self {
+        let listener = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+            .await
+            .expect("a loopback port");
+        let issuer = format!(
+            "http://127.0.0.1:{}",
+            listener.local_addr().expect("an address").port()
+        );
+        let script = Arc::new(Mutex::new(Script::default()));
+        let shared = Shared {
+            issuer: issuer.clone(),
+            client_id: client_id.to_owned(),
+            script: Arc::clone(&script),
+        };
+
+        let router = Router::new()
+            .route("/.well-known/openid-configuration", get(document))
+            .route("/token", post(token))
+            .route("/userinfo", get(userinfo))
+            .route("/jwks", get(jwks))
+            .with_state(shared);
+        let handle = tokio::spawn(async move {
+            let _ignored = axum::serve(listener, router).await;
+        });
+
+        Self {
+            issuer,
+            script,
+            nonce_is_pinned: Mutex::new(false),
+            handle,
+        }
+    }
+
+    /// Sets what the next exchange returns.
+    pub(crate) fn will_say(&self, script: Script) {
+        *self.nonce_is_pinned.lock() = script.claims.get("nonce").is_some();
+        *self.script.lock() = script;
+    }
+
+    /// Puts the nonce from the authorisation request into the token, as a
+    /// provider does.
+    ///
+    /// Skipped when the test pinned one: a token from another sign-in is a
+    /// case worth testing, and this must not quietly fix it.
+    pub(crate) fn echo_nonce(&self, nonce: &str) {
+        if !*self.nonce_is_pinned.lock() {
+            set(
+                &mut self.script.lock().claims,
+                "nonce",
+                serde_json::json!(nonce),
+            );
+        }
+    }
+}
+
+async fn document(State(shared): State<Shared>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "issuer": shared.issuer,
+        "authorization_endpoint": format!("{}/authorize", shared.issuer),
+        "token_endpoint": format!("{}/token", shared.issuer),
+        "userinfo_endpoint": format!("{}/userinfo", shared.issuer),
+        "jwks_uri": format!("{}/jwks", shared.issuer),
+        "backchannel_logout_supported": true,
+        "scopes_supported": ["openid", "email", "profile"],
+        "claims_supported": ["sub", "email", "groups"],
+        "code_challenge_methods_supported": ["S256"],
+    }))
+}
+
+async fn token(State(shared): State<Shared>) -> (axum::http::StatusCode, Json<serde_json::Value>) {
+    let script = shared.script.lock().clone();
+    if let Some(error) = script.refuse {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": error })),
+        );
+    }
+
+    let mut claims = script.claims;
+    set(&mut claims, "iss", serde_json::json!(shared.issuer));
+    set(&mut claims, "aud", serde_json::json!(shared.client_id));
+
+    (
+        axum::http::StatusCode::OK,
+        Json(serde_json::json!({
+            "id_token": id_token(&claims),
+            "access_token": "an-access-token",
+            "token_type": "Bearer",
+        })),
+    )
+}
+
+async fn userinfo(State(shared): State<Shared>) -> Json<serde_json::Value> {
+    Json(
+        shared
+            .script
+            .lock()
+            .userinfo
+            .clone()
+            .unwrap_or_else(|| serde_json::json!({})),
+    )
+}
+
+/// A JWT whose signature is a fixed string, since nothing reads it. See the
+/// module docs on `auth::oidc::claims` for why that is allowed here and where
+/// it stops being allowed.
+fn id_token(claims: &serde_json::Value) -> String {
+    let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"RS256","typ":"JWT"}"#);
+    let body = URL_SAFE_NO_PAD.encode(claims.to_string());
+    format!("{header}.{body}.not-checked")
+}
+
+/// The key this fixture signs logout tokens with, and the JWKS describing it.
+/// A fixed pair, not generated: RSA generation is noticeably slow, and a test
+/// key is not a secret.
+const SIGNING_KEY: &str = include_str!("keys/logout-signing.pem");
+
+/// A key the provider never published, for the most important case: a token
+/// whose `kid` names a real key but whose signature was made with another.
+/// Only signature verification catches that.
+const IMPOSTOR_KEY: &str = include_str!("keys/impostor.pem");
+const SIGNING_JWK: &str = include_str!("keys/logout-signing.jwk.json");
+
+/// The key id in the JWK above.
+pub(crate) const SIGNING_KID: &str = "test-key-1";
+
+async fn jwks() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "keys": [serde_json::from_str::<serde_json::Value>(SIGNING_JWK).expect("a jwk")],
+    }))
+}
+
+impl FakeProvider {
+    /// A signed back-channel logout token, as this provider would send one.
+    ///
+    /// The caller supplies the claims so a test can omit one, or include one
+    /// that must be refused.
+    pub(crate) fn logout_token(claims: &serde_json::Value) -> String {
+        Self::sign_with(claims, SIGNING_KID, SIGNING_KEY)
+    }
+
+    /// The same, signed as if by a key the provider does not publish.
+    ///
+    /// The signature is real; the key id is not in the JWKS, which is how an
+    /// unknown key looks from outside.
+    pub(crate) fn logout_token_with_unknown_key(claims: &serde_json::Value) -> String {
+        Self::sign_with(claims, "a-key-that-was-never-published", SIGNING_KEY)
+    }
+
+    /// A token claiming the published key id, signed with a different key.
+    ///
+    /// The one forgery a key lookup cannot catch: the `kid` resolves, the key
+    /// is found, and only the signature check rejects it.
+    pub(crate) fn forged_logout_token(claims: &serde_json::Value) -> String {
+        Self::sign_with(claims, SIGNING_KID, IMPOSTOR_KEY)
+    }
+
+    fn sign_with(claims: &serde_json::Value, kid: &str, pem: &str) -> String {
+        let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
+        header.kid = Some(kid.to_owned());
+        let key = jsonwebtoken::EncodingKey::from_rsa_pem(pem.as_bytes()).expect("a signing key");
+        jsonwebtoken::encode(&header, claims, &key).expect("a signed token")
+    }
+
+    /// The claims a provider puts in a logout token, with `iss` and `aud`
+    /// filled in so a test cannot accidentally agree with itself.
+    pub(crate) fn logout_claims(
+        &self,
+        client_id: &str,
+        named: &serde_json::Value,
+    ) -> serde_json::Value {
+        let mut claims = serde_json::json!({
+            "iss": self.issuer,
+            "aud": client_id,
+            "iat": time::OffsetDateTime::now_utc().unix_timestamp(),
+            "jti": "a-logout-token",
+            "events": { "http://schemas.openid.net/event/backchannel-logout": {} },
+        });
+        if let (Some(fields), Some(extra)) = (claims.as_object_mut(), named.as_object()) {
+            for (key, value) in extra {
+                fields.insert(key.clone(), value.clone());
+            }
+        }
+        claims
+    }
+}
+
+/// A stand-in GitHub or Discord on a loopback port.
+///
+/// Enough to drive a plain OAuth 2.0 sign-in: a token endpoint and the API
+/// call that identifies the user. Neither publishes a discovery document, so
+/// there is nothing else to serve.
+pub(crate) struct FakeOauth {
+    pub(crate) base: String,
+    answers: Arc<Mutex<serde_json::Value>>,
+    addresses: Arc<Mutex<serde_json::Value>>,
+    handle: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for FakeOauth {
+    fn drop(&mut self) {
+        self.handle.abort();
+    }
+}
+
+#[derive(Clone)]
+struct OauthShared {
+    answers: Arc<Mutex<serde_json::Value>>,
+    addresses: Arc<Mutex<serde_json::Value>>,
+}
+
+impl FakeOauth {
+    /// Starts one on an OS-assigned port.
+    pub(crate) async fn start() -> Self {
+        let listener = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+            .await
+            .expect("a loopback port");
+        let base = format!(
+            "http://127.0.0.1:{}",
+            listener.local_addr().expect("an address").port()
+        );
+        let answers = Arc::new(Mutex::new(serde_json::json!({})));
+        let addresses = Arc::new(Mutex::new(serde_json::json!([])));
+        let shared = OauthShared {
+            answers: Arc::clone(&answers),
+            addresses: Arc::clone(&addresses),
+        };
+
+        // The real paths, so a test exercises the same strings production
+        // builds. GitHub Enterprise Server serves its API under `/api/v3`;
+        // github.com uses its own hostname, and that difference is why
+        // `auth.github.base_url` exists.
+        let router = Router::new()
+            .route("/login/oauth/access_token", post(oauth_token))
+            .route("/api/v3/user", get(oauth_user))
+            .route("/api/v3/user/emails", get(oauth_addresses))
+            // Discord, for a test that drives its adapter directly.
+            .route("/api/oauth2/token", post(oauth_token))
+            .route("/api/users/@me", get(oauth_user))
+            .with_state(shared);
+        let handle = tokio::spawn(async move {
+            let _ignored = axum::serve(listener, router).await;
+        });
+
+        Self {
+            base,
+            answers,
+            addresses,
+            handle,
+        }
+    }
+
+    /// What the API will report about the next user to sign in.
+    pub(crate) fn is(&self, user: serde_json::Value) {
+        *self.answers.lock() = user;
+    }
+
+    /// What `GET /user/emails` will return. GitHub only; Discord carries the
+    /// address on the user itself.
+    pub(crate) fn addresses(&self, addresses: serde_json::Value) {
+        *self.addresses.lock() = addresses;
+    }
+}
+
+async fn oauth_token() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "access_token": "an-access-token",
+        "token_type": "bearer",
+    }))
+}
+
+async fn oauth_user(State(shared): State<OauthShared>) -> Json<serde_json::Value> {
+    Json(shared.answers.lock().clone())
+}
+
+async fn oauth_addresses(State(shared): State<OauthShared>) -> Json<serde_json::Value> {
+    Json(shared.addresses.lock().clone())
+}

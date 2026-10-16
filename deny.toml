@@ -1,0 +1,107 @@
+[graph]
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "x86_64-unknown-linux-musl",
+  "aarch64-unknown-linux-musl",
+]
+all-features = true
+
+# cargo-deny is the *only* vulnerability check in this project. cargo-audit used
+# to run alongside it and was removed for a concrete reason: cargo-audit scans
+# `Cargo.lock`, which lists every crate the resolver considered, while cargo-deny
+# resolves the actual graph with features applied.
+#
+# The difference matters. `rkyv` 0.7 is in our lockfile as an optional
+# dependency of sea-orm that nothing enables; cargo-audit reported
+# RUSTSEC-2026-0235 against it and cargo-deny correctly did not, because the
+# crate is never compiled. Keeping both would mean a second ignore list,
+# maintained in parallel, suppressing findings that were never real, and an
+# ignore list no one trusts is how a genuine advisory gets waved through.
+#
+# Both read the same RustSec database, so this gains precision without losing
+# coverage.
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+  # `paste` is archived upstream with no security impact: it is a compile-time
+  # macro helper with no runtime surface. It reaches us only through
+  # utoipa-axum, so the fix is upstream migrating to `pastey`, not a change
+  # here. Revisit whenever utoipa-axum is bumped.
+  { id = "RUSTSEC-2024-0436", reason = "unmaintained proc-macro helper pulled in by utoipa-axum; no runtime exposure, no upgrade path on our side" },
+  # `bincode` 1.x is unmaintained and reaches us through `syntect`, which uses
+  # it only to deserialise the syntax and theme dumps compiled into our own
+  # binary. It never sees request data (the input is an `include_bytes!`
+  # constant we ship), so "unmaintained" here is a supply-chain question about a
+  # build input, not an attack surface. No syntect 5 release drops it; the fix
+  # is upstream.
+  { id = "RUSTSEC-2025-0141", reason = "unmaintained deserialiser used by syntect only to load syntax dumps embedded in our own binary; never reads request data" },
+]
+
+[licenses]
+version = 2
+# Permissive licences only. Anything copyleft would contaminate a distributed
+# single binary, so it has to be an explicit, reviewed exception.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "Zlib",
+  "CC0-1.0",
+  # quoted_printable, which lettre uses to encode message bodies. 0BSD is the
+  # BSD licence without the attribution clause: strictly more permissive than
+  # MIT, and OSI and FSF approved.
+  "0BSD",
+  # webpki-roots (via sqlx's TLS stack) ships Mozilla's CA bundle under the
+  # Community Data License Agreement. It is a permissive *data* licence with no
+  # obligations attached to distributing a compiled binary.
+  "CDLA-Permissive-2.0",
+  # xxhash-rust, which takumi uses for its caches. The Boost licence is
+  # permissive and, unlike MIT, does not even require the notice in a binary
+  # distribution. It appears here only now because every other Boost-licensed
+  # crate in the tree (ryu, whoami) is dual-licensed and satisfied through
+  # Apache-2.0.
+  "BSL-1.0",
+  # cssparser, cssparser-macros, selectors and dtoa-short: Servo's CSS engine,
+  # reached through takumi-html, which turns a `style` attribute on a card
+  # layout into layout.
+  #
+  # This is a real, intentional exception to the rule above. MPL-2.0 is
+  # copyleft, but *per file*: §3.2 requires making the source of those files
+  # available to anyone given the binary, and says nothing about code that
+  # links them. They are unmodified crates.io releases, so pointing at upstream
+  # satisfies it. The contamination the rule guards against, where the licence
+  # reaches our own source, does not happen with MPL.
+  "MPL-2.0",
+]
+confidence-threshold = 0.9
+# The allow-list is a policy, not an inventory. Entries no current dependency
+# uses keep the policy stable across dependency churn, so an unused entry is
+# not a finding.
+unused-allowed-license = "allow"
+# tessera-server itself is `publish = false` and carries no licence field.
+private = { ignore = true }
+
+[bans]
+# Duplicate versions are a size and audit-surface problem, not a correctness
+# one, and the current duplicates come from transitive dependencies we do not
+# control (reqwest pulls an older tower-http through object_store). Warn, and
+# revisit if binary size regresses.
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+# Guard rails against dependencies intentionally kept out of the tree.
+deny = [
+  { name = "openssl-sys", reason = "link no system OpenSSL — use rustls" },
+  { name = "openssl", reason = "link no system OpenSSL — use rustls" },
+]
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

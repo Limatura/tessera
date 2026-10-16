@@ -1,0 +1,82 @@
+name: rust (on demand)
+
+# Mutation testing and benchmarks are too slow, and too noisy, to gate a PR.
+#
+# They used to run weekly as well. Every one of those runs failed, and a red
+# cron nobody acts on is worse than no cron: it trains everybody to ignore a
+# failing workflow. On demand only until somebody wants to read the output,
+# which is when the run is worth having.
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Which job to run
+        type: choice
+        default: both
+        options: [both, mutants, bench]
+
+concurrency:
+  group: rust-scheduled-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+# Read-only; see `rust.yml` for the reasoning.
+permissions:
+  contents: read
+
+jobs:
+  mutants:
+    name: mutation testing
+    if: inputs.job == 'both' || inputs.job == 'mutants'
+    runs-on: ubuntu-latest
+    # A full mutation run rebuilds the crate once per surviving mutant.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with: { key: mutants }
+
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
+        with:
+          tool: cargo-mutants,cargo-nextest
+
+      # `--in-place` is deliberately avoided: cargo-mutants copies the tree so a
+      # cancelled run cannot leave mutated source behind.
+      - name: Run cargo-mutants
+        run: cargo mutants --no-shuffle --test-tool nextest -- --all-features
+
+      - name: Upload the mutants report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutants-report
+          path: mutants.out/
+          if-no-files-found: ignore
+
+  bench:
+    name: benchmarks
+    if: inputs.job == 'both' || inputs.job == 'bench'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with: { key: bench }
+
+      # Shared runners are too noisy for a pass/fail regression gate; the
+      # criterion output is published as an artefact for a human to compare.
+      - run: cargo bench --bench api
+
+      - name: Upload criterion output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: criterion-report
+          path: target/criterion/
+          if-no-files-found: ignore

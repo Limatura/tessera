@@ -1,0 +1,8 @@
+# The server image is built from the repository root, so the root .dockerignore
+# is the one that applies. This file exists for the case where someone builds
+# with `apps/server` as the context — keep the two in step.
+target
+data
+*.db
+*.db-shm
+*.db-wal

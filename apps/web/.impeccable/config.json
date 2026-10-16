@@ -1,0 +1,95 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-radius",
+        "value": "999px",
+        "createdAt": "2026-08-14T13:56:34.049Z",
+        "reason": "intentional pill-shaped badge chip, not a card/button radius"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "0.6875rem",
+        "createdAt": "2026-08-14T13:56:34.084Z",
+        "reason": "intentional compact label size for meta/hint chips in live-mode preview variants"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "0.8)",
+        "createdAt": "2026-08-14T13:56:34.108Z",
+        "reason": "calc() expression against var(--radius), not a raw literal"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "0.8125rem",
+        "createdAt": "2026-08-14T13:56:34.134Z",
+        "reason": "intentional compact button/subtitle size between label and body steps for chip-style controls"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "sf mono",
+        "createdAt": "2026-08-14T14:01:27.555Z",
+        "reason": "intentional monospace fallback stack for code/link labels, not a body/display font substitution"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "1.2)",
+        "createdAt": "2026-08-14T14:01:27.578Z",
+        "reason": "calc() expression against var(--radius), not a raw literal"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "1.125rem",
+        "createdAt": "2026-08-14T14:01:27.602Z",
+        "reason": "intentional intermediate size between heading and display steps for panel title emphasis"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "0.7)",
+        "createdAt": "2026-08-14T14:01:27.629Z",
+        "reason": "calc() expression against var(--radius), not a raw literal"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "0.6)",
+        "createdAt": "2026-08-14T14:01:44.286Z",
+        "reason": "calc() expression against var(--radius), not a raw literal"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "0.9375rem",
+        "createdAt": "2026-08-14T14:32:02.278Z",
+        "reason": "intentional intermediate size between title and body steps for ticket-stub title"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "1.1)",
+        "createdAt": "2026-08-14T14:32:02.304Z",
+        "reason": "calc() expression against var(--radius), not a raw literal"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": ["src/lib/admin/og-card.ts"],
+        "createdAt": "2026-10-06T02:25:17.269Z",
+        "reason": "Claude: og-card.ts holds the OG card's HTML, rendered by takumi with the server's embedded fonts and card palette (apps/server/src/og/mod.rs ink), not the web UI design system"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "*",
+        "files": ["src/lib/admin/og-card.ts"],
+        "createdAt": "2026-10-06T02:25:17.295Z",
+        "reason": "Claude: og-card.ts holds the OG card's HTML, rendered by takumi with the server's embedded fonts and card palette (apps/server/src/og/mod.rs ink), not the web UI design system"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "*",
+        "files": ["src/lib/admin/og-card.ts"],
+        "createdAt": "2026-10-06T02:25:17.316Z",
+        "reason": "Claude: og-card.ts holds the OG card's HTML, rendered by takumi with the server's embedded fonts and card palette (apps/server/src/og/mod.rs ink), not the web UI design system"
+      }
+    ]
+  }
+}

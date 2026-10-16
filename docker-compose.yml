@@ -1,0 +1,46 @@
+name: tessera
+
+# One service, because that is the whole point — the frontend is embedded in the
+# binary. The Dockerfile builds the SPA in its own stage, so `docker compose
+# build` is enough; nothing has to be built on the host first.
+services:
+  tessera:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+      args:
+        # Without this `/health` reports `unknown` — `.git` is not in the build
+        # context, so the commit has to be handed in.
+        TESSERA_BUILD_REV: ${TESSERA_BUILD_REV:-unknown}
+    init: true
+    ports:
+      - "12923:12923"
+    # A named volume, not a directory here. The image runs as `nonroot` (uid
+    # 65532), and a bind-mounted `./data` belongs to whoever made it, or to root
+    # when Docker makes it, so the server could not write its database:
+    # "attempt to write a readonly database". A named volume starts out owned
+    # by the image's `/data`, which `nonroot` can write.
+    volumes:
+      - tessera-data:/data
+    environment:
+      # Inside a container the loopback address would only be reachable from
+      # inside the container.
+      TESSERA_SERVER__HOST: 0.0.0.0
+      TESSERA_DATABASE__URL: sqlite:///data/tessera.db?mode=rwc
+      TESSERA_SERVER__DATA_DIR: /data
+    # No `healthcheck:` here — the image declares its own, which re-executes the
+    # binary with `--health-check` so the probe reads the same configuration and
+    # therefore always targets the port the server actually listens on.
+    restart: unless-stopped
+    # Docker's default driver keeps every line forever, so the log grows until
+    # the disk is full. These keep the last 50 MB. They live with the
+    # container, though: `docker compose up` after a pull recreates it and the
+    # old lines are gone. Use the `journald` driver to keep them on the host.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  tessera-data:

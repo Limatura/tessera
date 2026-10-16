@@ -1,0 +1,162 @@
+name: release
+
+# Builds and publishes one version: the image to GHCR and a GitHub Release.
+# Called by `version.yml` after it tags `v<version>`; run it by hand only to
+# retry a release whose tag already exists.
+#
+# Image tags for 1.2.3: `1.2.3`, `1.2`, `1`, `latest`.
+# For a pre-release such as 1.2.3-rc.1: only `1.2.3-rc.1`, so nobody following
+# `1.2` or `latest` gets a release candidate.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version without the leading `v`
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version without the leading `v`, e.g. 0.2.0
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: v${{ inputs.version }}
+          persist-credentials: false
+
+      - name: Check the tag matches the sources
+        id: source
+        run: |
+          server=$(node -p "require('./apps/server/package.json').version")
+          cargo=$(sed -n '/^\[workspace\.package\]/,/^\[/ s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          if [ "$server" != "$VERSION" ] || [ "$cargo" != "$VERSION" ]; then
+            echo "::error::tag v$VERSION, package.json $server, Cargo.toml $cargo"
+            exit 1
+          fi
+          # The tag's commit, not `github.sha`: a manual run is on whatever
+          # branch it was started from.
+          echo "rev=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        env:
+          VERSION: ${{ inputs.version }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        id: buildx
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `value=` because this is not a tag-push event, so the action cannot read
+      # the version from the ref. The `{{major}}` patterns emit nothing for a
+      # pre-release; `latest` is spelled out for the same reason.
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},value=v${{ inputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ inputs.version }}
+            type=semver,pattern={{major}},value=v${{ inputs.version }},enable=${{ !startsWith(inputs.version, '0.') }}
+            type=raw,value=latest,enable=${{ !contains(inputs.version, '-') }}
+
+      - name: Build and publish
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=local,src=/tmp/tessera-buildx-cache
+          build-args: |
+            TESSERA_BUILD_REV=${{ steps.source.outputs.rev }}
+
+      # Self-hosted: builders persist unless removed.
+      - name: Remove the builder
+        if: always()
+        run: docker buildx rm --force "$BUILDER" 2>/dev/null || true
+        env:
+          BUILDER: ${{ steps.buildx.outputs.name }}
+
+  github-release:
+    name: GitHub Release
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      # Full history: the compare link needs the previous tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: v${{ inputs.version }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # How to upgrade first, since that is what someone running their own
+      # instance opens this page for; then the changeset summaries.
+      - name: Write the notes
+        run: |
+          image="ghcr.io/${REPO,,}:$VERSION"
+          previous=$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)
+          section=$(awk -v v="## $VERSION" '$0 == v {f=1; next} f && /^## / {exit} f' apps/server/CHANGELOG.md)
+          {
+            echo "## Upgrade"
+            echo
+            echo '```sh'
+            echo "docker pull $image"
+            echo '```'
+            echo
+            echo "Back up the database before upgrading; downgrades are not supported."
+            echo
+            echo "## What's changed"
+            echo "$section"
+            # Plain `@name`: GitHub builds the Contributors row from those, and
+            # changelog-github writes `[@name](url)`, which it does not count.
+            contributors=$(grep -oE '\[@[A-Za-z0-9-]+\]' <<< "$section" | tr -d '[]' | sort -u | paste -sd ' ' || true)
+            if [ -n "$contributors" ]; then
+              echo
+              echo "Thanks to $contributors"
+            fi
+            if [ -n "$previous" ]; then
+              echo
+              echo "**Full Changelog**: https://github.com/$REPO/compare/$previous...v$VERSION"
+            fi
+          } > /tmp/notes.md
+          cat /tmp/notes.md
+        env:
+          REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+
+      - name: Publish the release
+        run: |
+          flags=()
+          case "$VERSION" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "v$VERSION" --verify-tag --title "v$VERSION" \
+            --notes-file /tmp/notes.md "${flags[@]}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}

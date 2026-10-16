@@ -1,0 +1,159 @@
+# Rust workspace root.
+#
+# The repository is a pnpm monorepo that also contains a Rust workspace. The two
+# do not interact: `apps/*` holds deployables in both worlds, `packages/*` holds
+# JavaScript libraries and `crates/*` holds Rust ones. Turborepo never sees the
+# Rust side (no package.json under it), and cargo never sees the JavaScript side.
+[workspace]
+resolver = "3"
+members = ["apps/cli", "apps/dev", "apps/server", "crates/*"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+
+[workspace.dependencies]
+# Versions are pinned once here so the crates can never disagree about a shared
+# dependency, the classic source of "works in core, breaks in server".
+tessera-core = { path = "crates/tessera-core" }
+tessera-crypto = { path = "crates/tessera-crypto" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+time = { version = "0.3", features = ["serde", "formatting", "parsing", "macros"] }
+ulid = { version = "3", features = ["serde"] }
+tracing = "0.1"
+utoipa = { version = "5.5", features = ["axum_extras", "time"] }
+
+# Lint policy is declared once for the workspace; each crate opts in with
+# `[lints] workspace = true`. Two tiers, by design:
+#
+#   deny   wrong at any moment, even mid-experiment. Blocks `cargo run`.
+#   warn   must not merge, but must not block iterating. CI runs
+#          `-D warnings`, which turns every one of these into an error there.
+#
+# The split keeps a strict policy from making the crate unpleasant to work in:
+# a contributor with twelve pedantic warnings can still run the server and the
+# tests, and finds out at review time, usually fixable with `clippy --fix`.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+rust_2018_idioms = { level = "warn", priority = -1 }
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+unnameable_types = "warn"
+unused_qualifications = "warn"
+unused_lifetimes = "warn"
+unused_import_braces = "warn"
+unused_macro_rules = "warn"
+redundant_lifetimes = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+let_underscore_drop = "warn"
+non_ascii_idents = "warn"
+deprecated_in_future = "warn"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "warn"
+private_intra_doc_links = "warn"
+invalid_codeblock_attributes = "warn"
+invalid_html_tags = "warn"
+invalid_rust_codeblocks = "warn"
+unescaped_backticks = "warn"
+bare_urls = "warn"
+redundant_explicit_links = "warn"
+
+[workspace.lints.clippy]
+# --- deny: never legitimate, not even while experimenting ---
+# Concurrency mistakes that are bugs the moment they are written.
+await_holding_lock = "deny"
+await_holding_refcell_ref = "deny"
+arc_with_non_send_sync = "deny"
+rc_mutex = "deny"
+mem_forget = "deny"
+# Silent truncation. `as` is never worth the risk in this codebase.
+as_conversions = "deny"
+
+# --- warn: everything else ---
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+# `nursery` and `cargo` are cherry-picked instead of enabled wholesale: both
+# groups are explicitly unstable, and enabling one as a block means a toolchain
+# bump can break the build on a lint no one chose.
+cognitive_complexity = "warn"
+use_self = "warn"
+missing_const_for_fn = "warn"
+redundant_clone = "warn"
+derive_partial_eq_without_eq = "warn"
+equatable_if_let = "warn"
+needless_pass_by_ref_mut = "warn"
+or_fun_call = "warn"
+negative_feature_names = "warn"
+redundant_feature_names = "warn"
+wildcard_dependencies = "warn"
+# `redundant_pub_crate` is intentionally absent: it contradicts
+# `unreachable_pub`. In a test binary nothing is reachable outside the crate,
+# so `pub` trips one and `pub(crate)` the other, with no third option.
+# `unreachable_pub` is stable and guards the library's real surface, so it wins.
+#
+# `same_name_method` is absent too: its only hit is the inherent `get` that
+# rust-embed's derive generates alongside `Embed::get`, which we cannot change.
+
+# Restriction lints, chosen for a network service that parses hostile input.
+# Each turns a potential runtime panic into a build failure.
+indexing_slicing = "warn"
+string_slice = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+unwrap_in_result = "warn"
+panic = "warn"
+panic_in_result_fn = "warn"
+todo = "warn"
+unimplemented = "warn"
+exit = "warn"
+infinite_loop = "warn"
+
+# Hygiene.
+allow_attributes = "warn"                 # forces #[expect], which self-destructs
+allow_attributes_without_reason = "warn"  # every suppression states why
+dbg_macro = "warn"
+print_stdout = "warn"                     # logging goes through `tracing`
+print_stderr = "warn"
+clone_on_ref_ptr = "warn"                 # Arc::clone(&x) says what it costs
+str_to_string = "warn"
+self_named_module_files = "warn"          # this workspace uses `foo/mod.rs`
+iter_over_hash_type = "warn"              # non-deterministic output ordering
+lossy_float_literal = "warn"
+verbose_file_reads = "warn"
+empty_structs_with_brackets = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+try_err = "warn"
+
+[profile.release]
+# Single-binary distribution: optimise for size and startup, not compile time.
+# `panic` stays at "unwind": tower-http's CatchPanicLayer can only turn a
+# panicking handler into a 500 if the panic unwinds.
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+
+# The browser's build of `tessera-crypto`, made by `scripts/crypto-wasm.sh`.
+#
+# Speed over size, unlike release: the module is tens of kilobytes either way,
+# and encryption sits between the file and the network. `panic` is abort
+# because nothing on `wasm32-unknown-unknown` can catch an unwind.
+[profile.wasm]
+inherits = "release"
+opt-level = 3
+panic = "abort"
+
+[profile.bench]
+inherits = "release"
+strip = "none"
+debug = 1

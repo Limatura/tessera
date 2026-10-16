@@ -1,0 +1,23 @@
+-- How much a backend may hold, and whether it still accepts new content.
+--
+-- # Why the limit is entered, not queried
+--
+-- `object_store` has no capacity API, and for the stores this targets the
+-- limit is not a property of the bucket: Backblaze B2 stopping at 10 GB is a
+-- property of the *account's plan*, and no API reports it. So the operator
+-- enters the number. They do not have to enter usage: that is
+-- `SUM(file_segments.length_bytes)` for the backend, which this instance
+-- already knows because it wrote every segment.
+--
+-- NULL and zero both mean "no limit", unlike the quota columns: there is no
+-- next layer to ask, so a backend either has a limit or not.
+--
+-- # Why read-only is separate from removal
+--
+-- A full backend and a retired one need the same read behaviour and opposite
+-- meaning for the operator: one is a state to notice, the other a step toward
+-- deletion. Azure's free tier does this unprompted (its spending limit makes
+-- storage read-only instead of disabling it), so the state exists whether or
+-- not there is a button for it.
+ALTER TABLE storage_backends ADD COLUMN capacity_bytes BIGINT;
+ALTER TABLE storage_backends ADD COLUMN read_only BOOLEAN NOT NULL DEFAULT FALSE;

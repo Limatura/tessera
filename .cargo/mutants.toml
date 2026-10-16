@@ -1,0 +1,31 @@
+# cargo-mutants configuration.
+#
+# Mutation testing asks "would the test suite notice if this line were wrong?".
+# It is slow by nature, so it runs on a schedule rather than in the PR pipeline
+# (see .github/workflows/rust-scheduled.yml).
+
+# nextest is the project's test runner; using it here keeps mutant runs and
+# ordinary runs on the same harness.
+test_tool = "nextest"
+all_features = true
+
+# Exclusions are all "no assertion could meaningfully cover this", never
+# "inconvenient to test":
+#
+#   src/main.rs    — process wiring, covered by the Docker smoke test in CI,
+#                    which a mutation run cannot observe.
+#   build.rs       — runs before the test binary exists.
+#   src/bin/**     — a thin CLI shell around `api::openapi()`, which is tested.
+#   benches/**     — measurement code with no correctness assertions.
+exclude_globs = ["src/main.rs", "src/bin/**", "build.rs", "benches/**"]
+
+# Mutating a logging call or a `Debug` impl proves nothing about behaviour.
+exclude_re = [
+  "impl Debug for",
+  "fn fmt\\(",
+]
+
+# A mutant that hangs counts as caught, but only once the timeout fires. The
+# slowest real test is well under a second, so this is generous.
+minimum_test_timeout = 20
+timeout_multiplier = 5.0

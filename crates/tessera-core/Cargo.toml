@@ -1,0 +1,34 @@
+[package]
+name = "tessera-core"
+description = "Tessera domain rules — pure, no IO, no framework"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# This dependency list is the architecture.
+#
+# There is no axum here, no sea-orm, no object_store, no tokio. That is the
+# boundary, enforced by cargo instead of by review. A rule saying "keep
+# business logic out of handlers" lasts only as long as people remember it; a
+# dependency list without `axum` cannot be forgotten. CI also walks the
+# resolved tree, which catches a banned crate arriving transitively.
+#
+# Before adding one, ask: can this crate still be tested without starting a
+# runtime, a database or a server?
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+# ULIDs are the identifier type: time-ordered so indexes stay append-mostly,
+# unguessable so account counts do not leak. Pure computation, no IO.
+ulid = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.11"
+rstest = "0.26"
+# The appearance names are a contract with a stylesheet and with stored rows,
+# so the tests assert on the JSON itself, not on a round trip.
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

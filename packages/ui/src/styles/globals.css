@@ -1,0 +1,649 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --font-sans: "Inter Variable", var(--font-cjk), system-ui, sans-serif;
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.147 0.004 49.3);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.147 0.004 49.3);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.147 0.004 49.3);
+  --primary: oklch(0.553 0.195 38.402);
+  --primary-foreground: oklch(0.98 0.016 73.684);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.96 0.002 17.2);
+  --muted-foreground: oklch(0.547 0.021 43.1);
+  --accent: oklch(0.96 0.002 17.2);
+  --accent-foreground: oklch(0.214 0.009 43.1);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0.005 34.3);
+  --input: oklch(0.922 0.005 34.3);
+  --ring: oklch(0.714 0.014 41.2);
+  --chart-1: oklch(0.868 0.007 39.5);
+  --chart-2: oklch(0.547 0.021 43.1);
+  --chart-3: oklch(0.438 0.017 39.3);
+  --chart-4: oklch(0.367 0.016 35.7);
+  --chart-5: oklch(0.268 0.011 36.5);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.986 0.002 67.8);
+  --sidebar-foreground: oklch(0.147 0.004 49.3);
+  --sidebar-primary: oklch(0.646 0.222 41.116);
+  --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
+  --sidebar-accent: oklch(0.96 0.002 17.2);
+  --sidebar-accent-foreground: oklch(0.214 0.009 43.1);
+  --sidebar-border: oklch(0.922 0.005 34.3);
+  --sidebar-ring: oklch(0.714 0.014 41.2);
+}
+
+.dark {
+  --background: oklch(0.147 0.004 49.3);
+  --foreground: oklch(0.986 0.002 67.8);
+  --card: oklch(0.214 0.009 43.1);
+  --card-foreground: oklch(0.986 0.002 67.8);
+  --popover: oklch(0.214 0.009 43.1);
+  --popover-foreground: oklch(0.986 0.002 67.8);
+  --primary: oklch(0.47 0.157 37.304);
+  --primary-foreground: oklch(0.98 0.016 73.684);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.268 0.011 36.5);
+  --muted-foreground: oklch(0.714 0.014 41.2);
+  --accent: oklch(0.268 0.011 36.5);
+  --accent-foreground: oklch(0.986 0.002 67.8);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.547 0.021 43.1);
+  --chart-1: oklch(0.868 0.007 39.5);
+  --chart-2: oklch(0.547 0.021 43.1);
+  --chart-3: oklch(0.438 0.017 39.3);
+  --chart-4: oklch(0.367 0.016 35.7);
+  --chart-5: oklch(0.268 0.011 36.5);
+  --sidebar: oklch(0.214 0.009 43.1);
+  --sidebar-foreground: oklch(0.986 0.002 67.8);
+  --sidebar-primary: oklch(0.705 0.213 47.604);
+  --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
+  --sidebar-accent: oklch(0.268 0.011 36.5);
+  --sidebar-accent-foreground: oklch(0.986 0.002 67.8);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.547 0.021 43.1);
+}
+
+/*
+ * Theme (neutral colours) and accent (primary) tables, overriding the neutral
+ * colours and --primary of :root / .dark above.
+ *
+ * Here and not in a separate file pulled in with @import: CSS @import must
+ * precede every rule, while these tables must come after :root / .dark to
+ * override the default palette.
+ *
+ * The server stores only three strings and rejects unknown values with 400 at
+ * PUT /me/preferences, so any attribute value seen here is in the table.
+ *
+ * Switching is done by attributes on <html>, written by apps/server's
+ * assets.rs when it sends index.html (the site default); a signed-in user's
+ * preference then overrides the same attributes from apps/web's appearance
+ * store.
+ *
+ *   <html class="dark" data-theme="sepia" data-accent="rose">
+ *
+ * Theme and accent are separate tables, not one rule per combination, because
+ * they are independent: theme moves only the neutral background, text and
+ * border colours, accent only the --primary family. The product would be a
+ * grid of duplicates to maintain together, and an eighth colour would need
+ * changes in many places.
+ *
+ * Light and dark are each written out because they must be: the same hue on a
+ * dark background needs more lightness and less chroma for the same contrast,
+ * and the light values turn muddy on dark.
+ *
+ * --- Why accent comes after theme ---
+ * Both tables set --ring and accent must win (the focus ring belongs to the
+ * accent family). At equal specificity the later rule wins, so the accent
+ * table goes below and no !important is needed.
+ */
+
+/* ---------------------------------------------------------------- *
+ * Themes: background, text, borders and other neutral colours
+ *
+ * default is already defined in :root / .dark above and is not repeated,
+ * to avoid a copy that drifts from it. So only the other themes follow.
+ * ---------------------------------------------------------------- */
+
+/* graphite: cooler and flatter. Hue shifted towards blue, chroma lowered, less
+   distance between card and background. */
+[data-theme="graphite"] {
+  --background: oklch(0.985 0.002 264);
+  --foreground: oklch(0.21 0.013 264);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.013 264);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.013 264);
+  --secondary: oklch(0.951 0.004 264);
+  --secondary-foreground: oklch(0.28 0.012 264);
+  --muted: oklch(0.951 0.004 264);
+  --muted-foreground: oklch(0.53 0.016 264);
+  --accent: oklch(0.936 0.006 264);
+  --accent-foreground: oklch(0.28 0.012 264);
+  --border: oklch(0.898 0.007 264);
+  --input: oklch(0.898 0.007 264);
+  --ring: oklch(0.68 0.015 264);
+  --sidebar: oklch(0.967 0.004 264);
+  --sidebar-foreground: oklch(0.21 0.013 264);
+  --sidebar-accent: oklch(0.936 0.006 264);
+  --sidebar-accent-foreground: oklch(0.28 0.012 264);
+  --sidebar-border: oklch(0.898 0.007 264);
+  --sidebar-ring: oklch(0.68 0.015 264);
+}
+
+.dark[data-theme="graphite"] {
+  --background: oklch(0.176 0.011 264);
+  --foreground: oklch(0.967 0.003 264);
+  --card: oklch(0.226 0.013 264);
+  --card-foreground: oklch(0.967 0.003 264);
+  --popover: oklch(0.226 0.013 264);
+  --popover-foreground: oklch(0.967 0.003 264);
+  --secondary: oklch(0.272 0.014 264);
+  --secondary-foreground: oklch(0.967 0.003 264);
+  --muted: oklch(0.272 0.014 264);
+  --muted-foreground: oklch(0.708 0.015 264);
+  --accent: oklch(0.297 0.015 264);
+  --accent-foreground: oklch(0.967 0.003 264);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.55 0.017 264);
+  --sidebar: oklch(0.226 0.013 264);
+  --sidebar-foreground: oklch(0.967 0.003 264);
+  --sidebar-accent: oklch(0.297 0.015 264);
+  --sidebar-accent-foreground: oklch(0.967 0.003 264);
+  --sidebar-border: oklch(1 0 0 / 11%);
+  --sidebar-ring: oklch(0.55 0.017 264);
+}
+
+/* sepia: warm like paper. The background sits some way from pure white, hue
+   between yellow and orange, easy on the eyes for long reading. */
+[data-theme="sepia"] {
+  --background: oklch(0.977 0.012 84);
+  --foreground: oklch(0.238 0.017 62);
+  --card: oklch(0.99 0.008 84);
+  --card-foreground: oklch(0.238 0.017 62);
+  --popover: oklch(0.99 0.008 84);
+  --popover-foreground: oklch(0.238 0.017 62);
+  --secondary: oklch(0.944 0.018 84);
+  --secondary-foreground: oklch(0.3 0.019 62);
+  --muted: oklch(0.944 0.018 84);
+  --muted-foreground: oklch(0.523 0.025 62);
+  --accent: oklch(0.925 0.024 84);
+  --accent-foreground: oklch(0.3 0.019 62);
+  --border: oklch(0.888 0.021 78);
+  --input: oklch(0.888 0.021 78);
+  --ring: oklch(0.68 0.028 70);
+  --sidebar: oklch(0.958 0.016 84);
+  --sidebar-foreground: oklch(0.238 0.017 62);
+  --sidebar-accent: oklch(0.925 0.024 84);
+  --sidebar-accent-foreground: oklch(0.3 0.019 62);
+  --sidebar-border: oklch(0.888 0.021 78);
+  --sidebar-ring: oklch(0.68 0.028 70);
+}
+
+.dark[data-theme="sepia"] {
+  --background: oklch(0.192 0.012 62);
+  --foreground: oklch(0.945 0.014 84);
+  --card: oklch(0.242 0.014 62);
+  --card-foreground: oklch(0.945 0.014 84);
+  --popover: oklch(0.242 0.014 62);
+  --popover-foreground: oklch(0.945 0.014 84);
+  --secondary: oklch(0.29 0.016 62);
+  --secondary-foreground: oklch(0.945 0.014 84);
+  --muted: oklch(0.29 0.016 62);
+  --muted-foreground: oklch(0.724 0.022 78);
+  --accent: oklch(0.316 0.018 62);
+  --accent-foreground: oklch(0.945 0.014 84);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.57 0.025 70);
+  --sidebar: oklch(0.242 0.014 62);
+  --sidebar-foreground: oklch(0.945 0.014 84);
+  --sidebar-accent: oklch(0.316 0.018 62);
+  --sidebar-accent-foreground: oklch(0.945 0.014 84);
+  --sidebar-border: oklch(1 0 0 / 11%);
+  --sidebar-ring: oklch(0.57 0.025 70);
+}
+
+/*
+ * matsu: warm paper, olive tones, from matsu-theme.vercel.app (a Ghibli-style
+ * shadcn theme).
+ *
+ * Only its neutral colours are taken. The original also sets Nunito/PT Serif,
+ * thickens every border to 2px and overlays a watercolour paper texture, all
+ * skipped: fonts and radii belong to the design system, not to picking a
+ * palette, and the texture costs another image download.
+ *
+ * Its chroma is clearly higher than the other themes' (background 0.048, sepia
+ * only 0.012), so it reads as coloured paper instead of warm white. That is the
+ * point of this theme.
+ *
+ * The dark variant is ours: the original ships only light. Hue stays at 80-84,
+ * lightness is inverted and chroma reduced a little, or the warm yellow turns
+ * muddy on a dark background.
+ */
+[data-theme="matsu"] {
+  --background: oklch(0.91 0.048 83.6);
+  --foreground: oklch(0.41 0.077 78.9);
+  --card: oklch(0.92 0.042 83.6);
+  --card-foreground: oklch(0.41 0.077 74.3);
+  --popover: oklch(0.92 0.042 83.6);
+  --popover-foreground: oklch(0.41 0.077 74.3);
+  --secondary: oklch(0.88 0.055 83.6);
+  --secondary-foreground: oklch(0.51 0.077 78.9);
+  --muted: oklch(0.86 0.064 83.7);
+  --muted-foreground: oklch(0.51 0.077 74.3);
+  --accent: oklch(0.86 0.055 83.6);
+  --accent-foreground: oklch(0.34 0.055 78.9);
+  --border: oklch(0.74 0.063 80.8);
+  --input: oklch(0.74 0.063 80.8);
+  --sidebar: oklch(0.87 0.059 83.7);
+  --sidebar-foreground: oklch(0.41 0.077 78.9);
+  --sidebar-accent: oklch(0.83 0.058 83.6);
+  --sidebar-accent-foreground: oklch(0.34 0.055 78.9);
+  --sidebar-border: oklch(0.74 0.063 80.8);
+}
+
+.dark[data-theme="matsu"] {
+  --background: oklch(0.232 0.021 83.6);
+  --foreground: oklch(0.905 0.038 83.6);
+  --card: oklch(0.283 0.025 83.6);
+  --card-foreground: oklch(0.905 0.038 83.6);
+  --popover: oklch(0.283 0.025 83.6);
+  --popover-foreground: oklch(0.905 0.038 83.6);
+  --secondary: oklch(0.336 0.029 83.6);
+  --secondary-foreground: oklch(0.905 0.038 83.6);
+  --muted: oklch(0.316 0.027 83.7);
+  --muted-foreground: oklch(0.735 0.042 80.8);
+  --accent: oklch(0.366 0.033 83.6);
+  --accent-foreground: oklch(0.905 0.038 83.6);
+  --border: oklch(1 0 0 / 13%);
+  --input: oklch(1 0 0 / 18%);
+  --sidebar: oklch(0.283 0.025 83.6);
+  --sidebar-foreground: oklch(0.905 0.038 83.6);
+  --sidebar-accent: oklch(0.366 0.033 83.6);
+  --sidebar-accent-foreground: oklch(0.905 0.038 83.6);
+  --sidebar-border: oklch(1 0 0 / 13%);
+}
+
+/*
+ * The next three are adapted from tweakcn's presets
+ * (github.com/jnsahaj/tweakcn), converted from hex to oklch like the rest of
+ * this file.
+ *
+ * Again only the neutral colours: each preset also sets fonts, radii and
+ * shadows, and here a theme covers only background, text and borders, with
+ * `--primary` always from the accent table below. Keeping the tables separate
+ * lets all seven accents combine with every palette; bringing in a preset's
+ * primary would raise "does the accent still count after picking a theme?",
+ * which has no good answer.
+ *
+ * `--ring` is left to accent for the same reason: the focus ring belongs to the
+ * accent family.
+ */
+
+[data-theme="cosmic"] {
+  --background: oklch(0.973 0.013 286.2);
+  --foreground: oklch(0.301 0.057 282.4);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.301 0.057 282.4);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.301 0.057 282.4);
+  --secondary: oklch(0.917 0.044 292.7);
+  --secondary-foreground: oklch(0.414 0.104 288.2);
+  --muted: oklch(0.958 0.013 286.1);
+  --muted-foreground: oklch(0.543 0.047 284.7);
+  --accent: oklch(0.922 0.037 262.1);
+  --accent-foreground: oklch(0.301 0.057 282.4);
+  --border: oklch(0.911 0.022 286);
+  --input: oklch(0.911 0.022 286);
+  --sidebar: oklch(0.958 0.013 286.1);
+  --sidebar-foreground: oklch(0.301 0.057 282.4);
+  --sidebar-accent: oklch(0.922 0.037 262.1);
+  --sidebar-accent-foreground: oklch(0.301 0.057 282.4);
+  --sidebar-border: oklch(0.911 0.022 286);
+}
+
+.dark[data-theme="cosmic"] {
+  --background: oklch(0.174 0.023 283.8);
+  --foreground: oklch(0.918 0.026 285.9);
+  --card: oklch(0.228 0.038 282.9);
+  --card-foreground: oklch(0.918 0.026 285.9);
+  --popover: oklch(0.228 0.038 282.9);
+  --popover-foreground: oklch(0.918 0.026 285.9);
+  --secondary: oklch(0.314 0.074 283.5);
+  --secondary-foreground: oklch(0.837 0.085 285.9);
+  --muted: oklch(0.271 0.062 281.4);
+  --muted-foreground: oklch(0.717 0.046 285.2);
+  --accent: oklch(0.335 0.083 281);
+  --accent-foreground: oklch(0.918 0.026 285.9);
+  --border: oklch(0.326 0.06 282.6);
+  --input: oklch(0.326 0.06 282.6);
+  --sidebar: oklch(0.228 0.038 282.9);
+  --sidebar-foreground: oklch(0.918 0.026 285.9);
+  --sidebar-accent: oklch(0.335 0.083 281);
+  --sidebar-accent-foreground: oklch(0.918 0.026 285.9);
+  --sidebar-border: oklch(0.326 0.06 282.6);
+}
+
+[data-theme="slate"] {
+  --background: oklch(0.984 0.003 247.9);
+  --foreground: oklch(0.279 0.037 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.279 0.037 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.279 0.037 260);
+  --secondary: oklch(0.928 0.006 264.5);
+  --secondary-foreground: oklch(0.373 0.031 259.7);
+  --muted: oklch(0.967 0.003 264.5);
+  --muted-foreground: oklch(0.551 0.023 264.4);
+  --accent: oklch(0.93 0.033 272.8);
+  --accent-foreground: oklch(0.373 0.031 259.7);
+  --border: oklch(0.872 0.009 258.3);
+  --input: oklch(0.872 0.009 258.3);
+  --sidebar: oklch(0.967 0.003 264.5);
+  --sidebar-foreground: oklch(0.279 0.037 260);
+  --sidebar-accent: oklch(0.93 0.033 272.8);
+  --sidebar-accent-foreground: oklch(0.373 0.031 259.7);
+  --sidebar-border: oklch(0.872 0.009 258.3);
+}
+
+.dark[data-theme="slate"] {
+  --background: oklch(0.208 0.04 265.8);
+  --foreground: oklch(0.929 0.013 255.5);
+  --card: oklch(0.279 0.037 260);
+  --card-foreground: oklch(0.929 0.013 255.5);
+  --popover: oklch(0.279 0.037 260);
+  --popover-foreground: oklch(0.929 0.013 255.5);
+  --secondary: oklch(0.335 0.033 260.9);
+  --secondary-foreground: oklch(0.872 0.009 258.3);
+  --muted: oklch(0.243 0.038 259.9);
+  --muted-foreground: oklch(0.714 0.019 261.3);
+  --accent: oklch(0.373 0.031 259.7);
+  --accent-foreground: oklch(0.872 0.009 258.3);
+  --border: oklch(0.446 0.026 256.8);
+  --input: oklch(0.446 0.026 256.8);
+  --sidebar: oklch(0.279 0.037 260);
+  --sidebar-foreground: oklch(0.929 0.013 255.5);
+  --sidebar-accent: oklch(0.373 0.031 259.7);
+  --sidebar-accent-foreground: oklch(0.872 0.009 258.3);
+  --sidebar-border: oklch(0.446 0.026 256.8);
+}
+
+[data-theme="vintage"] {
+  --background: oklch(0.958 0.015 90.2);
+  --foreground: oklch(0.376 0.022 64.3);
+  --card: oklch(0.991 0.01 87.5);
+  --card-foreground: oklch(0.376 0.022 64.3);
+  --popover: oklch(0.991 0.01 87.5);
+  --popover-foreground: oklch(0.376 0.022 64.3);
+  --secondary: oklch(0.885 0.03 85.6);
+  --secondary-foreground: oklch(0.431 0.03 64.9);
+  --muted: oklch(0.924 0.019 83.1);
+  --muted-foreground: oklch(0.539 0.039 71.2);
+  --accent: oklch(0.835 0.043 88.8);
+  --accent-foreground: oklch(0.376 0.022 64.3);
+  --border: oklch(0.861 0.032 84.6);
+  --input: oklch(0.861 0.032 84.6);
+  --sidebar: oklch(0.924 0.019 83.1);
+  --sidebar-foreground: oklch(0.376 0.022 64.3);
+  --sidebar-accent: oklch(0.835 0.043 88.8);
+  --sidebar-accent-foreground: oklch(0.376 0.022 64.3);
+  --sidebar-border: oklch(0.861 0.032 84.6);
+}
+
+.dark[data-theme="vintage"] {
+  --background: oklch(0.275 0.014 57.7);
+  --foreground: oklch(0.924 0.019 83.1);
+  --card: oklch(0.324 0.016 59.1);
+  --card-foreground: oklch(0.924 0.019 83.1);
+  --popover: oklch(0.324 0.016 59.1);
+  --popover-foreground: oklch(0.924 0.019 83.1);
+  --secondary: oklch(0.38 0.018 57.1);
+  --secondary-foreground: oklch(0.924 0.019 83.1);
+  --muted: oklch(0.294 0.013 62.1);
+  --muted-foreground: oklch(0.798 0.024 82.1);
+  --accent: oklch(0.419 0.028 56.3);
+  --accent-foreground: oklch(0.924 0.019 83.1);
+  --border: oklch(0.38 0.018 57.1);
+  --input: oklch(0.38 0.018 57.1);
+  --sidebar: oklch(0.275 0.014 57.7);
+  --sidebar-foreground: oklch(0.924 0.019 83.1);
+  --sidebar-accent: oklch(0.419 0.028 56.3);
+  --sidebar-accent-foreground: oklch(0.924 0.019 83.1);
+  --sidebar-border: oklch(0.38 0.018 57.1);
+}
+
+/* ---------------------------------------------------------------- *
+ * Accents: the --primary family
+ *
+ * Four values per colour, no more, no fewer:
+ *   --primary              button and link background
+ *   --primary-foreground   text on top of it, with enough contrast
+ *   --ring                 focus ring, same hue with lower chroma so it stays quiet
+ *   --sidebar-primary      the same for the sidebar (used by admin)
+ *
+ * On light backgrounds --primary lightness sits near 0.55, on dark near 0.65,
+ * since dark needs it brighter to read as well. --primary-foreground follows
+ * lightness: dark buttons on light get white text, bright buttons on dark get
+ * dark text (most visibly amber: white on bright yellow is unreadable).
+ *
+ * Every accent is written out, the default included. Otherwise, with that
+ * accent as the site default, a user who picks rose and then the default again
+ * would stay on rose, since no rule would match.
+ * ---------------------------------------------------------------- */
+
+[data-accent="violet"] {
+  --primary: oklch(0.546 0.245 293);
+  --primary-foreground: oklch(0.985 0.002 293);
+  --ring: oklch(0.606 0.16 293);
+  --sidebar-primary: oklch(0.546 0.245 293);
+  --sidebar-primary-foreground: oklch(0.985 0.002 293);
+}
+
+.dark[data-accent="violet"] {
+  --primary: oklch(0.667 0.211 293);
+  --primary-foreground: oklch(0.21 0.05 293);
+  --ring: oklch(0.545 0.13 293);
+  --sidebar-primary: oklch(0.667 0.211 293);
+  --sidebar-primary-foreground: oklch(0.21 0.05 293);
+}
+
+[data-accent="rose"] {
+  --primary: oklch(0.586 0.222 17.4);
+  --primary-foreground: oklch(0.985 0.004 17.4);
+  --ring: oklch(0.645 0.15 17.4);
+  --sidebar-primary: oklch(0.586 0.222 17.4);
+  --sidebar-primary-foreground: oklch(0.985 0.004 17.4);
+}
+
+.dark[data-accent="rose"] {
+  --primary: oklch(0.682 0.187 17.4);
+  --primary-foreground: oklch(0.212 0.045 17.4);
+  --ring: oklch(0.558 0.125 17.4);
+  --sidebar-primary: oklch(0.682 0.187 17.4);
+  --sidebar-primary-foreground: oklch(0.212 0.045 17.4);
+}
+
+/*
+ * orange is this design's original --primary, with the values from :root /
+ * .dark above, not a similar orange tuned separately.
+ *
+ * The server's `Accent` has no "original colour" variant, so with a made-up
+ * orange here the original palette could never be picked again: `data-accent`
+ * always has a value and no option would resolve to it. It is also the
+ * server's default.
+ */
+[data-accent="orange"] {
+  --primary: oklch(0.553 0.195 38.402);
+  --primary-foreground: oklch(0.98 0.016 73.684);
+  --ring: oklch(0.658 0.135 41.1);
+  --sidebar-primary: oklch(0.646 0.222 41.116);
+  --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
+}
+
+.dark[data-accent="orange"] {
+  --primary: oklch(0.47 0.157 37.304);
+  --primary-foreground: oklch(0.98 0.016 73.684);
+  --ring: oklch(0.575 0.12 41.1);
+  --sidebar-primary: oklch(0.705 0.213 47.604);
+  --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
+}
+
+/* amber is naturally light. Even at 0.66 on a light background, white text on
+ * yellow does not reach 4.5:1, so it is the only colour with dark text on light
+ * backgrounds too. */
+[data-accent="amber"] {
+  --primary: oklch(0.72 0.164 70.1);
+  --primary-foreground: oklch(0.26 0.055 62);
+  --ring: oklch(0.73 0.12 70.1);
+  --sidebar-primary: oklch(0.72 0.164 70.1);
+  --sidebar-primary-foreground: oklch(0.26 0.055 62);
+}
+
+.dark[data-accent="amber"] {
+  --primary: oklch(0.795 0.153 78.2);
+  --primary-foreground: oklch(0.235 0.05 62);
+  --ring: oklch(0.638 0.11 70.1);
+  --sidebar-primary: oklch(0.795 0.153 78.2);
+  --sidebar-primary-foreground: oklch(0.235 0.05 62);
+}
+
+[data-accent="green"] {
+  --primary: oklch(0.545 0.152 149);
+  --primary-foreground: oklch(0.982 0.008 149);
+  --ring: oklch(0.63 0.105 149);
+  --sidebar-primary: oklch(0.545 0.152 149);
+  --sidebar-primary-foreground: oklch(0.982 0.008 149);
+}
+
+.dark[data-accent="green"] {
+  --primary: oklch(0.696 0.153 149);
+  --primary-foreground: oklch(0.21 0.04 149);
+  --ring: oklch(0.552 0.1 149);
+  --sidebar-primary: oklch(0.696 0.153 149);
+  --sidebar-primary-foreground: oklch(0.21 0.04 149);
+}
+
+[data-accent="teal"] {
+  --primary: oklch(0.545 0.102 183);
+  --primary-foreground: oklch(0.984 0.006 183);
+  --ring: oklch(0.63 0.075 183);
+  --sidebar-primary: oklch(0.545 0.102 183);
+  --sidebar-primary-foreground: oklch(0.984 0.006 183);
+}
+
+.dark[data-accent="teal"] {
+  --primary: oklch(0.7 0.113 183);
+  --primary-foreground: oklch(0.21 0.032 183);
+  --ring: oklch(0.556 0.075 183);
+  --sidebar-primary: oklch(0.7 0.113 183);
+  --sidebar-primary-foreground: oklch(0.21 0.032 183);
+}
+
+[data-accent="blue"] {
+  --primary: oklch(0.546 0.215 263);
+  --primary-foreground: oklch(0.985 0.004 263);
+  --ring: oklch(0.623 0.145 263);
+  --sidebar-primary: oklch(0.546 0.215 263);
+  --sidebar-primary-foreground: oklch(0.985 0.004 263);
+}
+
+.dark[data-accent="blue"] {
+  --primary: oklch(0.672 0.174 263);
+  --primary-foreground: oklch(0.21 0.042 263);
+  --ring: oklch(0.548 0.12 263);
+  --sidebar-primary: oklch(0.672 0.174 263);
+  --sidebar-primary-foreground: oklch(0.21 0.042 263);
+}
+
+@layer base {
+  /* Inter has no CJK glyphs, and bundling a CJK face costs megabytes. Use the
+     system's own, per language so zh-CN gets Simplified glyph forms rather than
+     a Traditional or Japanese fallback. */
+  :root {
+    --font-cjk:
+      "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC";
+  }
+  :root:lang(zh-TW) {
+    --font-cjk:
+      "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC";
+  }
+  /* Not Yu Gothic UI: Windows' condensed UI face, whose narrow kana and tight
+     spacing read as cramped in body text. Meiryo is the roomy Windows fallback. */
+  :root:lang(ja) {
+    --font-cjk: "Hiragino Sans", "Noto Sans JP", "Noto Sans CJK JP", Meiryo;
+  }
+  * {
+    @apply border-border outline-ring/50;
+    /* Thumb follows the theme colour (including the admin's appearance override). */
+    scrollbar-color: color-mix(in oklab, var(--primary) 55%, transparent)
+      transparent;
+    scrollbar-width: thin;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}

@@ -1,0 +1,27 @@
+@import "@tessera/ui/globals.css";
+
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+/*
+ * --melt is only for the home page upload flow: the shared colour of the
+ * "melting" upload button and the result overlay. Only apps/web uses it, so it
+ * is not in @tessera/ui's shared tokens.
+ *
+ * @theme must be in the same CSS compilation chain as the tailwindcss import
+ * for the utilities (bg-melt / text-melt-foreground) to be generated; the
+ * globals.css imported above already imports tailwindcss.
+ */
+@theme inline {
+  --color-melt: var(--melt);
+  --color-melt-foreground: var(--melt-foreground);
+}
+
+:root {
+  --melt: color-mix(in oklch, var(--primary) 45%, white 55%);
+  --melt-foreground: oklch(0.147 0.004 49.3);
+}
+
+.dark {
+  --melt: color-mix(in oklch, var(--primary) 32%, oklch(0.17 0.008 49.3) 68%);
+  --melt-foreground: oklch(0.986 0.002 67.8);
+}

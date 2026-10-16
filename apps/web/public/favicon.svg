@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- A ticket: rounded corners, a half-circle bitten out of each end. -->
+    <clipPath id="ticket">
+      <path d="M92 160 H420 A28 28 0 0 1 448 188 V222 A34 34 0 0 0 448 290 V324 A28 28 0 0 1 420 352 H92 A28 28 0 0 1 64 324 V290 A34 34 0 0 0 64 222 V188 A28 28 0 0 1 92 160 Z"/>
+    </clipPath>
+  </defs>
+  <!-- <rect width="512" height="512" rx="112" fill="#0a0605"/> -->
+  <g transform="rotate(-12 256 256)">
+    <g clip-path="url(#ticket)">
+      <rect x="0" y="0" width="340" height="512" fill="#f5efe9"/>
+      <rect x="340" y="0" width="172" height="512" fill="#d94f2b"/>
+    </g>
+    <!-- The tear line between what is kept and what is handed over. -->
+    <g fill="#0a0605">
+      <rect x="332" y="175" width="16" height="22" rx="8"/>
+      <rect x="332" y="214" width="16" height="22" rx="8"/>
+      <rect x="332" y="253" width="16" height="22" rx="8"/>
+      <rect x="332" y="292" width="16" height="22" rx="8"/>
+      <rect x="332" y="331" width="16" height="22" rx="8"/>
+    </g>
+    <!-- The brand's slanted bars, printed on the ticket. -->
+    <g fill="#0a0605">
+      <path d="M118 304 L156 208 H186 L148 304 Z"/>
+      <path d="M170 304 L208 208 H238 L200 304 Z"/>
+      <path d="M222 304 L260 208 H290 L252 304 Z"/>
+    </g>
+  </g>
+</svg>

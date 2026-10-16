@@ -1,0 +1,9 @@
+# zizmor reads this on its own; it is the only zizmor setting in the repository.
+rules:
+  # Wants `uses: $/.github/actions/rust` instead of `./`. GitHub has taken
+  # that syntax since July 2026 and the runner here is new enough for it, but
+  # actionlint 1.7.12, the latest, does not know it and fails the same job on
+  # every use. Switch the eight `uses:` over and remove this once actionlint
+  # accepts `$/`.
+  self-repository:
+    disable: true

@@ -1,0 +1,1015 @@
+name: rust
+
+# Separate from the TypeScript pipeline: no shared cache, deps or failure modes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/server/**"
+      - "apps/cli/**"
+      - "apps/dev/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "clippy.toml"
+      - "rustfmt.toml"
+      - "deny.toml"
+      - "rust-toolchain.toml"
+      - ".cargo/**"
+      - ".config/**"
+      - "openapi.json"
+      # All workflows: the `workflows` job below lints every one of them.
+      - ".github/workflows/**"
+      - ".github/actions/**"
+      - ".github/scripts/**"
+      - ".github/zizmor.yml"
+      - ".tbls.yml"
+      - "docs/schema/**"
+      - "scripts/schema-docs.py"
+      - "packages/crypto/src/wasm/**"
+      - "scripts/crypto-wasm.sh"
+      # The image embeds the SPA, so a frontend change moves its size too.
+      # Only `docker` runs for these; the `changes` filters keep the Rust jobs
+      # off.
+      - "apps/web/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  # Every pull request, not only ones touching these paths: `docker image`,
+  # `workflow lint` and `checks` are required by the branch ruleset, and a
+  # workflow that never starts never reports them, which blocks the merge.
+  # The `changes` job below skips what a change cannot affect, and a skipped
+  # job satisfies a required check.
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: rust-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Outside the checkout, which `actions/checkout` wipes every run.
+  CARGO_TARGET_DIR: ${{ github.workspace }}/../.cargo-target
+  # Incremental artefacts reached 28 GB against 4.5 GB of output.
+  CARGO_INCREMENTAL: "0"
+  # 8 GB RAM: the default (10 jobs) gets OOM-killed as a silent `exit 143`.
+  CARGO_BUILD_JOBS: "4"
+  # Halves the target dir; local `cargo test` keeps full debug info.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  # Lints are `warn` locally; CI makes them blocking.
+  RUSTFLAGS: -D warnings
+
+# Read-only by default; jobs that need more ask for it.
+permissions:
+  contents: read
+
+jobs:
+  # Skips jobs a change cannot affect.
+  changes:
+    name: what changed
+    runs-on: ubuntu-latest
+    # `paths-filter` needs `pull-requests: read` to list PR files.
+    permissions:
+      contents: read
+      pull-requests: read
+    timeout-minutes: 5
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      features: ${{ steps.filter.outputs.features }}
+      contract: ${{ steps.filter.outputs.contract }}
+      schema: ${{ steps.filter.outputs.schema }}
+      image: ${{ steps.filter.outputs.image }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          # Lets a `!` pattern drop files the others matched. Markdown is never
+          # compiled, tested or copied into the image, so a change to `.md`
+          # files alone skips the Rust and image jobs; their required checks
+          # pass as skipped.
+          predicate-quantifier: some-with-excludes
+          filters: |
+            rust: &rust
+              - "apps/server/**"
+              - "apps/cli/**"
+              - "apps/dev/**"
+              - "crates/**"
+              - "packages/crypto/src/wasm/**"
+              - "scripts/crypto-wasm.sh"
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - "clippy.toml"
+              - "rustfmt.toml"
+              - "deny.toml"
+              - "rust-toolchain.toml"
+              - ".cargo/**"
+              - ".config/**"
+              - ".github/actions/**"
+              - ".github/scripts/**"
+              - ".github/workflows/**"
+              - "!**/*.md"
+            # The powerset only matters when features or `cfg`s move.
+            features:
+              - "Cargo.toml"
+              - "apps/server/Cargo.toml"
+              - "crates/*/Cargo.toml"
+              - "Cargo.lock"
+              - ".github/actions/**"
+              - ".github/workflows/**"
+            contract: *rust
+            # The SPA is embedded in the image.
+            image:
+              - "apps/server/**"
+              - "apps/web/**"
+              - "packages/**"
+              - "package.json"
+              - "pnpm-lock.yaml"
+              - "pnpm-workspace.yaml"
+              - "crates/**"
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - "rust-toolchain.toml"
+              - ".github/actions/**"
+              - ".github/scripts/**"
+              - ".github/workflows/**"
+              - "!**/*.md"
+            schema:
+              - ".tbls.yml"
+              - "docs/schema/**"
+              - "scripts/schema-docs.py"
+            workflows:
+              - ".github/workflows/**"
+              - ".github/actions/**"
+              - ".github/zizmor.yml"
+
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: changes
+    if: >-
+      (needs.changes.outputs.rust == 'true' || needs.changes.outputs.schema == 'true')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
+        # Must match the wasm-bindgen version pinned in crates/tessera-crypto.
+        with: { tool: "cargo-deny,cargo-machete,wasm-bindgen@0.2.128" }
+
+      # rustfmt.toml uses nightly-only import grouping.
+      - name: Install nightly rustfmt
+        run: rustup toolchain install nightly --profile minimal --component rustfmt
+
+      - name: fmt
+        run: cargo +nightly fmt --all --check
+
+      - name: clippy
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+
+      # `RUSTFLAGS` does not reach rustdoc lints.
+      - name: rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --locked --workspace --no-deps --all-features --document-private-items
+
+      - name: Regenerate openapi.json
+        run: cargo run --locked --bin tessera-openapi
+
+      - name: Fail if the contract drifted
+        run: |
+          if ! git diff --exit-code -- openapi.json; then
+            echo "::error::openapi.json is out of date. Run 'pnpm server:openapi' and commit the result."
+            exit 1
+          fi
+
+      - name: Regenerate the schema docs
+        run: python3 scripts/schema-docs.py
+
+      # `git status`, not `git diff`: a new table adds an untracked file.
+      - name: Fail if the schema docs drifted
+        run: |
+          if [ -n "$(git status --porcelain -- docs/schema)" ]; then
+            git status --short -- docs/schema
+            echo "::error::docs/schema is out of date. Run 'python3 scripts/schema-docs.py' and commit the result."
+            exit 1
+          fi
+
+      - name: Rebuild the browser's encryption module
+        run: |
+          rustup target add wasm32-unknown-unknown
+          ./scripts/crypto-wasm.sh
+
+      - name: Fail if the encryption module drifted
+        run: |
+          if [ -n "$(git status --porcelain -- packages/crypto/src/wasm)" ]; then
+            git status --short -- packages/crypto/src/wasm
+            echo "::error::packages/crypto/src/wasm is out of date. Run './scripts/crypto-wasm.sh' and commit the result."
+            exit 1
+          fi
+
+      # cargo-audit is left out on purpose; see deny.toml.
+      - name: security and licences
+        run: cargo deny check
+
+      - name: unused dependencies
+        run: cargo machete
+
+      # Checks the resolved tree: banned crates can arrive transitively.
+      - name: Assert no IO crate reaches tessera-core
+        run: |
+          cargo tree -p tessera-core --edges normal --prefix none \
+            | sed 's/ v[0-9].*//' | sort -u > /tmp/core-deps.txt
+          status=0
+          for banned in axum tokio sea-orm sqlx object_store hyper reqwest figment; do
+            if grep -qx "$banned" /tmp/core-deps.txt; then
+              echo "::error::\`$banned\` reached tessera-core. The domain crate must stay IO-free."
+              cargo tree -p tessera-core --edges normal -i "$banned" || true
+              status=1
+            fi
+          done
+          echo "tessera-core depends on $(wc -l < /tmp/core-deps.txt) crates"
+          exit $status
+
+  features:
+    name: feature matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: changes
+    if: >-
+      needs.changes.outputs.features == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
+        with: { tool: cargo-hack }
+
+      # No `--locked`: `--no-dev-deps` rewrites the manifest, which it forbids.
+      - run: cargo hack --feature-powerset --depth 2 --no-dev-deps check -p tessera-server
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: changes
+    if: >-
+      needs.changes.outputs.rust == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
+        with: { tool: cargo-nextest }
+
+      - run: cargo nextest run --locked --workspace --profile ci --all-features
+
+      # `upload-artifact` rejects paths containing `..`.
+      - name: Collect the test report
+        if: always()
+        run: cp "$CARGO_TARGET_DIR/nextest/ci/junit.xml" junit.xml || true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nextest-junit
+          path: junit.xml
+          if-no-files-found: ignore
+
+  backends:
+    name: ${{ matrix.backend }} backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: changes
+    if: >-
+      needs.changes.outputs.rust == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: postgres
+            url: postgres://tessera:tessera@localhost:5432/tessera_test
+          - backend: mysql
+            url: mysql://tessera:tessera@localhost:3306/tessera_test
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: tessera
+          POSTGRES_PASSWORD: tessera
+          POSTGRES_DB: tessera_test
+        ports: ["5432:5432"]
+        # Bare `pg_isready` passes during initdb, before the role and db exist.
+        options: >-
+          --health-cmd "pg_isready -U tessera -d tessera_test" --health-interval 5s --health-timeout 5s --health-retries 20
+      mysql:
+        image: mysql:9
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_USER: tessera
+          MYSQL_PASSWORD: tessera
+          MYSQL_DATABASE: tessera_test
+        ports: ["3306:3306"]
+        # `mysqladmin ping` passes before the user exists.
+        options: >-
+          --health-cmd "mysql -utessera -ptessera -e 'SELECT 1' tessera_test" --health-interval 5s --health-timeout 5s --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
+        with: { tool: cargo-nextest }
+
+      # These tests are `#[ignore]`d; `--run-ignored all` opts in.
+      - name: Run the backend suite
+        env:
+          TESSERA_TEST_DATABASE_URL: ${{ matrix.url }}
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(backends)'
+
+  storage:
+    name: object store
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: changes
+    if: >-
+      needs.changes.outputs.rust == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
+        with: { tool: cargo-nextest }
+
+      - name: Check the runner has room and free ports
+        run: |
+          # Below ~10 GB free the stores fail every write with a bare 500.
+          FLOOR_GB=12
+          free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
+          echo "root filesystem ${free_gb} GB free (floor ${FLOOR_GB} GB)"
+          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
+            echo "short on room; clearing unused images"
+            timeout 300 docker system prune -a -f || true
+            free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
+            echo "after clearing: ${free_gb} GB free"
+          fi
+          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
+            echo "::error::runner has ${free_gb} GB free, under the ${FLOOR_GB} GB floor; the object stores need room to write"
+            exit 1
+          fi
+          # Leftovers from cancelled runs.
+          docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
+            tessera-minio tessera-seaweed tessera-versity tessera-s3proxy 2>/dev/null || true
+
+          for port in 3900 39002 31000 38080 39100 38333 38111 38090; do
+            if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN; then
+              echo "::error::port $port is already in use on this runner"
+              exit 1
+            fi
+          done
+
+      # Not `services:`: Garage needs a config file.
+      - name: Start Garage
+        run: |
+          mkdir -p /tmp/garage
+          cat > /tmp/garage/garage.toml <<'EOF'
+          metadata_dir = "/tmp/meta"
+          data_dir = "/tmp/data"
+          db_engine = "sqlite"
+          replication_factor = 1
+          rpc_bind_addr = "[::]:3901"
+          rpc_public_addr = "127.0.0.1:3901"
+
+          [s3_api]
+          s3_region = "garage"
+          api_bind_addr = "[::]:3900"
+          EOF
+          docker run -d --name tessera-garage -p 3900:3900 \
+            -v /tmp/garage/garage.toml:/etc/garage.toml:ro \
+            -e GARAGE_RPC_SECRET="$(openssl rand -hex 32)" \
+            -e GARAGE_DEFAULT_ACCESS_KEY=tesseratest \
+            -e GARAGE_DEFAULT_SECRET_KEY=tesseratestsecret \
+            -e GARAGE_DEFAULT_BUCKET=tessera \
+            dxflrs/garage:v2.3.0 /garage server --single-node --default-bucket
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:3900 && exit 0
+            sleep 1
+          done
+          echo "::error::Garage did not start"
+          docker logs tessera-garage || true
+          exit 1
+
+      # Proves a file is read from the bucket it names.
+      - name: Create the second bucket
+        run: |
+          for _ in $(seq 1 60); do
+            docker exec tessera-garage /garage status >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec tessera-garage /garage bucket create tessera-cold
+          docker exec tessera-garage /garage bucket allow \
+            --read --write --owner tessera-cold --key tesseratest
+
+      # Stricter than Garage on multipart. Buckets via rclone: MinIO's `mc` image is gone.
+      - name: Start RustFS
+        run: |
+          docker run -d --name tessera-rustfs -p 39002:9000 \
+            -e RUSTFS_ACCESS_KEY=tesseratest \
+            -e RUSTFS_SECRET_KEY=tesseratestsecret \
+            rustfs/rustfs:1.0.0
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:39002 && break
+            sleep 1
+          done
+          for name in tessera tessera-cold; do
+            docker run --rm --network host rclone/rclone:1.75.0 mkdir \
+              ":s3,provider=Other,access_key_id=tesseratest,secret_access_key=tesseratestsecret,endpoint='http://127.0.0.1:39002':$name"
+          done
+
+      # Containers are created with a Shared Key signature; `LC_ALL=C` keeps `date` unlocalised.
+      - name: Start Azurite
+        run: |
+          docker run -d --name tessera-azurite -p 31000:10000 \
+            mcr.microsoft.com/azure-storage/azurite:3.36.0 \
+            azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:31000/devstoreaccount1 && break
+            sleep 1
+          done
+          # Azurite's public dev account, not a secret.
+          acc=devstoreaccount1
+          key='Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='
+          ver=2021-08-06
+          hexkey=$(printf '%s' "$key" | openssl base64 -d -A | od -An -v -tx1 | tr -d ' \n')
+          [ -n "$hexkey" ] || { echo "::error::could not decode the Azurite key"; exit 1; }
+          for name in tessera tessera-cold; do
+            d=$(LC_ALL=C TZ=GMT date '+%a, %d %b %Y %H:%M:%S GMT')
+            sts="PUT\n\n\n\n\n\n\n\n\n\n\n\nx-ms-date:$d\nx-ms-version:$ver\n/$acc/$acc/$name\nrestype:container"
+            sig=$(printf '%b' "$sts" | openssl dgst -sha256 -mac HMAC \
+              -macopt "hexkey:$hexkey" -binary | openssl base64 -A)
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT \
+              "http://127.0.0.1:31000/$acc/$name?restype=container" \
+              -H "x-ms-date: $d" -H "x-ms-version: $ver" \
+              -H "Authorization: SharedKey $acc:$sig")
+            echo "container $name: $code"
+            [ "$code" = 201 ] || { echo "::error::could not create container $name"; exit 1; }
+          done
+
+      # No `--user`: reqwest rejects credentials in URLs.
+      - name: Start a WebDAV server
+        run: |
+          docker run -d --name tessera-webdav -p 38080:8080 \
+            rclone/rclone:1.75.0 serve webdav /data --addr :8080
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38080/ && break
+            sleep 1
+          done
+          for name in tessera tessera-cold; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X MKCOL \
+              "http://127.0.0.1:38080/$name")
+            echo "collection $name: $code"
+            [ "$code" = 201 ] || { echo "::error::could not create $name"; exit 1; }
+          done
+
+      - name: Run the object store suite
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: garage
+          AWS_ENDPOINT: http://127.0.0.1:3900
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      - name: Run the object store suite against RustFS
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:39002
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      - name: Run the object store suite against Azurite
+        env:
+          TESSERA_TEST_STORAGE_URL: azure://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: azure://tessera-cold
+          AZURE_STORAGE_ACCOUNT_NAME: devstoreaccount1
+          AZURE_STORAGE_ACCOUNT_KEY: Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+          AZURE_STORAGE_ENDPOINT: http://127.0.0.1:31000/devstoreaccount1
+          AZURE_ALLOW_HTTP: "true"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      # No multipart binary; serial because concurrent first writes race on MKCOL.
+      - name: Run the object store suite against WebDAV
+        env:
+          TESSERA_TEST_STORAGE_URL: http://127.0.0.1:38080/tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: http://127.0.0.1:38080/tessera-cold
+          TESSERA_TEST_STORAGE_OPTIONS: allow_http=true
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all --test-threads 1 -E 'binary(object_store)'
+
+      # Official MinIO images are gone; pgsty/minio is the maintained fork.
+      - name: Start MinIO
+        run: |
+          docker run -d --name tessera-minio -p 39100:9000 \
+            -e MINIO_ROOT_USER=tesseratest \
+            -e MINIO_ROOT_PASSWORD=tesseratestsecret \
+            pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:39100 && break
+            sleep 1
+          done
+
+      # Needs `-s3.config` for auth; the default `-volume.max` runs out of slots.
+      - name: Start SeaweedFS
+        run: |
+          cat > /tmp/seaweed-s3.json <<'JSON'
+          {"identities":[{"name":"tessera",
+            "credentials":[{"accessKey":"tesseratest","secretKey":"tesseratestsecret"}],
+            "actions":["Admin","Read","Write","List","Tagging"]}]}
+          JSON
+          docker run -d --name tessera-seaweed -p 38333:8333 \
+            -v /tmp/seaweed-s3.json:/s3.json:ro \
+            chrislusf/seaweedfs:4.44 \
+            server -s3 -s3.port=8333 -s3.config=/s3.json -dir=/data -volume.max=30
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38333 && break
+            sleep 1
+          done
+
+      - name: Start VersityGW
+        run: |
+          docker run -d --name tessera-versity -p 38111:7070 \
+            -e ROOT_ACCESS_KEY_ID=tesseratest \
+            -e ROOT_SECRET_ACCESS_KEY=tesseratestsecret \
+            versity/versitygw:v1.7.0 posix /tmp/vgw
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38111 && break
+            sleep 1
+          done
+
+      # Master build: release 2.6.0 has no bulk delete.
+      - name: Start s3proxy
+        run: |
+          docker run -d --name tessera-s3proxy -p 38090:80 \
+            -e S3PROXY_AUTHORIZATION=none -e S3PROXY_ENDPOINT=http://0.0.0.0:80 \
+            -e JCLOUDS_PROVIDER=filesystem -e JCLOUDS_FILESYSTEM_BASEDIR=/data \
+            andrewgaul/s3proxy@sha256:22e177554702ce8f60278f1f327b5267cbdb63bf058e7846b2c8795161af8f39
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38090 && break
+            sleep 1
+          done
+
+      - name: Create their buckets
+        run: |
+          for port in 39100 38333 38111 38090; do
+            for name in tessera tessera-cold; do
+              docker run --rm --network host rclone/rclone:1.75.0 mkdir \
+                ":s3,provider=Other,access_key_id=tesseratest,secret_access_key=tesseratestsecret,endpoint='http://127.0.0.1:$port':$name"
+            done
+          done
+
+      - name: Run the object store suite against MinIO
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:39100
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      - name: Run the object store suite against SeaweedFS
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:38333
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      - name: Run the object store suite against VersityGW
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:38111
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      # Credentials, not `skip_signature`: multipart ignores it and hits EC2 metadata.
+      - name: Run the object store suite against s3proxy
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:38090
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      # Optional; a provider outage should not block merges.
+      - name: Run the object store suite against a real provider
+        if: vars.STORAGE_PROVIDER_URL != ''
+        continue-on-error: true
+        env:
+          TESSERA_TEST_STORAGE_URL: ${{ vars.STORAGE_PROVIDER_URL }}
+          TESSERA_TEST_STORAGE_URL_SECOND: ${{ vars.STORAGE_PROVIDER_URL_SECOND }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.STORAGE_PROVIDER_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.STORAGE_PROVIDER_SECRET }}
+          AWS_REGION: ${{ vars.STORAGE_PROVIDER_REGION }}
+          AWS_ENDPOINT: ${{ vars.STORAGE_PROVIDER_ENDPOINT }}
+        run: |
+          filter='binary(object_store) + binary(object_store_multipart)'
+          if [ -z "${TESSERA_TEST_STORAGE_URL_SECOND}" ]; then
+            echo "no second bucket configured; skipping the cross-bucket test"
+            filter="${filter} - test(a_file_is_read_from_the_bucket_it_names)"
+          fi
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E "$filter"
+
+      - name: What the stores said, if a suite failed
+        if: failure()
+        run: |
+          for name in tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
+                      tessera-minio tessera-seaweed tessera-versity tessera-s3proxy; do
+            if docker inspect "$name" > /dev/null 2>&1; then
+              echo "::group::$name"
+              docker logs --tail 80 "$name" 2>&1 || true
+              echo "::endgroup::"
+            fi
+          done
+          df -h /
+          echo '::group::what else is on this machine'
+          ss -ltnp 2>/dev/null || netstat -ltnp 2>/dev/null || true
+          docker ps -a --format '{{.Names}}\t{{.Status}}\t{{.Ports}}' || true
+          echo '::endgroup::'
+
+      - name: Stop the stores
+        if: always()
+        run: |
+          docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
+            tessera-minio tessera-seaweed tessera-versity tessera-s3proxy 2>/dev/null || true
+
+  workflows:
+    name: workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: changes
+    if: >-
+      needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust
+
+      # Container, not the wrapper action (unsupported on this runner). 1.7.7 rejects YAML anchors.
+      - name: actionlint
+        run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml
+
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
+        with: { tool: zizmor }
+
+      - name: zizmor
+        run: zizmor .github/workflows/
+
+  docker:
+    name: docker image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 30
+    needs: changes
+    # Set before the budget check, so an over-budget build still reports.
+    outputs:
+      report: ${{ steps.footprint.outputs.report }}
+      rootfs_bytes: ${{ steps.footprint.outputs.rootfs_bytes }}
+      compressed_bytes: ${{ steps.footprint.outputs.compressed_bytes }}
+    if: >-
+      needs.changes.outputs.image == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust
+      - name: Clear what previous runs left
+        run: |
+          timeout 120 docker buildx ls --format '{{.Name}}' 2>/dev/null \
+            | grep -v '^default$' \
+            | xargs -r -I{} timeout 60 docker buildx rm --force {} 2>/dev/null || true
+          timeout 60 docker container prune -f 2>/dev/null || true
+          timeout 60 docker volume prune -f 2>/dev/null || true
+
+          # A publish build pulls ~10 GB of toolchains and cache.
+          FLOOR_GB=12
+          free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
+          used_pct=$(df --output=pcent / | tail -1 | tr -dc '0-9')
+          echo "root filesystem ${used_pct}% full, ${free_gb} GB free (floor ${FLOOR_GB} GB)"
+          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
+            echo "short on room; clearing images and caches too"
+            timeout 300 docker system prune -a --volumes -f || true
+            rm -rf /tmp/tessera-buildx-cache
+            free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
+            echo "after clearing: ${free_gb} GB free"
+          fi
+          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
+            echo "::error::runner has ${free_gb} GB free, under the ${FLOOR_GB} GB floor"
+            exit 1
+          fi
+          df -h / | tail -1
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        id: buildx
+
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          tags: tessera-server:ci
+          load: true
+          # Local cache: the runner keeps its disk.
+          cache-from: type=local,src=/tmp/tessera-buildx-cache
+          cache-to: type=local,dest=/tmp/tessera-buildx-cache,mode=max
+          # `.git` is not in the context; without this /health reports `unknown`.
+          build-args: |
+            TESSERA_BUILD_REV=${{ github.sha }}
+
+      # The two bundles the binary embeds, so the report can split it into
+      # backend and frontend. Every layer is in the cache the step above just
+      # wrote, so this only copies files out.
+      - name: Export the embedded frontend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          target: frontend-dist
+          outputs: type=local,dest=/tmp/tessera-image-size/frontend
+          cache-from: type=local,src=/tmp/tessera-buildx-cache
+
+      # Smoke alarm for unintended growth, about 1.4x the size when last set
+      # (binary 41 MB: 28 MB backend, 13 MB embedded web). See image-size.sh.
+      - name: Measure the footprint against its budget
+        id: footprint
+        run: .github/scripts/image-size.sh tessera-server:ci
+        env:
+          FRONTEND_DIR: /tmp/tessera-image-size/frontend
+          BINARY_BUDGET_MB: "56"
+          ROOTFS_BUDGET_MB: "60"
+
+      - name: Smoke-test the image
+        run: |
+          docker run -d --name tessera-smoke -p 12923:12923 tessera-server:ci
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:12923/health > /dev/null; then
+              echo "health check passed"
+              curl -fsS http://localhost:12923/openapi.json > /dev/null
+              # The commit must reach the binary.
+              rev=$(curl -fsS http://localhost:12923/health | grep -o '"build_rev":"[^"]*"')
+              echo "reported ${rev}"
+              case "$rev" in *unknown*)
+                echo "::error::build_rev is 'unknown' — the build arg did not reach build.rs"
+                exit 1 ;;
+              esac
+
+              # Must serve the real SPA, not build.rs's placeholder.
+              root=$(curl -fsS http://localhost:12923/)
+              case "$root" in *"no frontend bundle was embedded"*)
+                echo "::error::the image serves build.rs's placeholder, not the SPA"
+                exit 1 ;;
+              esac
+              case "$root" in *"/assets/index-"*) : ;;
+                *)
+                  echo "::error::no fingerprinted bundle in the served page"
+                  exit 1 ;;
+              esac
+              echo "the embedded SPA is real"
+
+              docker rm -f tessera-smoke
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::the container never became healthy"
+          docker logs tessera-smoke
+          exit 1
+
+      # Main only, after the smoke test, so branches compare against a working build.
+      - name: Record this build as the baseline
+        if: github.ref == 'refs/heads/main'
+        run: cp /tmp/tessera-image-size/current.txt /tmp/tessera-image-size/main.txt
+
+      # Off until the repo is public (`PUBLISH_IMAGES`). arm64 is only built here.
+      - name: Sign in to GHCR
+        if: >-
+          github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Image names must be lowercase; the owner is `Limatura`.
+      - name: Image name
+        id: image
+        if: >-
+          github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
+        run: echo "name=ghcr.io/${REPO,,}" >> "$GITHUB_OUTPUT"
+        env:
+          REPO: ${{ github.repository }}
+
+      # Rolling `:main`; versioned tags and `:latest` come from release.yml.
+      - name: Publish to GHCR
+        if: >-
+          github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:main
+            ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+          cache-from: type=local,src=/tmp/tessera-buildx-cache
+          build-args: |
+            TESSERA_BUILD_REV=${{ github.sha }}
+
+      # Self-hosted: images, builders and volumes persist unless removed.
+      - name: Remove what this job put on the machine
+        if: always()
+        run: |
+          docker rm -f tessera-smoke 2>/dev/null || true
+          docker image rm -f tessera-server:ci 2>/dev/null || true
+          rm -f /tmp/tessera-image-size/image.tar /tmp/tessera-image-size/binary
+          docker image prune -f
+          docker buildx rm --force "$BUILDER" 2>/dev/null || true
+          docker volume prune -f 2>/dev/null || true
+          df -h / | tail -1
+        env:
+          BUILDER: ${{ steps.buildx.outputs.name }}
+
+  # Separate so the only job that can write PRs runs no third-party actions.
+  image-size-comment:
+    name: image size comment
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    timeout-minutes: 5
+    needs: docker
+    # `always()`: an over-budget build is the one worth reporting.
+    # Not for a fork's pull request: its token is read-only, so the post
+    # would fail and turn a passing run red.
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      needs.docker.outputs.report != ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Post the footprint table
+        run: .github/scripts/pr-comment.sh
+        # Via env, never `${{ }}` in the script (template injection).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: "<!-- tessera:image-size -->"
+          BODY: ${{ needs.docker.outputs.report }}
+
+  fuzz:
+    name: contract fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: changes
+    if: >-
+      needs.changes.outputs.contract == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v6
+
+      - run: cargo build --locked --bin tessera-server
+
+      - name: Start an instance and seed it
+        id: instance
+        run: |
+          # A leftover server on 13999 would answer /health and get fuzzed instead.
+          if command -v fuser >/dev/null 2>&1; then
+            fuser -k 13999/tcp 2>/dev/null || true
+          else
+            pkill -f 'tessera-server' 2>/dev/null || true
+          fi
+          for _ in $(seq 1 20); do
+            ss -ltn 'sport = :13999' 2>/dev/null | grep -q LISTEN || break
+            sleep 0.5
+          done
+          if ss -ltn 'sport = :13999' 2>/dev/null | grep -q LISTEN; then
+            echo "::error::port 13999 is still held by something this job did not start"
+            exit 1
+          fi
+
+          mkdir -p /tmp/fuzz
+          TESSERA_DATABASE__URL='sqlite:///tmp/fuzz/fuzz.db?mode=rwc' \
+          TESSERA_SERVER__DATA_DIR=/tmp/fuzz \
+          TESSERA_SERVER__PORT=13999 \
+            "$CARGO_TARGET_DIR/debug/tessera-server" > /tmp/fuzz/server.log 2>&1 &
+          echo $! > /tmp/fuzz/server.pid
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:13999/health > /dev/null 2>&1 && break
+            sleep 0.5
+          done
+          .github/scripts/fuzz-seed.sh http://127.0.0.1:13999 /tmp/fuzz/server.log > /tmp/fuzz/seed.env
+          # Real credential for this job; keep it out of logs.
+          echo "::add-mask::$(grep '^token=' /tmp/fuzz/seed.env | cut -d= -f2-)"
+          cat /tmp/fuzz/seed.env >> "$GITHUB_OUTPUT"
+
+      # Auth via config, not `-H`, or `ignored_auth` reports false bypasses.
+      - name: Compose the run configuration
+        env:
+          TOKEN: ${{ steps.instance.outputs.token }}
+        run: |
+          cp .config/schemathesis.toml /tmp/fuzz/run.toml
+          printf '\n[auth.openapi.bearer]\nbearer = "%s"\n' "$TOKEN" >> /tmp/fuzz/run.toml
+
+      - name: Schemathesis
+        run: |
+          # filter_too_much: /admin refuses API tokens, so `ignored_auth` filters most examples.
+          # Excluded: unsupported body type (append_to_upload), 303 off-API (start, callback),
+          # IdP-signed body (backchannel_logout). All covered by tests/*.rs.
+          uvx schemathesis --config-file /tmp/fuzz/run.toml \
+            run http://127.0.0.1:13999/openapi.json \
+            -w 4 --suppress-health-check=filter_too_much \
+            --exclude-operation-id append_to_upload \
+            --exclude-operation-id start \
+            --exclude-operation-id callback \
+            --exclude-operation-id backchannel_logout \
+            --report-junit-path /tmp/fuzz/report.xml
+
+      # Before the instance is stopped: that step deletes /tmp/fuzz, report included.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: schemathesis-report
+          path: |
+            /tmp/fuzz/report.xml
+            /tmp/fuzz/server.log
+          retention-days: 7
+
+      - name: Stop the instance
+        if: always()
+        run: |
+          [ -f /tmp/fuzz/server.pid ] && kill "$(cat /tmp/fuzz/server.pid)" 2>/dev/null || true
+          rm -rf /tmp/fuzz

@@ -1,0 +1,30 @@
+-- How many bytes each share has served.
+--
+-- # What this number is
+--
+-- Bytes that left this process toward whoever requested the share. Counted as
+-- they pass, so a transfer that stops halfway counts the half that went.
+-- Adding the size per request instead would report a full download every time
+-- someone clicked and changed their mind.
+--
+-- # What this number is not
+--
+-- It is not bytes that reached anyone. Measured behind nginx with default
+-- buffering: a client that received 73319 bytes and disconnected left this
+-- process having written 74137, the difference being what the proxy still
+-- held. About one percent, always in the same direction.
+--
+-- Behind a caching CDN the gap is unbounded the other way: a request served
+-- from cache never reaches this process.
+--
+-- So it answers "how much has this instance sent", the question an operator
+-- asks of their own machine. For what actually crossed the network, the
+-- reverse proxy's log is authoritative (nginx has `$body_bytes_sent`).
+--
+-- # Why per share and not only a total
+--
+-- "Which share is eating the bandwidth" is the next question after the total,
+-- and a total cannot answer it. One integer per row is cheap; recomputing it
+-- from logs no one keeps is not.
+
+ALTER TABLE shares ADD COLUMN bytes_served INTEGER NOT NULL DEFAULT 0;

@@ -1,0 +1,26 @@
+-- Two columns for one feature: redirecting browsers straight to the store.
+--
+-- # `storage_backends.direct_access`
+--
+-- Whether a browser may be redirected to this backend directly, to download a
+-- file or write an upload's parts, instead of the bytes passing through this
+-- server. Off by default, and only the operator can turn it on, since only
+-- they know whether browsers can reach the store. A bucket on a home network
+-- answers this server and no one else; redirecting a download there produces
+-- an error page this server never sees.
+--
+-- The `storage.url` backend has no row, so its switch is the
+-- `storage.direct_access` setting instead.
+--
+-- # `shares.bytes_redirected`
+--
+-- How many bytes the redirected requests asked for: the file size, or the
+-- range length. Requested, not delivered: the store does not report what it
+-- sent, so an abandoned download counts in full.
+--
+-- That is why it is a separate column instead of being added to
+-- `bytes_served`. `bytes_served` counts bytes as they leave this process, so
+-- an abandoned transfer counts the half that went; folding requested sizes in
+-- would quietly undo the one thing it was built to get right.
+ALTER TABLE storage_backends ADD COLUMN direct_access INTEGER NOT NULL DEFAULT FALSE;
+ALTER TABLE shares ADD COLUMN bytes_redirected INTEGER NOT NULL DEFAULT 0;
