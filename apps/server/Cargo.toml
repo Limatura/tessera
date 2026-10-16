@@ -296,7 +296,7 @@ rust-embed = "8.12"
 # Already in the tree (`takumi-html` parses with them), but used directly here:
 # the check is about which elements and attributes a layout uses, and takumi
 # returns a laid-out node tree with that information already discarded.
-html5ever = { version = "0.39", optional = true }
+html5ever = { version = "0.40", optional = true }
 markup5ever_rcdom = { version = "0.39", optional = true }
 
 # Syntax colouring for the card a text share gets.
