@@ -104,9 +104,10 @@ jobs:
         if: steps.gate.outputs.build == 'true'
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: steps.gate.outputs.build == 'true'
+        # No `cache: pnpm`: this job publishes an image, and a cache any PR
+        # can write to is a way into it (zizmor's `cache-poisoning`).
         with:
           node-version: 24
-          cache: pnpm
       - name: Install dependencies
         if: steps.gate.outputs.build == 'true'
         run: pnpm install --frozen-lockfile
@@ -145,11 +146,11 @@ jobs:
             *-nightly.*) version="$base" ;;
             *) version="${base}-nightly.${stamp}.g${SHORT}" ;;
           esac
-          echo "stamp=$stamp" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "pending=$pending" >> "$GITHUB_OUTPUT"
           echo "version: $version ($pending pending changesets)"
           {
+            echo "stamp=$stamp"
+            echo "version=$version"
+            echo "pending=$pending"
             echo "bumped<<EOF"
             echo "$bumped"
             echo "EOF"
