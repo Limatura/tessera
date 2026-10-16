@@ -145,11 +145,11 @@ jobs:
             *-nightly.*) version="$base" ;;
             *) version="${base}-nightly.${stamp}.g${SHORT}" ;;
           esac
-          echo "stamp=$stamp" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "pending=$pending" >> "$GITHUB_OUTPUT"
           echo "version: $version ($pending pending changesets)"
           {
+            echo "stamp=$stamp"
+            echo "version=$version"
+            echo "pending=$pending"
             echo "bumped<<EOF"
             echo "$bumped"
             echo "EOF"
