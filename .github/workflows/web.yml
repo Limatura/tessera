@@ -118,19 +118,8 @@ jobs:
             fi
           done
 
-      # $STATE_DIR is a fixed path on a self-hosted box, not a fresh per-run
-      # directory — nothing else clears it between runs. Wipe it up front so
-      # a previous run's report/current.txt never leaks into this one, and so
-      # a stale main.txt is never read before the restore below decides
-      # whether one exists at all.
-      - name: Reset the bundle-size scratch dir
-        run: rm -rf /tmp/tessera-bundle-size
-
-      # The baseline must be *this* PR's diff against main, not whatever the
-      # last main build happened to leave on whichever self-hosted box this
-      # run lands on. Caching main.txt by commit means the restore always
-      # reflects the actual main tip, keyed on the same commit that pushed it,
-      # regardless of which box ran that push.
+      # The baseline is this PR's diff against main: main.txt is cached by the
+      # commit that pushed it, so the restore always reflects main's tip.
       #
       # Restored on main pushes too, not only PRs: `--affected` means a push
       # that did not touch `web` never regenerates `web/main.txt`, and without
