@@ -44,9 +44,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A PR's older run is cancelled when it is pushed again; nobody needs it. On
+# main every commit runs to the end, so each one is known to pass, and a quick
+# second merge does not leave the first with a cancelled, red `rust ok`.
 concurrency:
   group: rust-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
