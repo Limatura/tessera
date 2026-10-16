@@ -2796,6 +2796,14 @@ export interface components {
              */
             anonymous_upload: boolean;
             /**
+             * @description Number of characters in a retrieval code on this instance
+             *     (`share.code_length`), so the page that collects one can draw the right
+             *     number of boxes. Codes already issued keep the length they had, so this
+             *     is what *new* shares get, not a promise about every code in existence.
+             * @example 8
+             */
+            code_length: number;
+            /**
              * Format: int64
              * @description How long a share lasts when the uploader does not choose, in hours.
              *
