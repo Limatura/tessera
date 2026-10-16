@@ -238,7 +238,7 @@ utoipa-axum = "0.2"
 # access. Vendoring the CDN bundle for offline use was considered and rejected:
 # it would add a 3.7 MB minified blob to the repository that cargo-deny cannot
 # audit and that we would have to keep updated.
-utoipa-scalar = { version = "0.3", features = ["axum"] }
+utoipa-scalar = { version = "0.4", features = ["axum"] }
 
 # --- serialization ---
 serde = { workspace = true }
