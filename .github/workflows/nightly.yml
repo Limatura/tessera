@@ -203,6 +203,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Image names must be lowercase; the owner is `Limatura`.
+      - name: Image name
+        id: image
+        if: steps.gate.outputs.build == 'true'
+        run: echo "name=ghcr.io/${REPO,,}" >> "$GITHUB_OUTPUT"
+        env:
+          REPO: ${{ github.repository }}
+
       # `latest` and the `major.minor` tags belong to `release.yml`. `nightly`
       # moves every night; the dated and sha tags are the ones to pin when
       # reporting a bug.
@@ -215,9 +223,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:nightly
-            ghcr.io/${{ github.repository }}:nightly-${{ steps.version.outputs.stamp }}
-            ghcr.io/${{ github.repository }}:sha-${{ steps.gate.outputs.sha }}
+            ${{ steps.image.outputs.name }}:nightly
+            ${{ steps.image.outputs.name }}:nightly-${{ steps.version.outputs.stamp }}
+            ${{ steps.image.outputs.name }}:sha-${{ steps.gate.outputs.sha }}
           cache-from: type=local,src=/tmp/tessera-buildx-cache
           build-args: |
             TESSERA_BUILD_REV=${{ steps.gate.outputs.sha }}

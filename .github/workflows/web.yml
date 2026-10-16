@@ -21,7 +21,9 @@ on:
 
 concurrency:
   group: web-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Only pull requests: a newer push makes an older PR run moot, but each push
+  # to main publishes an image and records a baseline of its own.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

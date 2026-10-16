@@ -45,14 +45,9 @@ FRONTEND_DIR=${FRONTEND_DIR:-}
 BINARY_BUDGET_MB=${BINARY_BUDGET_MB:-0}
 ROOTFS_BUDGET_MB=${ROOTFS_BUDGET_MB:-0}
 
-# The baseline is a file on the runner, not a cache action. This runner keeps
-# its filesystem between runs — the same property the buildx layer cache under
-# /tmp already relies on — and a file costs no upload, no restore key and no
-# fourth-party action in a job that already has eight.
-#
-# If the machine is ever replaced the file is gone and the comparison column
-# reads "—", which is the right failure: no baseline is better than one carried
-# over from a different toolchain on a different machine.
+# The baseline is `main.txt` from the last build of main, which the workflow
+# restores from the Actions cache before this runs. When there is none the
+# comparison column reads "—".
 STATE_DIR=${STATE_DIR:-/tmp/tessera-image-size}
 BASELINE=${BASELINE:-$STATE_DIR/main.txt}
 CURRENT=${CURRENT:-$STATE_DIR/current.txt}
