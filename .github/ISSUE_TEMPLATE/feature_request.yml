@@ -1,6 +1,6 @@
 name: Feature request
 description: Suggest something Tessera should do.
-labels: [Feature]
+labels: [enhancement]
 body:
   - type: markdown
     attributes:
