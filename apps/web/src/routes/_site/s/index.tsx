@@ -1,5 +1,4 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Button } from "@tessera/ui/components/button";
 import {
   Card,
   CardContent,
@@ -18,20 +17,24 @@ import { PackageOpen } from "lucide-react";
 import { useState } from "react";
 
 import { GlassBackground } from "@/components/glass-background";
+import { useCapabilities } from "@/hooks/use-capabilities";
 import * as m from "@/paraglide/messages";
 
 export const Route = createFileRoute("/_site/s/")({
   component: RouteComponent,
 });
 
-const CODE_LENGTH = 8;
+// Used until `/capabilities` answers, and when it fails: the server default.
+const DEFAULT_CODE_LENGTH = 8;
 
 function RouteComponent() {
   const navigate = useNavigate();
   const [code, setCode] = useState("");
+  const { data: capabilities } = useCapabilities();
+  const codeLength = capabilities?.code_length ?? DEFAULT_CODE_LENGTH;
 
   const goToShare = (value: string) => {
-    if (value.length !== CODE_LENGTH) {
+    if (value.length !== codeLength) {
       return;
     }
     navigate({ params: { code: value }, to: "/s/$code" });
@@ -43,9 +46,9 @@ function RouteComponent() {
   };
 
   const handleChange = (value: string) => {
-    const upper = value.toUpperCase();
+    const upper = value.toUpperCase().slice(0, codeLength);
     setCode(upper);
-    if (upper.length === CODE_LENGTH) {
+    if (upper.length === codeLength) {
       goToShare(upper);
     }
   };
@@ -72,26 +75,22 @@ function RouteComponent() {
                     aria-label={m.share_code_label()}
                     autoCapitalize="characters"
                     autoFocus
-                    inputMode="text"
-                    maxLength={CODE_LENGTH}
+                    autoCorrect="off"
+                    inputMode="url"
+                    lang="en"
+                    key={codeLength}
+                    maxLength={codeLength}
                     onChange={handleChange}
                     pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
                     value={code}
                   >
                     <InputOTPGroup className="mx-auto">
-                      {Array.from({ length: CODE_LENGTH }, (_, index) => (
+                      {Array.from({ length: codeLength }, (_, index) => (
                         <InputOTPSlot index={index} key={index} />
                       ))}
                     </InputOTPGroup>
                   </InputOTP>
                 </Field>
-                <Button
-                  className="w-full"
-                  disabled={code.length !== CODE_LENGTH}
-                  type="submit"
-                >
-                  {m.share_code_continue()}
-                </Button>
               </FieldGroup>
             </form>
           </CardContent>

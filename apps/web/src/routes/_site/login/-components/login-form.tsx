@@ -172,27 +172,13 @@ export function LoginForm({
                         control={control}
                         name="password"
                         render={({ field, fieldState }) => (
-                          <Field data-invalid={fieldState.invalid}>
-                            <div className="flex items-center">
-                              <FieldLabel htmlFor="password">
-                                {m.auth_password()}
-                              </FieldLabel>
-                              {/*
-                              Without mail this path cannot work (the server
-                              answers 404), the same reason the registration
-                              link is hidden. If capabilities cannot be read
-                              it shows anyway: a missing link is harder to
-                              notice than an extra one.
-                            */}
-                              {capabilities?.password_reset === false ? null : (
-                                <Link
-                                  className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                                  to="/forgot-password"
-                                >
-                                  {m.auth_forgot_password()}
-                                </Link>
-                              )}
-                            </div>
+                          <Field
+                            className="relative"
+                            data-invalid={fieldState.invalid}
+                          >
+                            <FieldLabel htmlFor="password">
+                              {m.auth_password()}
+                            </FieldLabel>
                             <Input
                               {...field}
                               aria-invalid={fieldState.invalid}
@@ -201,6 +187,23 @@ export function LoginForm({
                             />
                             {fieldState.invalid && (
                               <FieldError errors={[fieldState.error]} />
+                            )}
+                            {/*
+                              After the input in the DOM so Tab goes
+                              identifier -> password -> this link, but drawn
+                              on the label row. Without mail this path cannot
+                              work (the server answers 404), the same reason
+                              the registration link is hidden. If capabilities
+                              cannot be read it shows anyway: a missing link
+                              is harder to notice than an extra one.
+                            */}
+                            {capabilities?.password_reset === false ? null : (
+                              <Link
+                                className="absolute top-0 right-0 w-auto! text-sm underline-offset-4 hover:underline"
+                                to="/forgot-password"
+                              >
+                                {m.auth_forgot_password()}
+                              </Link>
                             )}
                           </Field>
                         )}

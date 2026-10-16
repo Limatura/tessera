@@ -143,6 +143,13 @@ pub struct Capabilities {
     /// Nothing else will.
     pub access_log: bool,
 
+    /// Number of characters in a retrieval code on this instance
+    /// (`share.code_length`), so the page that collects one can draw the right
+    /// number of boxes. Codes already issued keep the length they had, so this
+    /// is what *new* shares get, not a promise about every code in existence.
+    #[schema(example = 8, minimum = 1)]
+    pub code_length: usize,
+
     /// Largest single file *this caller* may send, in bytes.
     ///
     /// The narrowest of their own limit, their role's and
@@ -217,6 +224,7 @@ impl Capabilities {
             registration_requires_confirmation: config.mail.is_configured(),
             password_reset: config.mail.is_configured(),
             access_log: config.share.access_log.enabled,
+            code_length: config.share.code_length,
             // `usize` is the type axum's body limit wants and `u64` is the type
             // a file size is. The conversion cannot fail on any target this
             // runs on, but saturating still beats a cast that would wrap.
