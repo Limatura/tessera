@@ -1,10 +1,15 @@
 name: tessera
 
 # One service, because that is the whole point — the frontend is embedded in the
-# binary. The Dockerfile builds the SPA in its own stage, so `docker compose
-# build` is enough; nothing has to be built on the host first.
+# binary.
+#
+# `docker compose up` pulls the published image, and builds from this checkout
+# only when the pull fails. `docker compose up --build` always builds; the
+# Dockerfile builds the SPA in its own stage, so nothing has to be built on the
+# host first. Set TESSERA_VERSION to pin a release, e.g. `0.1.0`.
 services:
   tessera:
+    image: ghcr.io/limatura/tessera:${TESSERA_VERSION:-latest}
     build:
       context: .
       dockerfile: apps/server/Dockerfile
