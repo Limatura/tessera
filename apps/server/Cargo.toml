@@ -383,5 +383,5 @@ insta = { version = "1.48", features = ["json", "redactions"] }
 # scripted answers behind a lock.
 parking_lot = "0.12"
 proptest = "1.11"
-rstest = "0.26"
+rstest = "0.27"
 tempfile = "3"
