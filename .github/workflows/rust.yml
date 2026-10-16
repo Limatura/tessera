@@ -1013,3 +1013,27 @@ jobs:
         run: |
           [ -f /tmp/fuzz/server.pid ] && kill "$(cat /tmp/fuzz/server.pid)" 2>/dev/null || true
           rm -rf /tmp/fuzz
+
+  # The one check the branch ruleset requires from this workflow. Requiring each
+  # job by name does not work: a skipped matrix job reports under its unexpanded
+  # name, `${{ matrix.backend }} backend`, so on a change that does not touch
+  # Rust the required `postgres backend` never arrives and the PR waits forever.
+  # Skipped is fine here, it means the change could not affect that job; failed
+  # or cancelled is not.
+  ok:
+    name: rust ok
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [changes, checks, features, test, backends, storage, workflows, docker, fuzz]
+    if: always()
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            case "$result" in
+              success | skipped) ;;
+              *) echo "::error::a required job ended as $result"; exit 1 ;;
+            esac
+          done
