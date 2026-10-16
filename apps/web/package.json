@@ -52,7 +52,7 @@
     "@uiw/react-codemirror": "^4.25.11",
     "input-otp": "catalog:",
     "lucide-react": "catalog:",
-    "mermaid": "^11.17.2",
+    "mermaid": "^12.2.0",
     "motion": "^13.1.0",
     "next-themes": "catalog:",
     "react": "catalog:",
