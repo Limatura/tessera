@@ -26,3 +26,17 @@ updates:
     groups:
       cargo-minor-patch:
         update-types: [minor, patch]
+
+  # The web app and the shared packages. One pnpm workspace, so one entry at the
+  # root covers every `package.json` in it, and the catalog in
+  # `pnpm-workspace.yaml` is bumped in place.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
