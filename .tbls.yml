@@ -45,6 +45,8 @@ comments:
     tableComment: 'Passkeys: a fingerprint, a face or a hardware key in place of a password. Holds the credential id and its public key exactly as the authenticator sent it, a COSE structure, so nothing here depends on how the server checks one and a dump lets nobody in. Looked up by `credential_hash`, the SHA-256 of the id, because an id can be longer than MySQL will index. `sign_count` going backwards means two copies of one key; most synced passkeys keep it at zero.'
   - table: webauthn_challenges
     tableComment: 'A challenge handed to a browser and not yet answered. Keyed on its digest and deleted when answered, so each works once. `purpose` keeps a sign-in challenge from registering a key, and `user_id` says whose account a registration adds to; a sign-in has none until the answer names one.'
+  - table: device_authorizations
+    tableComment: 'A program without a browser, such as the command line client, waiting for a person to approve it from one that has. The program holds the device code and only its digest is stored; the person types the short `user_code` on the site. Approval records who and with which permissions, and the token itself is minted when the program next asks, so the table never holds a usable secret. Deleted on redemption.'
   - table: sessions
     tableComment: 'One sign-in. Expired rows stay, because this table is also the sign-in history and a person needs to be able to see whether somebody else got in. Real removal is `auth.login_history_days`. `origin` says which credential started it, so a provider signing somebody out can end the sessions it issued and leave password ones alone. `provider_sid` is the provider''s own identifier for its side, when it released one.'
   - table: api_tokens

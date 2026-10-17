@@ -95,6 +95,8 @@ pub struct AppState {
     pub stats: crate::db::repository::stats::StatsRepository,
     /// Outstanding links proving an account's address.
     pub verifications: crate::db::repository::email_verification::EmailVerificationRepository,
+    /// Programs waiting to be approved from a browser.
+    pub devices: crate::db::repository::device_authorization::DeviceAuthorizationRepository,
     /// Invite codes, for an instance that is neither open nor closed.
     pub invites: InviteRepository,
     /// Registrations waiting on their address to be confirmed.
@@ -370,6 +372,10 @@ impl AppState {
             stats: crate::db::repository::stats::StatsRepository::new(db.clone()),
             verifications:
                 crate::db::repository::email_verification::EmailVerificationRepository::new(
+                    db.clone(),
+                ),
+            devices:
+                crate::db::repository::device_authorization::DeviceAuthorizationRepository::new(
                     db.clone(),
                 ),
             invites: InviteRepository::new(db.clone()),

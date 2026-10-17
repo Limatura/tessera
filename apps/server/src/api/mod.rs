@@ -36,6 +36,7 @@ pub mod archive;
 pub mod auth;
 pub mod backends;
 pub mod capabilities;
+pub mod device;
 pub mod extract;
 pub mod gate;
 pub mod health;
@@ -323,6 +324,7 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(tokens::list, tokens::create))
         .routes(routes!(tokens::revoke))
         .merge(account_routes())
+        .merge(device_routes())
         .merge(admin_routes())
         .merge(share_routes())
         .merge(upload_routes())
@@ -357,6 +359,15 @@ fn account_routes() -> OpenApiRouter<AppState> {
 ///
 /// Grouped for the same reason `admin_routes` and `upload_routes` are: five
 /// more lines to scan past in [`versioned_routes`].
+fn device_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(device::start))
+        .routes(routes!(device::redeem))
+        .routes(routes!(device::describe))
+        .routes(routes!(device::approve))
+        .routes(routes!(device::deny))
+}
+
 fn share_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(shares::list, shares::create, shares::delete_many))

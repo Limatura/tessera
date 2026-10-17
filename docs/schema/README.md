@@ -36,6 +36,7 @@
 | [mfa_challenges](mfa_challenges.md) | 4 | A sign-in that passed its password and waits for a code. Keyed on the digest of the ticket the client holds, and deleted when the sign-in finishes, so a ticket works once. A row rather than a session with a flag, so nothing that accepts a session can mistake half a sign-in for a whole one. | table |
 | [passkeys](passkeys.md) | 11 | Passkeys: a fingerprint, a face or a hardware key in place of a password. Holds the credential id and its public key exactly as the authenticator sent it, a COSE structure, so nothing here depends on how the server checks one and a dump lets nobody in. Looked up by `credential_hash`, the SHA-256 of the id, because an id can be longer than MySQL will index. `sign_count` going backwards means two copies of one key; most synced passkeys keep it at zero. | table |
 | [webauthn_challenges](webauthn_challenges.md) | 5 | A challenge handed to a browser and not yet answered. Keyed on its digest and deleted when answered, so each works once. `purpose` keeps a sign-in challenge from registering a key, and `user_id` says whose account a registration adds to; a sign-in has none until the answer names one. | table |
+| [device_authorizations](device_authorizations.md) | 10 | A program without a browser, such as the command line client, waiting for a person to approve it from one that has. The program holds the device code and only its digest is stored; the person types the short `user_code` on the site. Approval records who and with which permissions, and the token itself is minted when the program next asks, so the table never holds a usable secret. Deleted on redemption. | table |
 
 ## Relations
 
@@ -71,6 +72,7 @@ erDiagram
 "mfa_challenges" }o--|| "users" : ""
 "passkeys" }o--|| "users" : ""
 "webauthn_challenges" }o--o| "users" : ""
+"device_authorizations" }o--o| "users" : ""
 
 "schema_metadata" {
   TEXT key PK
@@ -364,6 +366,18 @@ erDiagram
   TEXT secret_hash PK
   TEXT purpose
   TEXT user_id FK
+  TEXT created_at
+  TEXT expires_at
+}
+"device_authorizations" {
+  TEXT device_code_hash PK
+  TEXT user_code
+  TEXT client_name
+  TEXT requested_from
+  TEXT user_id FK
+  TEXT permissions
+  TEXT approved_at
+  TEXT denied_at
   TEXT created_at
   TEXT expires_at
 }
