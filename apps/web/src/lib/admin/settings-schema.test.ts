@@ -169,6 +169,9 @@ describe("accountSettingsSchema", () => {
     [{}, []],
     [{ defaultRole: "" }, ["defaultRole"]],
     [{ loginHistoryDays: 0 }, ["loginHistoryDays"]],
+    // MAX_LOGIN_HISTORY_DAYS in apps/server/src/config.rs
+    [{ loginHistoryDays: 730 }, []],
+    [{ loginHistoryDays: 731 }, ["loginHistoryDays"]],
     [{ sessionTtlHours: 0 }, ["sessionTtlHours"]],
     [{ registration: "public" }, ["registration"]],
   ])("%j -> %j", (patch, expected) => {
@@ -184,7 +187,7 @@ describe("oidcSettingsSchema", () => {
     clientId: "",
     clientSecret: "",
     displayName: "",
-    groupClaim: "",
+    groupClaim: "groups",
     issuer: "",
     linkByEmail: "never",
     requiredGroup: "",
@@ -196,12 +199,29 @@ describe("oidcSettingsSchema", () => {
     ["https://id.example.com", []],
     ["https://id.example.com/realms/x", []],
     ["http://id.example.com", ["issuer"]],
+    // is_private_or_tls in apps/server/src/auth/oidc/mod.rs: http on loopback only
+    ["http://127.0.0.1:8080", []],
+    ["http://localhost:9000/realms/main", []],
+    ["http://[::1]", []],
+    ["http://127.0.0.1.evil.example", ["issuer"]],
+    ["http://localhost.evil.example", ["issuer"]],
     ["https:///nohost", ["issuer"]],
     ["https://id.example.com/.well-known/openid-configuration", ["issuer"]],
   ])("issuer %j -> %j", (issuer, expected) => {
     expect(issuePaths(oidcSettingsSchema, { ...valid, issuer })).toEqual(
       expected
     );
+  });
+
+  // OidcConfig::validate in apps/server/src/config.rs
+  it("requires a group claim once an issuer is set", () => {
+    const issuer = "https://id.example.com";
+    expect(
+      issuePaths(oidcSettingsSchema, { ...valid, groupClaim: " ", issuer })
+    ).toEqual(["groupClaim"]);
+    expect(
+      issuePaths(oidcSettingsSchema, { ...valid, groupClaim: "", issuer: "" })
+    ).toEqual([]);
   });
 
   it("rejects an unknown link mode", () => {
@@ -243,6 +263,10 @@ describe("scanSettingsSchema", () => {
     ["  clamd://host:3310  ", []],
     ["tcp://host:3310", ["url"]],
     ["clamd://", ["url"]],
+    // ScanConfig::validate in apps/server/src/config.rs: clamd needs host and port
+    ["clamd://127.0.0.1", ["url"]],
+    ["clamd://[::1]:3310", []],
+    ["clamd://:3310", ["url"]],
   ])("url %j -> %j", (url, expected) => {
     expect(issuePaths(scanSettingsSchema, { authorization: "", url })).toEqual(
       expected
@@ -372,7 +396,8 @@ describe("passwordSettingsSchema", () => {
     iterations: 1,
     lanes: 1,
     maxLength: PASSWORD_MAX_CEILING,
-    memoryKib: 8,
+    // AuthHashing::validate in apps/server/src/config.rs: at least 7168
+    memoryKib: 7168,
     minLength: PASSWORD_MIN_FLOOR,
     pwnedEnabled: false,
     pwnedUrl: "",
@@ -390,7 +415,7 @@ describe("passwordSettingsSchema", () => {
       { maxLength: PASSWORD_MIN_FLOOR, minLength: PASSWORD_MIN_FLOOR + 1 },
       ["minLength"],
     ],
-    [{ memoryKib: 7 }, ["memoryKib"]],
+    [{ memoryKib: 7167 }, ["memoryKib"]],
     [{ iterations: 0 }, ["iterations"]],
     [{ lanes: 0 }, ["lanes"]],
     [{ pwnedEnabled: true }, ["pwnedUrl"]],
@@ -427,6 +452,11 @@ describe("shareSettingsSchema", () => {
     [{ maxTextBytes: 0 }, ["maxTextBytes"]],
     [{ ticketIdleHours: 0 }, ["ticketIdleHours"]],
     [{ inlineThresholdBytes: -1 }, ["inlineThresholdBytes"]],
+    // MAX_TEXT_CEILING / INLINE_CEILING in apps/server/src/config.rs
+    [{ maxTextBytes: 16 * 1024 * 1024 }, []],
+    [{ maxTextBytes: 16 * 1024 * 1024 + 1 }, ["maxTextBytes"]],
+    [{ inlineThresholdBytes: 1024 * 1024 }, []],
+    [{ inlineThresholdBytes: 1024 * 1024 + 1 }, ["inlineThresholdBytes"]],
   ])("%j -> %j", (patch, expected) => {
     expect(issuePaths(shareSettingsSchema, { ...valid, ...patch })).toEqual(
       expected

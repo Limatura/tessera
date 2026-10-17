@@ -50,12 +50,13 @@ export default defineConfig({
        */
       include: [
         "apps/web/src/**/*.ts",
+        "packages/auth/src/**/*.ts",
         "packages/crypto/src/**/*.ts",
         "packages/ui/src/lib/**/*.ts",
       ],
       provider: "v8",
       reporter: ["text", "lcov"],
     },
-    projects: ["apps/web", "packages/crypto", "packages/ui"],
+    projects: ["apps/web", "packages/auth", "packages/crypto", "packages/ui"],
   },
 });
