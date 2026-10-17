@@ -32,8 +32,9 @@ export async function requirePermission(
       throw redirect({ to: "/" });
     }
     // If the landing page is the one being requested, let it through, or two
-    // beforeLoads would redirect forever.
-    if (fallback !== href) {
+    // beforeLoads would redirect forever. Compare the path alone, so a query
+    // string on the landing page does not cost a redirect that drops it.
+    if (fallback !== href.split(/[?#]/u)[0]) {
       throw redirect({ to: fallback });
     }
   }

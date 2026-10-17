@@ -25,6 +25,15 @@ export type { Account, Permission } from "@tessera/auth/permissions";
  * Functions instead of constants, so messages are read at call time in the
  * current language.
  */
+/**
+ * Reads a translation table by a name from the server. `Object.hasOwn` keeps a
+ * role or permission named like an `Object.prototype` member (`toString`,
+ * `constructor`) from picking up the inherited property.
+ */
+function lookup<T>(table: Record<string, T>, key: string): T | undefined {
+  return Object.hasOwn(table, key) ? table[key] : undefined;
+}
+
 const ROLE_LABELS: Record<string, () => string> = {
   admin: m.role_admin,
   guest: m.role_guest,
@@ -33,7 +42,7 @@ const ROLE_LABELS: Record<string, () => string> = {
 };
 
 export function roleLabel(role: string): string {
-  return ROLE_LABELS[role]?.() ?? role;
+  return lookup(ROLE_LABELS, role)?.() ?? role;
 }
 
 export function unassignedRoleLabel(): string {
@@ -114,7 +123,9 @@ interface DescribedRole {
 }
 
 function builtinDescription(role: DescribedRole) {
-  return role.is_system ? BUILTIN_ROLE_DESCRIPTIONS[role.name] : undefined;
+  return role.is_system
+    ? lookup(BUILTIN_ROLE_DESCRIPTIONS, role.name)
+    : undefined;
 }
 
 /** Whether a built-in role's description is untouched (empty or the default English). */
@@ -218,12 +229,12 @@ const PERMISSION_LABELS: Record<
  * the frontend has not translated.
  */
 export function permissionLabel(permission: string): string {
-  return PERMISSION_LABELS[permission]?.label() ?? permission;
+  return lookup(PERMISSION_LABELS, permission)?.label() ?? permission;
 }
 
 /** One sentence on what the permission allows; `undefined` if untranslated. */
 export function permissionHint(permission: string): string | undefined {
-  return PERMISSION_LABELS[permission]?.hint();
+  return lookup(PERMISSION_LABELS, permission)?.hint();
 }
 
 const PERMISSION_GROUP_LABELS: Record<string, () => string> = {
@@ -237,7 +248,7 @@ const PERMISSION_GROUP_LABELS: Record<string, () => string> = {
 };
 
 export function permissionGroupLabel(resource: string): string {
-  return PERMISSION_GROUP_LABELS[resource]?.() ?? resource;
+  return lookup(PERMISSION_GROUP_LABELS, resource)?.() ?? resource;
 }
 
 /**
