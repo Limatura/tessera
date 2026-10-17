@@ -64,9 +64,12 @@ test("once a language is detected the editor loads its grammar and highlights", 
   await page.keyboard.type("fn main() { let mut total = 0; }");
 
   await expect(page.getByText("auto-detected")).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Language" })).toHaveText(
-    /rust/iu
-  );
+  // The header's locale picker is also named "Language"; skip the nav.
+  await expect(
+    page
+      .getByRole("combobox", { name: "Language" })
+      .and(page.locator(":not(nav *)"))
+  ).toHaveText(/rust/iu);
   // As plain text each line is a single text node; once the grammar loads, tokens get spans.
   // Move the cursor off `}` first, or bracket matching's highlight span would
   // pass this assertion by itself.
