@@ -98,3 +98,4 @@ src/plugins/impeccable-live.client.ts
 # Playwright
 /playwright-report/
 /test-results/
+/playwright/.auth/
