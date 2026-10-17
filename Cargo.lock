@@ -4938,7 +4938,7 @@ dependencies = [
  "base64ct",
  "clap",
  "futures-util",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "reqwest",
  "rpassword",
  "serde",
@@ -4986,7 +4986,7 @@ version = "0.1.0-rc.1"
 dependencies = [
  "axum",
  "base64 0.23.1",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "parking_lot",
  "serde",
  "serde_json",
