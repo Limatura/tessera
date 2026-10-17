@@ -205,21 +205,35 @@ interface CodeUploadFormProps {
     el: HTMLButtonElement | null,
     payload: { content: string; language: string; title?: string }
   ) => void;
+  /** Prefill, from a share sheet. Read on mount only. */
+  initialContent?: string;
+  initialTitle?: string;
+}
+
+/** A prefill's language, as typing would have guessed it. Mount only. */
+function guessLanguage(content: string): string | null {
+  return content ? detectLanguage(content) : null;
 }
 
 export function CodeUploadForm({
   status,
   progress,
   onSubmit,
+  initialContent = "",
+  initialTitle,
 }: CodeUploadFormProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dialogButtonRef = useRef<HTMLButtonElement>(null);
-  const [language, setLanguage] = useState("plaintext");
-  const [code, setCode] = useState("");
+  const [language, setLanguage] = useState(
+    () => guessLanguage(initialContent) ?? "plaintext"
+  );
+  const [code, setCode] = useState(initialContent);
   const [expanded, setExpanded] = useState(false);
   // Once the user picks a language, guessing stops for good, so another paste does not
   // override it.
-  const [wasGuessed, setWasGuessed] = useState(false);
+  const [wasGuessed, setWasGuessed] = useState(
+    () => guessLanguage(initialContent) !== null
+  );
   const [userPickedLanguage, setUserPickedLanguage] = useState(false);
   const [pane, setPane] = useState<"edit" | "preview">("edit");
   // paste fires before onChange: note the language the clipboard reports, for onChange to
@@ -227,7 +241,7 @@ export function CodeUploadForm({
   const pastedLanguage = useRef<string | null>(null);
   // A pasted file's name, saved as the share title on submit; dropped when the content is
   // cleared.
-  const [title, setTitle] = useState<string | null>(null);
+  const [title, setTitle] = useState<string | null>(initialTitle ?? null);
 
   const handleLanguageChange = (value: string | null) => {
     setLanguage(value ?? "plaintext");

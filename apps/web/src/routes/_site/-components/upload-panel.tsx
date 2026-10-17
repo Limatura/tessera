@@ -17,6 +17,7 @@ import { Suspense, lazy, useRef, useState } from "react";
 
 import { GlassBackground } from "@/components/glass-background";
 import { useCapabilities } from "@/hooks/use-capabilities";
+import type { SharedDraft } from "@/lib/pwa/shared-payload";
 import type { FileEntry } from "@/lib/upload";
 import { upload } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
@@ -30,6 +31,7 @@ import {
 } from "./encryption-field";
 import { LinkUploadForm } from "./link-upload-form";
 import { RecentShares } from "./recent-shares";
+import { SharedFiles } from "./shared-files";
 import { UploadButton } from "./upload-button";
 import { UploadResult } from "./upload-result";
 import {
@@ -48,7 +50,14 @@ const CodeUploadForm = lazy(async () => {
   return { default: component };
 });
 
-export function UploadPanel() {
+interface UploadPanelProps {
+  /** What the system share sheet sent, to prefill the matching tab with. */
+  shared?: SharedDraft | null;
+  /** The shared files were uploaded or discarded. */
+  onSharedDone?: () => void;
+}
+
+export function UploadPanel({ shared, onSharedDone }: UploadPanelProps) {
   const {
     collapsed,
     status,
@@ -64,6 +73,19 @@ export function UploadPanel() {
   const [tab, setTab] = useState("file");
   const [encryption, setEncryption] = useState<EncryptionState>(NO_ENCRYPTION);
   const [showEncryptionError, setShowEncryptionError] = useState(false);
+  // Remounts the link and code forms on each share, so their prefill applies
+  // even when the previous share went to the same tab.
+  const [sharedKey, setSharedKey] = useState(0);
+  // Adjusted during render, not in an effect: the tab must already be right on
+  // the render that shows the prefilled form.
+  const [seenShared, setSeenShared] = useState(shared);
+  if (shared !== seenShared) {
+    setSeenShared(shared);
+    if (shared) {
+      setTab(shared.kind);
+      setSharedKey((key) => key + 1);
+    }
+  }
   // A link share is a URL the server must read to redirect, so it is never sealed
   const offerEncryption =
     capabilities.data?.encryption === true && tab !== "link";
@@ -83,12 +105,15 @@ export function UploadPanel() {
     return choice;
   };
 
-  const handleSelectFiles = (files: FileEntry[]) => {
+  const handleSelectFiles = (
+    files: FileEntry[],
+    el: HTMLElement | null = fileButtonRef.current
+  ) => {
     const choice = sealing();
     if (choice === null) {
       return;
     }
-    start(fileButtonRef.current, (onProgress) =>
+    start(el, (onProgress) =>
       upload({ files, type: "file" }, { encryption: choice, onProgress })
     );
   };
@@ -154,18 +179,40 @@ export function UploadPanel() {
               </TabsList>
 
               <TabsContent value="file">
-                <div className="flex justify-center py-4">
-                  <UploadButton
-                    onSelectFiles={handleSelectFiles}
+                {shared?.kind === "file" ? (
+                  <SharedFiles
+                    files={shared.files}
+                    onDiscard={() => onSharedDone?.()}
+                    onUpload={(el) =>
+                      handleSelectFiles(
+                        shared.files.map((file) => ({ file, path: file.name })),
+                        el
+                      )
+                    }
                     progress={progress}
-                    ref={fileButtonRef}
                     status={status}
                   />
-                </div>
+                ) : (
+                  <div className="flex justify-center py-4">
+                    <UploadButton
+                      onSelectFiles={(files) => handleSelectFiles(files)}
+                      progress={progress}
+                      ref={fileButtonRef}
+                      status={status}
+                    />
+                  </div>
+                )}
               </TabsContent>
               <TabsContent className="py-2" value="code">
                 <Suspense fallback={<CodeUploadFormSkeleton />}>
                   <CodeUploadForm
+                    initialContent={
+                      shared?.kind === "code" ? shared.content : undefined
+                    }
+                    initialTitle={
+                      shared?.kind === "code" ? shared.title : undefined
+                    }
+                    key={sharedKey}
                     onSubmit={handleSubmitCode}
                     progress={progress}
                     status={status}
@@ -174,6 +221,8 @@ export function UploadPanel() {
               </TabsContent>
               <TabsContent className="py-2" value="link">
                 <LinkUploadForm
+                  initialUrl={shared?.kind === "link" ? shared.url : undefined}
+                  key={sharedKey}
                   onSubmit={handleSubmitLink}
                   progress={progress}
                   status={status}
@@ -222,7 +271,12 @@ export function UploadPanel() {
             />
             {result && (
               <UploadResult
-                onReset={reset}
+                onReset={() => {
+                  if (shared?.kind === "file") {
+                    onSharedDone?.();
+                  }
+                  reset();
+                }}
                 origin={origin}
                 result={result}
                 visible={expanded}

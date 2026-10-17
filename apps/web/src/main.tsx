@@ -10,6 +10,7 @@ import { Loader } from "@tessera/ui/components/loader";
 import ReactDOM from "react-dom/client";
 
 import { apiErrorCode } from "@/lib/api-error";
+import { registerServiceWorkerWhenIdle } from "@/lib/pwa/service-worker";
 import { CHANGE_PASSWORD_PATH } from "@/lib/route-guard";
 
 import { routeTree } from "./routeTree.gen";
@@ -88,3 +89,5 @@ if (!rootElement.innerHTML) {
     </QueryClientProvider>
   );
 }
+
+registerServiceWorkerWhenIdle();
