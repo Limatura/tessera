@@ -253,6 +253,18 @@ async fn sign_in_with_password(client: &Client) -> Result<String> {
         prompt("Code from your authenticator app: ")
     })
     .await
+    .map_err(|error| match error {
+        // The server does not say which accounts have no password, so this
+        // cannot either; it can say where those accounts go instead.
+        Error::Server {
+            code: Some(code), ..
+        } if code == "invalid_credentials" => Error::Usage(
+            "wrong username or password. An account that signs in with a passkey or a \
+             provider has no password here; run `tessera login` without --password"
+                .to_owned(),
+        ),
+        other => other,
+    })
 }
 
 /// One line typed on the terminal, after `question` on standard error.
