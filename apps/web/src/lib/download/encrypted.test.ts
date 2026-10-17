@@ -1,17 +1,15 @@
-import { readFileSync } from "node:fs";
-
 import type { components } from "@tessera/api/schema";
 import {
   CHUNK_LENGTH,
   newKey,
-  readySync,
   sealDetails,
   sealName,
   sealStream,
 } from "@tessera/crypto";
 import type { ShareKey } from "@tessera/crypto";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { byteDiff } from "../../tests/unit/bytes";
 import type { OpenedFile } from "./encrypted";
 import {
   baseName,
@@ -32,17 +30,6 @@ type PublicShare = components["schemas"]["PublicShareResponse"];
 
 /** What the crate says for an altered object or the wrong key: one message for both. */
 const UNAUTHENTIC = /altered, or the key is wrong/u;
-
-beforeAll(() => {
-  readySync(
-    readFileSync(
-      new URL(
-        "../../../node_modules/@tessera/crypto/src/wasm/tessera_crypto_bg.wasm",
-        import.meta.url
-      )
-    )
-  );
-});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -150,6 +137,17 @@ const fileFor = (sealed: Uint8Array, plain: number): OpenedFile => ({
   sealedBytes: sealed.length,
 });
 
+const layoutOf2 = (length: number) => {
+  const cut = Math.floor(length / 2);
+  return {
+    segments: [
+      { length: cut, offset: 0 },
+      { length: length - cut, offset: cut },
+    ],
+    size_bytes: length,
+  };
+};
+
 describe("openedFileStream", () => {
   it("joins the pieces from the stores and opens them", async () => {
     const key = newKey();
@@ -191,8 +189,79 @@ describe("openedFileStream", () => {
       fileFor(sealed, plain.length),
       ticket
     );
-    expect(await collect(stream)).toEqual(plain);
+    expect(byteDiff(await collect(stream), plain)).toBeNull();
     expect(ticket).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/s/abc/segments?file=1",
+      "/s/abc/segments/0?file=1",
+      "/s/abc/segments/1?file=1",
+    ]);
+  });
+
+  it("falls back to /download when the first segment fetch throws", async () => {
+    const key = newKey();
+    const plain = randomBytes(CHUNK_LENGTH * 2 + 3);
+    const sealed = await seal(key, plain);
+    const layout = layoutOf2(sealed.length);
+    const fetchMock = vi.fn<(url: string) => Promise<Response>>(
+      (url: string) => {
+        if (url === "/s/abc/segments?file=1") {
+          return Promise.resolve(Response.json(layout));
+        }
+        if (url.startsWith("/s/abc/segments/")) {
+          // What a bucket without CORS looks like to fetch
+          return Promise.reject(new TypeError("Failed to fetch"));
+        }
+        return Promise.resolve(new Response(sealed as BodyInit));
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const ticket = vi.fn<() => Promise<string>>(() => Promise.resolve("tk"));
+
+    const stream = await openedFileStream(
+      "abc",
+      key,
+      fileFor(sealed, plain.length),
+      ticket
+    );
+    expect(byteDiff(await collect(stream), plain)).toBeNull();
+    expect(ticket).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/s/abc/segments?file=1",
+      "/s/abc/segments/0?file=1",
+      "/s/abc/download?t=tk&file=1",
+    ]);
+  });
+
+  it("uses /download for a file stored as a single segment", async () => {
+    const key = newKey();
+    const plain = randomBytes(5000);
+    const sealed = await seal(key, plain);
+    const layout = {
+      segments: [{ length: sealed.length, offset: 0 }],
+      size_bytes: sealed.length,
+    };
+    const fetchMock = vi.fn<(url: string) => Promise<Response>>((url: string) =>
+      Promise.resolve(
+        url === "/s/abc/segments?file=1"
+          ? Response.json(layout)
+          : new Response(sealed as BodyInit)
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const ticket = vi.fn<() => Promise<string>>(() => Promise.resolve("tk"));
+
+    const stream = await openedFileStream(
+      "abc",
+      key,
+      fileFor(sealed, plain.length),
+      ticket
+    );
+    expect(byteDiff(await collect(stream), plain)).toBeNull();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/s/abc/segments?file=1",
+      "/s/abc/download?t=tk&file=1",
+    ]);
   });
 
   it("falls back to /download, spending a ticket, when there is no layout", async () => {
@@ -214,7 +283,9 @@ describe("openedFileStream", () => {
       { ...fileFor(sealed, 1000), type: "text/plain" },
       () => Promise.resolve("tk")
     );
-    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(plain);
+    expect(
+      byteDiff(new Uint8Array(await blob.arrayBuffer()), plain)
+    ).toBeNull();
     expect(blob.type).toBe("text/plain");
     expect(fetchMock).toHaveBeenLastCalledWith("/s/abc/download?t=tk&file=1");
   });

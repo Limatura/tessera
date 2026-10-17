@@ -21,5 +21,6 @@ export default defineConfig({
     // fail during collection.
     exclude: ["**/node_modules/**", "src/tests/e2e/**"],
     include: ["src/**/*.test.ts"],
+    setupFiles: ["src/tests/unit/crypto-wasm.ts"],
   },
 });

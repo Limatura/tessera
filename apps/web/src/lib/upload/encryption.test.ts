@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import {
   CHUNK_LENGTH,
   HEADER_LENGTH,
@@ -9,12 +7,12 @@ import {
   openName,
   openStream,
   openText,
-  readySync,
   sealedSize,
   ShareKey,
 } from "@tessera/crypto";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { byteDiff } from "../../tests/unit/bytes";
 import {
   prepareSealing,
   sealedBlob,
@@ -26,17 +24,6 @@ import {
 
 /** What the crate says for an altered object or the wrong key: one message for both. */
 const UNAUTHENTIC = /altered, or the key is wrong/u;
-
-beforeAll(() => {
-  readySync(
-    readFileSync(
-      new URL(
-        "../../../node_modules/@tessera/crypto/src/wasm/tessera_crypto_bg.wasm",
-        import.meta.url
-      )
-    )
-  );
-});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -105,7 +92,7 @@ describe("sealedSource", () => {
 
     const sealed = await readParts(source, 100_000);
     expect(sealed.length).toBe(source.size);
-    expect(await open(key, sealed)).toEqual(plain);
+    expect(byteDiff(await open(key, sealed), plain)).toBeNull();
   });
 
   it("refuses parts asked for out of order", async () => {
@@ -120,9 +107,7 @@ describe("sealedBlob", () => {
     const plain = randomBytes(size);
     const blob = await sealedBlob(key, fileOf(plain));
     expect(blob.size).toBe(sealedSize(size));
-    expect(await open(key, new Uint8Array(await blob.arrayBuffer()))).toEqual(
-      plain
-    );
+    expect(byteDiff(await open(key, await bytesOf(blob)), plain)).toBeNull();
   });
 
   it("never seals the same file to the same bytes", async () => {
@@ -133,7 +118,7 @@ describe("sealedBlob", () => {
     expect(one.subarray(0, HEADER_LENGTH)).not.toEqual(
       two.subarray(0, HEADER_LENGTH)
     );
-    expect(one).not.toEqual(two);
+    expect(Buffer.compare(one, two)).not.toBe(0);
   });
 
   it("seals identical chunks of one file to different bytes", async () => {

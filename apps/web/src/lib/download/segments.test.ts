@@ -1,31 +1,13 @@
-import { readFileSync } from "node:fs";
-
-import {
-  CHUNK_LENGTH,
-  newKey,
-  openStream,
-  readySync,
-  sealStream,
-} from "@tessera/crypto";
+import { CHUNK_LENGTH, newKey, openStream, sealStream } from "@tessera/crypto";
 import type { ShareKey } from "@tessera/crypto";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { byteDiff } from "../../tests/unit/bytes";
 import type { SegmentLayout } from "./segments";
 import { fetchSegment, fetchSegmentLayout, joinSegments } from "./segments";
 
 /** What the crate says for an altered object or the wrong key: one message for both. */
 const UNAUTHENTIC = /altered, or the key is wrong/u;
-
-beforeAll(() => {
-  readySync(
-    readFileSync(
-      new URL(
-        "../../../node_modules/@tessera/crypto/src/wasm/tessera_crypto_bg.wasm",
-        import.meta.url
-      )
-    )
-  );
-});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -99,11 +81,12 @@ const pieceOf = (sealed: Uint8Array, layout: SegmentLayout, index: number) => {
 const joinAndOpen = async (
   key: ShareKey,
   layout: SegmentLayout,
-  sealedLength: number
+  sealedLength: number,
+  file?: number
 ) => {
-  const first = await fetchSegment("abc", 0);
+  const first = await fetchSegment("abc", 0, file);
   return collect(
-    joinSegments("abc", layout, first).pipeThrough(
+    joinSegments("abc", layout, first, file).pipeThrough(
       openStream(key, sealedLength)
     )
   );
@@ -126,7 +109,9 @@ describe("seal, split into segments, join, open", () => {
     const layout = layoutOf(sealed.length, count);
     stubStore((index) => pieceOf(sealed, layout, index));
 
-    expect(await joinAndOpen(key, layout, sealed.length)).toEqual(plain);
+    expect(
+      byteDiff(await joinAndOpen(key, layout, sealed.length), plain)
+    ).toBeNull();
   });
 
   it("restores a file split on the exact chunk boundaries", async () => {
@@ -143,20 +128,22 @@ describe("seal, split into segments, join, open", () => {
       size_bytes: sealed.length,
     };
     stubStore((index) => pieceOf(sealed, layout, index));
-    expect(await joinAndOpen(key, layout, sealed.length)).toEqual(plain);
+    expect(
+      byteDiff(await joinAndOpen(key, layout, sealed.length), plain)
+    ).toBeNull();
   });
 
-  it("fetches each later piece only once, in order", async () => {
+  it("fetches each later piece only once, in order, for the file asked", async () => {
     const key = newKey();
     const sealed = await seal(key, randomBytes(CHUNK_LENGTH * 2));
     const layout = layoutOf(sealed.length, 4);
     const fetchMock = stubStore((index) => pieceOf(sealed, layout, index));
-    await joinAndOpen(key, layout, sealed.length);
+    await joinAndOpen(key, layout, sealed.length, 2);
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-      "/s/abc/segments/0",
-      "/s/abc/segments/1",
-      "/s/abc/segments/2",
-      "/s/abc/segments/3",
+      "/s/abc/segments/0?file=2",
+      "/s/abc/segments/1?file=2",
+      "/s/abc/segments/2?file=2",
+      "/s/abc/segments/3?file=2",
     ]);
   });
 });
@@ -218,7 +205,7 @@ describe("a join that must fail", () => {
       return index === 1 ? piece.subarray(0, -1) : piece;
     });
     await expect(joinAndOpen(key, layout, sealed.length)).rejects.toThrow(
-      /segment 1 ended at/u
+      /^segment 1 ended at \d+ of \d+$/u
     );
   });
 
@@ -229,16 +216,18 @@ describe("a join that must fail", () => {
       return index === 1 ? new Uint8Array([...piece, 0]) : piece;
     });
     await expect(joinAndOpen(key, layout, sealed.length)).rejects.toThrow(
-      /segment 1 ran long/u
+      /^segment 1 ran long$/u
     );
   });
 
-  it("rejects a layout that leaves out the last piece", async () => {
+  it("lets openStream reject a layout that leaves out the last piece", async () => {
+    // joinSegments has no total to check against: it stops after the pieces it
+    // was told about. The crate's opener is what notices the missing tail.
     const { key, layout, sealed } = await sealedFixture();
     stubStore((index) => pieceOf(sealed, layout, index));
     const truncated = { ...layout, segments: layout.segments.slice(0, -1) };
     await expect(joinAndOpen(key, truncated, sealed.length)).rejects.toThrow(
-      /ended early/u
+      /^the sealed object ended early or ran long$/u
     );
   });
 
