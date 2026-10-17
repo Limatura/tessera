@@ -19,7 +19,8 @@ const BLACK_ON_WHITE: &str = "\x1b[30;47m";
 const RESET: &str = "\x1b[0m";
 
 /// `text` as a QR code drawn with block characters, two rows of modules to a
-/// line, with its quiet zone, in black on white whatever the terminal's theme.
+/// line, with its quiet zone, in black on white whatever the terminal's theme,
+/// set in from the left edge like the rest of the output.
 ///
 /// # Errors
 ///
@@ -30,6 +31,7 @@ pub fn qr(text: &str) -> Result<String> {
     let drawn = code.render::<Dense1x2>().quiet_zone(true).build();
     let mut out = String::with_capacity(drawn.len() * 2);
     for line in drawn.lines() {
+        out.push_str("  ");
         out.push_str(BLACK_ON_WHITE);
         out.push_str(line);
         out.push_str(RESET);
@@ -129,7 +131,8 @@ mod tests {
         let rows: Vec<Vec<char>> = drawn
             .lines()
             .map(|line| {
-                line.strip_prefix(BLACK_ON_WHITE)
+                line.trim_start_matches(' ')
+                    .strip_prefix(BLACK_ON_WHITE)
                     .and_then(|line| line.strip_suffix(RESET))
                     .expect("every line is coloured")
                     .chars()

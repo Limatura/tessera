@@ -7,6 +7,7 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use crate::{
     Result,
     client::{Client, OwnShare},
+    style::{DIM, STRONG},
 };
 
 /// Every share the account owns, newest first, across as many pages as the
@@ -62,8 +63,10 @@ fn expires(expires_at: Option<&str>, now: OffsetDateTime) -> String {
     let left = at - now;
     if left.is_negative() {
         "expired".to_owned()
-    } else if left.whole_days() > 0 {
-        format!("{}d", left.whole_days())
+    } else if left.whole_hours() >= 24 {
+        // Rounded, not cut: a share made to last three days says `3d` for
+        // most of its first day, not `2d` from its first minute.
+        format!("{}d", (left.whole_hours() + 12) / 24)
     } else if left.whole_hours() > 0 {
         format!("{}h", left.whole_hours())
     } else {
@@ -71,7 +74,8 @@ fn expires(expires_at: Option<&str>, now: OffsetDateTime) -> String {
     }
 }
 
-/// The shares as aligned columns, with a header. Nothing when there are none.
+/// The shares as aligned columns, with a header, styled for a terminal.
+/// Nothing when there are none.
 #[must_use]
 pub fn table(shares: &[OwnShare], now: OffsetDateTime) -> String {
     if shares.is_empty() {
@@ -101,17 +105,22 @@ pub fn table(shares: &[OwnShare], now: OffsetDateTime) -> String {
     let widths = [width(0), width(1), width(2)];
 
     let mut out = String::new();
-    for row in std::iter::once(&header).chain(&rows) {
+    for (index, row) in std::iter::once(&header).chain(&rows).enumerate() {
         let [code, expires, left, name] = row;
-        // Writing to a `String` cannot fail.
-        writeln!(
-            out,
+        // Padded first and styled after, so the escapes do not count as width.
+        let line = format!(
             "{code:<w0$}  {expires:<w1$}  {left:>w2$}  {name}",
             w0 = widths[0],
             w1 = widths[1],
             w2 = widths[2],
-        )
-        .ok();
+        );
+        // Writing to a `String` cannot fail.
+        if index == 0 {
+            writeln!(out, "{DIM}{line}{DIM:#}").ok();
+        } else {
+            let (code, rest) = line.split_at(widths[0].min(line.len()));
+            writeln!(out, "{STRONG}{code}{STRONG:#}{rest}").ok();
+        }
     }
     out
 }
@@ -139,6 +148,7 @@ mod tests {
         let now = datetime!(2026-10-18 12:00 UTC);
         assert_eq!(expires(None, now), "never");
         assert_eq!(expires(Some("2026-10-21T13:00:00Z"), now), "3d");
+        assert_eq!(expires(Some("2026-10-21T11:59:00Z"), now), "3d");
         assert_eq!(expires(Some("2026-10-18T17:30:00Z"), now), "5h");
         assert_eq!(expires(Some("2026-10-18T12:00:20Z"), now), "1m");
         assert_eq!(expires(Some("2026-10-18T11:00:00Z"), now), "expired");
@@ -168,7 +178,7 @@ mod tests {
         long.uses_remaining = Some(12);
         let out = table(&[long, share("AB")], datetime!(2026-10-18 12:00 UTC));
         assert_eq!(
-            out,
+            anstream::adapter::strip_str(&out).to_string(),
             "CODE      EXPIRES  LEFT  NAME\n\
              P8D72PSF  never      12  (note)\n\
              AB        never       -  (note)\n"

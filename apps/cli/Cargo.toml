@@ -14,6 +14,9 @@ path = "src/main.rs"
 # dependency against one small binary, while this is for people typing
 # commands, where a self-explanatory `--help` is the product.
 [dependencies]
+# Styled output that turns itself off for pipes and `NO_COLOR`; clap uses both.
+anstream = "1.0"
+anstyle = "1.0"
 base64ct = { version = "1.8", features = ["alloc"] }
 clap = { version = "4.6", features = ["derive", "env"] }
 clap_complete = "4.6"

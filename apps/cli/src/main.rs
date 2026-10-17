@@ -13,6 +13,7 @@ use tessera_cli::{
     config, get, link, login, output,
     send::{self, Content, Options},
     shares,
+    style::{self, DIM, ERROR, LINK, OK, SPINNER, STRONG},
 };
 use url::Url;
 
@@ -123,7 +124,7 @@ async fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             // Nowhere left to report a failure to write the failure.
-            writeln!(std::io::stderr(), "tess: {error}").ok();
+            anstream::eprintln!("{ERROR}error:{ERROR:#} {error}");
             ExitCode::FAILURE
         }
     }
@@ -241,6 +242,12 @@ async fn fetch(link: &str, server: Option<Url>, output: &std::path::Path) -> Res
             Err(Error::PasswordRequired) if password.is_none() => {
                 password = Some(rpassword::prompt_password("Password: ")?);
             }
+            Err(Error::Server { status: 404, .. }) => {
+                return Err(Error::Usage(format!(
+                    "no share with the code {}; it may have expired or been used up",
+                    target.code
+                )));
+            }
             other => break other?,
         }
     };
@@ -258,17 +265,17 @@ async fn fetch(link: &str, server: Option<Url>, output: &std::path::Path) -> Res
 /// The QR code on standard error and the clipboard, as asked: standard output
 /// carries only the link, so it can still be piped.
 fn hand_on(link: &str, qr: bool, copy: bool) -> Result<()> {
-    let mut stderr = std::io::stderr();
     if qr {
-        write!(stderr, "{}", output::qr(link)?)?;
+        // Straight to the terminal, not through `anstream`: the colours are
+        // what makes it scan, so they stay even with `NO_COLOR`.
+        write!(std::io::stderr(), "\n{}\n", output::qr(link)?)?;
     }
     if copy {
         match output::copy(link)? {
-            output::Copied::Here => writeln!(stderr, "Copied to the clipboard.")?,
-            output::Copied::ToTerminal => writeln!(
-                stderr,
-                "Sent to your terminal's clipboard; if it is not there, the terminal does not allow it."
-            )?,
+            output::Copied::Here => anstream::eprintln!("{OK}✓{OK:#} Copied to the clipboard"),
+            output::Copied::ToTerminal => anstream::eprintln!(
+                "{OK}✓{OK:#} Copied through the terminal {DIM}(if your terminal allows it){DIM:#}"
+            ),
         }
     }
     Ok(())
@@ -278,11 +285,11 @@ fn hand_on(link: &str, qr: bool, copy: bool) -> Result<()> {
 async fn list(server: Option<Url>, token: Option<String>) -> Result<()> {
     let client = signed_in_client(server, token)?;
     let mine = shares::all_mine(&client).await?;
-    write!(
-        std::io::stdout(),
-        "{}",
-        shares::table(&mine, time::OffsetDateTime::now_utc())
-    )?;
+    if mine.is_empty() {
+        anstream::eprintln!("{DIM}No shares yet.{DIM:#}");
+        return Ok(());
+    }
+    anstream::print!("{}", shares::table(&mine, time::OffsetDateTime::now_utc()));
     Ok(())
 }
 
@@ -303,7 +310,9 @@ async fn remove(share: &str, server: Option<Url>, token: Option<String>) -> Resu
             client.server()
         )));
     }
-    client.delete_share(&target.code).await
+    client.delete_share(&target.code).await?;
+    anstream::eprintln!("{OK}✓{OK:#} Deleted {STRONG}{}{STRONG:#}", target.code);
+    Ok(())
 }
 
 /// A client for `ls` and `rm`, which act as an account and so need a token.
@@ -349,25 +358,48 @@ async fn log_in(server: Url, no_browser: bool, password: bool, with_token: bool)
 async fn sign_in_with_browser(client: &Client, no_browser: bool) -> Result<String> {
     let started = client.start_device_sign_in(&login::client_name()).await?;
     let url = login::approval_url(client, &started)?;
-    let mut stderr = std::io::stderr();
-    writeln!(
-        stderr,
-        "Open {url}\nand check that it shows the code {}.",
+    anstream::eprintln!(
+        "\nOpen the link and check that it shows the same code:\n\n  \
+         {DIM}Code{DIM:#}  {STRONG}{}{STRONG:#}\n  {DIM}Link{DIM:#}  {LINK}{url}{LINK:#}\n",
         started.user_code
-    )?;
+    );
+    let stderr = std::io::stderr();
     if !no_browser && open_browser(&url) {
-        writeln!(stderr, "Opened it in your browser.")?;
+        anstream::eprintln!("{DIM}Opened it in your browser.{DIM:#}\n");
     } else if stderr.is_terminal() {
         // No browser here, so the approving is done on another device, and a
         // phone would rather scan than be typed into.
-        write!(
-            stderr,
-            "\nOr scan it with your phone:\n{}\n",
-            output::qr(url.as_str())?
-        )?;
+        anstream::eprintln!("{DIM}Or scan it with your phone:{DIM:#}\n");
+        writeln!(&stderr, "{}", output::qr(url.as_str())?)?;
     }
-    writeln!(stderr, "Waiting for approval...")?;
-    login::wait_for_approval(client, &started).await
+    spin(
+        "Waiting for approval",
+        login::wait_for_approval(client, &started),
+    )
+    .await
+}
+
+/// Shows a spinner beside `label` on a terminal until `work` is done.
+async fn spin<T>(label: &str, work: impl Future<Output = T>) -> T {
+    let mut stderr = std::io::stderr();
+    if !stderr.is_terminal() {
+        return work.await;
+    }
+    let mut work = std::pin::pin!(work);
+    let mut ticks = tokio::time::interval(std::time::Duration::from_millis(100));
+    let mut frames = SPINNER.iter().cycle();
+    loop {
+        tokio::select! {
+            done = &mut work => {
+                write!(stderr, "\r\x1b[2K").ok();
+                return done;
+            }
+            _ = ticks.tick() => {
+                let frame = frames.next().copied().unwrap_or(' ');
+                anstream::eprint!("\r\x1b[2K{DIM}{frame} {label}…{DIM:#}");
+            }
+        }
+    }
 }
 
 /// Asks for a username and password, and a code when the account has one.
@@ -406,15 +438,36 @@ fn prompt(question: &str) -> Result<String> {
 fn save_sign_in(server: Url, token: String, username: &str) -> Result<()> {
     let path = config::default_path()?;
     let mut saved = config::load(&path)?;
-    let message = format!(
-        "Signed in to {server} as {username}. Saved to {}.",
-        path.display()
-    );
+    let host = host_of(&server);
     saved.server = Some(server);
     saved.token = Some(token);
     config::save(&path, &saved)?;
-    writeln!(std::io::stderr(), "{message}")?;
+    anstream::eprintln!(
+        "{OK}✓{OK:#} Signed in to {STRONG}{host}{STRONG:#} as {STRONG}{username}{STRONG:#}\n  \
+         {DIM}Saved to {}{DIM:#}",
+        tilde(&path)
+    );
     Ok(())
+}
+
+/// `path` with the home directory written as `~`, the way people write it.
+fn tilde(path: &std::path::Path) -> String {
+    std::env::home_dir()
+        .and_then(|home| path.strip_prefix(home).ok())
+        .map_or_else(
+            || path.display().to_string(),
+            |rest| format!("~/{}", rest.display()),
+        )
+}
+
+/// `share.example.com`, or with its port when it has one: how a person names
+/// an instance.
+fn host_of(server: &Url) -> String {
+    match (server.host_str(), server.port()) {
+        (Some(host), Some(port)) => format!("{host}:{port}"),
+        (Some(host), None) => host.to_owned(),
+        (None, _) => server.to_string(),
+    }
 }
 
 /// Tries to open `url` in a browser, and says whether something took it.
@@ -457,15 +510,21 @@ fn new_password() -> Result<String> {
     Ok(first)
 }
 
-/// One line on standard error, rewritten in place, when it is a terminal.
+/// One line on standard error, rewritten in place, when it is a terminal:
+/// the name, a bar, and how much of how much.
 fn progress(name: &str, done: u64, total: u64) {
     let mut stderr = std::io::stderr();
     if !stderr.is_terminal() {
         return;
     }
     let percent = done.saturating_mul(100).checked_div(total).unwrap_or(100);
+    let (filled, empty) = style::bar(done, total, 24);
     // Progress is a courtesy; a terminal that will not take it changes nothing.
-    write!(stderr, "\r\x1b[2K{name}: {percent}%").ok();
+    anstream::eprint!(
+        "\r\x1b[2K{name}  {filled}{DIM}{empty}{DIM:#}  {percent:>3}%  {DIM}{} / {}{DIM:#}",
+        style::bytes(done),
+        style::bytes(total)
+    );
     stderr.flush().ok();
 }
 
