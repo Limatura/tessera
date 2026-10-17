@@ -19,13 +19,6 @@ import {
   safePath,
 } from "./encrypted";
 
-// The `@/` alias only resolves in the full Vite config, not the unit-test one.
-// This mirrors the one-line URL builder in `@/lib/api/share`.
-vi.mock("@/lib/api/share", () => ({
-  buildTransferUrl: (code: string, endpoint: string, ticket: string) =>
-    `/s/${code}/${endpoint}?t=${encodeURIComponent(ticket)}`,
-}));
-
 type PublicShare = components["schemas"]["PublicShareResponse"];
 
 /** What the crate says for an altered object or the wrong key: one message for both. */

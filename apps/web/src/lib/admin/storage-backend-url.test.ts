@@ -1,24 +1,6 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
 import { backendUrlProblem } from "./storage-backend-url";
-
-// Messages are generated per build; the test only needs "some text came back".
-const { isMessage } = vi.hoisted(() => ({
-  isMessage: (key: string | symbol): key is string =>
-    typeof key === "string" && key.startsWith("settings_storage_backends_url_"),
-}));
-
-vi.mock(
-  "@/paraglide/messages",
-  () =>
-    new Proxy(
-      {},
-      {
-        get: (_, key) => (isMessage(key) ? () => key : undefined),
-        has: (_, key) => isMessage(key),
-      }
-    )
-);
 
 describe("backendUrlProblem", () => {
   it.each([

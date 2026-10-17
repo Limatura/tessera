@@ -1,4 +1,9 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
+
+import {
+  PASSWORD_MAX_CEILING,
+  PASSWORD_MIN_FLOOR,
+} from "@/lib/api/password-policy";
 
 import {
   APPEARANCE_ACCENTS,
@@ -27,36 +32,6 @@ import {
   throttleSettingsSchema,
   uploadSettingsSchema,
 } from "./settings-schema";
-
-// The `@/` alias is not set up for unit tests, and the real module pulls in
-// the API error helpers; only its two bounds are needed.
-const { PASSWORD_MAX_CEILING, PASSWORD_MIN_FLOOR } = vi.hoisted(() => ({
-  PASSWORD_MAX_CEILING: 1024,
-  PASSWORD_MIN_FLOOR: 8,
-}));
-
-vi.mock("@/lib/api/password-policy", () => ({
-  PASSWORD_MAX_CEILING,
-  PASSWORD_MIN_FLOOR,
-}));
-
-// Error messages are generated per build; any settings_schema_* returns its key.
-const { isMessage } = vi.hoisted(() => ({
-  isMessage: (key: string | symbol): key is string =>
-    typeof key === "string" && key.startsWith("settings_schema_"),
-}));
-
-vi.mock(
-  "@/paraglide/messages",
-  () =>
-    new Proxy(
-      {},
-      {
-        get: (_, key) => (isMessage(key) ? () => key : undefined),
-        has: (_, key) => isMessage(key),
-      }
-    )
-);
 
 /** The paths of every issue, or `[]` when the value parses. */
 function issuePaths(
