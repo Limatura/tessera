@@ -177,57 +177,59 @@ function Confirm({ code }: { code: string }) {
 
   return (
     <Card aria-busy={request.isPending} className={CARD_CLASS}>
-      <Heading
-        description={m.device_confirm_description()}
-        icon={<SquareTerminal className="size-5" />}
-        title={m.device_confirm_title()}
-      />
-      <CardContent className="flex flex-col gap-5">
-        <p className="text-center font-mono text-3xl tracking-[0.2em] tabular-nums">
-          {display}
-        </p>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-          <dt className="text-muted-foreground">{m.device_client()}</dt>
-          <dd className="min-w-0 truncate">{pending?.client_name ?? "…"}</dd>
-          <dt className="text-muted-foreground">{m.device_requested_from()}</dt>
-          <dd className="min-w-0 truncate font-mono tabular-nums">
-            {pending?.requested_from ?? "…"}
-          </dd>
-          <dt className="text-muted-foreground">{m.device_requested_at()}</dt>
-          <dd className="tabular-nums">
-            {pending ? formatDate(pending.created_at) : "…"}
-          </dd>
-        </dl>
-        <p className="text-muted-foreground text-sm">{m.device_access()}</p>
-        <div className="flex gap-2.5 rounded-lg border border-border/60 bg-muted/50 p-3 text-sm">
-          <ShieldAlert
-            aria-hidden="true"
-            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-          />
-          <p>{m.device_warning()}</p>
+      <CardHeader className="items-center text-center">
+        <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+          <SquareTerminal className="size-5" />
+        </div>
+        <CardTitle className="font-medium text-xl tracking-tight">
+          {m.device_confirm_title()}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-6">
+        <div className="rounded-xl bg-muted/60 px-4 py-5 text-center">
+          <p className="font-mono text-3xl tracking-[0.2em] tabular-nums">
+            {display}
+          </p>
+          <p className="mt-2 text-muted-foreground text-xs">
+            {m.device_confirm_description()}
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="truncate font-medium">{pending?.client_name ?? "…"}</p>
+          <p className="mt-1 text-muted-foreground text-sm tabular-nums">
+            {pending
+              ? `${pending.requested_from} · ${formatDate(pending.created_at)}`
+              : "…"}
+          </p>
         </div>
         {answer.isError ? (
-          <p className="text-destructive text-sm" role="alert">
+          <p className="text-center text-destructive text-sm" role="alert">
             {apiErrorMessage(answer.error, m.common_try_again())}
           </p>
         ) : null}
       </CardContent>
-      <CardFooter className="flex gap-2">
-        <Button
-          className="flex-1"
-          disabled={!pending || answer.isPending}
-          onClick={() => answer.mutate({ approve: false, code })}
-          variant="outline"
-        >
-          {m.device_deny()}
-        </Button>
-        <Button
-          className="flex-1"
-          disabled={!pending || answer.isPending}
-          onClick={() => answer.mutate({ approve: true, code })}
-        >
-          {m.device_approve()}
-        </Button>
+      <CardFooter className="flex flex-col gap-4">
+        <div className="flex w-full gap-2">
+          <Button
+            className="flex-1"
+            disabled={!pending || answer.isPending}
+            onClick={() => answer.mutate({ approve: false, code })}
+            variant="outline"
+          >
+            {m.device_deny()}
+          </Button>
+          <Button
+            className="flex-1"
+            disabled={!pending || answer.isPending}
+            onClick={() => answer.mutate({ approve: true, code })}
+          >
+            {m.device_approve()}
+          </Button>
+        </div>
+        <p className="flex items-start gap-1.5 text-muted-foreground text-xs">
+          <ShieldAlert aria-hidden="true" className="mt-px size-3.5 shrink-0" />
+          {m.device_warning()}
+        </p>
       </CardFooter>
     </Card>
   );
