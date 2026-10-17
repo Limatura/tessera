@@ -1,8 +1,13 @@
-//! `tessera login`: get an API token by approving this machine in a browser.
+//! `tessera login`: get an API token for this machine.
 //!
-//! The browser need not be on this machine. The command shows a link and a
-//! short code, the person opens the link wherever they are signed in, and this
-//! side polls until they approve. That is what makes it work over SSH.
+//! Three ways, for three situations:
+//!
+//! - By approving it in a browser, the default. The browser need not be on this machine: the
+//!   command shows a link and a short code, the person opens the link wherever they are signed in,
+//!   a phone will do, and this side polls until they approve. That is what makes it work over SSH.
+//! - With a password typed here, for when there is no browser to hand at all. An account that signs
+//!   in only with a passkey or a provider has no password; it uses a browser, or a token.
+//! - With a token made elsewhere, read from standard input, for scripts and CI.
 
 use std::time::Duration;
 
@@ -10,8 +15,12 @@ use url::Url;
 
 use crate::{
     Error, Result,
-    client::{Client, DeviceSignIn},
+    client::{Client, DeviceSignIn, PasswordSignIn},
 };
+
+/// What a token from `tessera login --password` may do, less what the account
+/// itself may not: the same as one approved in a browser.
+const TOKEN_PERMISSIONS: [&str; 3] = ["shares:create", "shares:read", "shares:delete"];
 
 /// Where the person approves a sign-in, with the code filled in.
 ///
@@ -59,6 +68,51 @@ pub async fn wait_for_approval(client: &Client, started: &DeviceSignIn) -> Resul
             Err(error) => return Err(error),
         }
     }
+}
+
+/// Signs in with a password, issues a token, and signs the session out again.
+///
+/// `ask_code` is called when the account asks for a code from its
+/// authenticator app.
+///
+/// # Errors
+///
+/// When the password or the code is wrong, or the account may do none of what
+/// a token here is for.
+pub async fn with_password(
+    client: &Client,
+    identifier: &str,
+    password: &str,
+    ask_code: impl FnOnce() -> Result<String>,
+) -> Result<String> {
+    let signed_in = match client.sign_in_with_password(identifier, password).await? {
+        PasswordSignIn::NeedsCode { ticket } => {
+            let code = ask_code()?;
+            client.finish_password_sign_in(&ticket, code.trim()).await?
+        }
+        done @ PasswordSignIn::Done { .. } => done,
+    };
+    let PasswordSignIn::Done { cookie, account } = signed_in else {
+        return Err(Error::Protocol("asked for a second code".to_owned()));
+    };
+
+    let permissions: Vec<&str> = TOKEN_PERMISSIONS
+        .into_iter()
+        .filter(|wanted| account.permissions.iter().any(|held| held == wanted))
+        .collect();
+    let token = if permissions.is_empty() {
+        Err(Error::Usage(
+            "this account may not upload or manage shares".to_owned(),
+        ))
+    } else {
+        client
+            .create_token(&cookie, &client_name(), &permissions)
+            .await
+    };
+    // The session was only a way to the token; it should not outlive it. A
+    // sign-out that fails leaves a session that expires on its own.
+    client.sign_out(&cookie).await.ok();
+    token
 }
 
 /// Longest name the server takes, which is also the token name's limit.

@@ -417,3 +417,38 @@ async fn login_gets_a_token_once_the_browser_approves() {
         .expect("json");
     assert_eq!(session["username"], "alice");
 }
+
+#[tokio::test]
+async fn login_with_a_password_gets_a_token_and_ends_the_session() {
+    let server = server().await;
+    let registered = reqwest::Client::new()
+        .post(server.url.join("/api/v1/auth/register").expect("a url"))
+        .json(&serde_json::json!({
+            "username": "alice",
+            "email": "alice@example.com",
+            "password": "a perfectly adequate passphrase",
+        }))
+        .send()
+        .await
+        .expect("registered");
+    assert!(registered.status().is_success());
+
+    let client = Client::new(server.url.clone(), None).expect("a client");
+    let token = login::with_password(&client, "alice", "a perfectly adequate passphrase", || {
+        Err(Error::Usage("no code was asked for".to_owned()))
+    })
+    .await
+    .expect("a token");
+    let account = Client::new(server.url.clone(), Some(token))
+        .expect("a client")
+        .account()
+        .await
+        .expect("the account");
+    assert_eq!(account.username, "alice");
+
+    let refused = login::with_password(&client, "alice", "not the password", || {
+        Err(Error::Usage("no code was asked for".to_owned()))
+    })
+    .await;
+    assert!(matches!(refused, Err(Error::Server { status: 401, .. })));
+}

@@ -81,6 +81,54 @@ struct Issued {
     secret: String,
 }
 
+/// An account, as much of it as the commands read.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Account {
+    /// Its name.
+    pub username: String,
+    /// What it may do, as `resource:verb` strings.
+    pub permissions: Vec<String>,
+}
+
+/// Where a password sign-in got to.
+#[derive(Debug, Clone)]
+pub enum PasswordSignIn {
+    /// Signed in. The session cookie, as `name=value`, and the account.
+    Done {
+        /// Sent back as the `Cookie` header.
+        cookie: String,
+        /// Who signed in.
+        account: Account,
+    },
+    /// The password was right and the account asks for a code from its
+    /// authenticator app. Finish with [`Client::finish_password_sign_in`].
+    NeedsCode {
+        /// What the code is sent back with.
+        ticket: String,
+    },
+}
+
+#[derive(Deserialize)]
+struct Challenge {
+    ticket: String,
+}
+
+/// The session cookie a sign-in set, as `name=value`.
+fn session_cookie(response: &Response) -> Result<String> {
+    response
+        .headers()
+        .get_all(reqwest::header::SET_COOKIE)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .filter_map(|value| value.split(';').next())
+        .find(|pair| pair.starts_with(SESSION_COOKIE))
+        .map(str::to_owned)
+        .ok_or_else(|| Error::Protocol("signed in, but no session cookie came back".to_owned()))
+}
+
+/// The cookie the server keeps a browser session in.
+const SESSION_COOKIE: &str = "tessera_session=";
+
 #[derive(Deserialize)]
 struct Ticket {
     ticket: String,
@@ -316,6 +364,101 @@ impl Client {
             .json(&serde_json::json!({ "device_code": device_code }));
         let issued: Issued = accepted(request.send().await?).await?.json().await?;
         Ok(issued.secret)
+    }
+
+    /// The account this client's token belongs to.
+    ///
+    /// # Errors
+    ///
+    /// When there is no token, or the server does not accept it.
+    pub async fn account(&self) -> Result<Account> {
+        let request = self.request(reqwest::Method::GET, self.url("/api/v1/auth/session")?);
+        Ok(accepted(request.send().await?).await?.json().await?)
+    }
+
+    /// Signs in with a username or address and a password.
+    ///
+    /// # Errors
+    ///
+    /// When the server refuses, which a wrong password does.
+    pub async fn sign_in_with_password(
+        &self,
+        identifier: &str,
+        password: &str,
+    ) -> Result<PasswordSignIn> {
+        let request = self
+            .http
+            .post(self.url("/api/v1/auth/login")?)
+            .json(&serde_json::json!({ "identifier": identifier, "password": password }));
+        let response = accepted(request.send().await?).await?;
+        if response.status() == StatusCode::ACCEPTED {
+            let challenge: Challenge = response.json().await?;
+            return Ok(PasswordSignIn::NeedsCode {
+                ticket: challenge.ticket,
+            });
+        }
+        let cookie = session_cookie(&response)?;
+        Ok(PasswordSignIn::Done {
+            cookie,
+            account: response.json().await?,
+        })
+    }
+
+    /// Finishes a password sign-in with a code from the authenticator app, or
+    /// a recovery code.
+    ///
+    /// # Errors
+    ///
+    /// When the code is wrong or the ticket has run out.
+    pub async fn finish_password_sign_in(
+        &self,
+        ticket: &str,
+        code: &str,
+    ) -> Result<PasswordSignIn> {
+        let request = self
+            .http
+            .post(self.url("/api/v1/auth/login/mfa")?)
+            .json(&serde_json::json!({ "ticket": ticket, "code": code }));
+        let response = accepted(request.send().await?).await?;
+        let cookie = session_cookie(&response)?;
+        Ok(PasswordSignIn::Done {
+            cookie,
+            account: response.json().await?,
+        })
+    }
+
+    /// Issues an API token named `name` with `permissions`, from a session.
+    ///
+    /// # Errors
+    ///
+    /// When the server refuses it.
+    pub async fn create_token(
+        &self,
+        cookie: &str,
+        name: &str,
+        permissions: &[&str],
+    ) -> Result<String> {
+        let request = self
+            .http
+            .post(self.url("/api/v1/tokens")?)
+            .header(reqwest::header::COOKIE, cookie)
+            .json(&serde_json::json!({ "name": name, "permissions": permissions }));
+        let issued: Issued = accepted(request.send().await?).await?.json().await?;
+        Ok(issued.secret)
+    }
+
+    /// Ends a session.
+    ///
+    /// # Errors
+    ///
+    /// When the request does not get an answer.
+    pub async fn sign_out(&self, cookie: &str) -> Result<()> {
+        let request = self
+            .http
+            .post(self.url("/api/v1/auth/logout")?)
+            .header(reqwest::header::COOKIE, cookie);
+        accepted(request.send().await?).await?;
+        Ok(())
     }
 
     /// Starts a download from `from` bytes in. Follows the server to the store
