@@ -81,6 +81,10 @@ test("a password-keyed share opens only with its password", async ({
   context,
   page,
 }) => {
+  // Deriving a key from a password is slow on purpose, and this derives three
+  // times (upload, wrong attempt, right attempt). On a two-core CI runner that
+  // alone pushed the test past the default 30 seconds.
+  test.slow();
   const snippet = `tessera e2e password ${Date.now()}`;
   await prepareSnippet(page, snippet);
   await page.getByRole("switch", { name: "Use a password as the key" }).click();
