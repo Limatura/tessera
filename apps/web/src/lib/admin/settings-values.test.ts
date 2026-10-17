@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   asBoolean,
@@ -11,14 +11,6 @@ import {
   toLines,
   toScopes,
 } from "./settings-values";
-
-// Only `readSetting` is used; the real module pulls in the API client.
-vi.mock("@/hooks/admin/use-settings", () => ({
-  readSetting: (
-    settings: { settings: { key: string; value: unknown }[] } | undefined,
-    key: string
-  ) => settings?.settings.find((setting) => setting.key === key)?.value,
-}));
 
 describe("scalar readers", () => {
   it.each([

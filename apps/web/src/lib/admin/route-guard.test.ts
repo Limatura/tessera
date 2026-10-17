@@ -13,28 +13,6 @@ vi.mock("@tessera/auth/hooks", () => ({
   sessionQueryOptions: { queryKey: ["auth", "session"] },
 }));
 
-// The `@/` alias is not set up for unit tests; point it at the real guard.
-vi.mock("@/lib/route-guard", () => import("../route-guard"));
-
-const { isMessage } = vi.hoisted(() => ({
-  isMessage: (key: string | symbol): key is string =>
-    typeof key === "string" &&
-    (key.startsWith("role_") || key.startsWith("permission_")),
-}));
-
-// permissions.ts builds its label tables from messages; none are read here.
-vi.mock(
-  "@/paraglide/messages",
-  () =>
-    new Proxy(
-      {},
-      {
-        get: (_, key) => (isMessage(key) ? () => key : undefined),
-        has: (_, key) => isMessage(key),
-      }
-    )
-);
-
 function clientFor(permissions: string[] | null) {
   return {
     ensureQueryData: () =>
