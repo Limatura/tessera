@@ -16,7 +16,7 @@ TESSERA_API_ORIGIN=http://127.0.0.1:8788 E2E_ADMIN_PASSWORD='E2e-Tessera-9vQx-Lm
 
 `E2E_ADMIN_PASSWORD` must match `TESSERA_AUTH__ADMIN_PASSWORD`; without it the setup project fails with a message saying so. `E2E_ADMIN_USERNAME` defaults to `admin`, the server's default. A configured admin password is not marked "must change", which a generated one would be. The password has to pass the instance's password policy, so do not shorten it to something weak.
 
-The CI job is written in `.github/workflows/web.yml` (`e2e`) but **commented out**: the self-hosted runner it was written for lacked the system libraries Chromium needs. The comment above it lists what to change to turn it on with GitHub-hosted runners.
+CI runs these in the `e2e` job of `.github/workflows/web.yml` on GitHub-hosted runners, whenever `web` is affected. It starts the backend with the same admin password and encryption switch as above.
 
 [ref]: https://github.com/nelsonlaidev/nelsonlai.dev
 
