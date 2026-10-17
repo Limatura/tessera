@@ -16,7 +16,7 @@ use tempfile::TempDir;
 use tessera_cli::{
     Error,
     client::Client,
-    get, link,
+    get, link, login,
     send::{self, Content, Options},
 };
 use tessera_server::{
@@ -352,4 +352,68 @@ async fn a_plain_share_with_a_password_still_works() {
         std::fs::read(into.path().join("plain.txt")).unwrap(),
         b"in the clear"
     );
+}
+
+#[tokio::test]
+async fn login_gets_a_token_once_the_browser_approves() {
+    let server = server().await;
+    let http = reqwest::Client::new();
+    let registered = http
+        .post(server.url.join("/api/v1/auth/register").expect("a url"))
+        .json(&serde_json::json!({
+            "username": "alice",
+            "email": "alice@example.com",
+            "password": "a perfectly adequate passphrase",
+        }))
+        .send()
+        .await
+        .expect("registered");
+    let cookie = registered
+        .headers()
+        .get("set-cookie")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .expect("a session cookie")
+        .to_owned();
+
+    let client = Client::new(server.url.clone(), None).expect("a client");
+    let started = client
+        .start_device_sign_in(&login::client_name())
+        .await
+        .expect("started");
+    let url = login::approval_url(&client, &started).expect("a link");
+    assert_eq!(url.path(), "/device");
+
+    let waiting = tokio::spawn({
+        let client = client.clone();
+        let started = started.clone();
+        async move { login::wait_for_approval(&client, &started).await }
+    });
+    let approved = http
+        .post(
+            server
+                .url
+                .join(&format!(
+                    "/api/v1/auth/device/{}/approve",
+                    started.user_code
+                ))
+                .expect("a url"),
+        )
+        .header("cookie", cookie)
+        .send()
+        .await
+        .expect("approved");
+    assert_eq!(approved.status(), reqwest::StatusCode::NO_CONTENT);
+
+    let token = waiting.await.expect("joined").expect("a token");
+    let session: serde_json::Value = http
+        .get(server.url.join("/api/v1/auth/session").expect("a url"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("a session")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(session["username"], "alice");
 }

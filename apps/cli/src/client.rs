@@ -63,6 +63,24 @@ pub struct Upload {
     pub token: Option<String>,
 }
 
+/// A sign-in waiting for a person to approve it in a browser.
+#[derive(Debug, Clone, Deserialize)]
+pub struct DeviceSignIn {
+    /// What this program polls with. Never shown.
+    pub device_code: String,
+    /// What the person enters on the site.
+    pub user_code: String,
+    /// Seconds until both codes stop working.
+    pub expires_in: u64,
+    /// Seconds to wait between polls.
+    pub interval: u64,
+}
+
+#[derive(Deserialize)]
+struct Issued {
+    secret: String,
+}
+
 #[derive(Deserialize)]
 struct Ticket {
     ticket: String,
@@ -70,6 +88,7 @@ struct Ticket {
 
 #[derive(Deserialize)]
 struct Refusal {
+    code: Option<String>,
     message: String,
 }
 
@@ -269,6 +288,36 @@ impl Client {
         Ok(ticket.ticket)
     }
 
+    /// Starts signing in from a browser, as `client_name`.
+    ///
+    /// # Errors
+    ///
+    /// When the server refuses it, which an instance without accounts does.
+    pub async fn start_device_sign_in(&self, client_name: &str) -> Result<DeviceSignIn> {
+        let request = self
+            .request(reqwest::Method::POST, self.url("/api/v1/auth/device")?)
+            .json(&serde_json::json!({ "client_name": client_name }));
+        Ok(accepted(request.send().await?).await?.json().await?)
+    }
+
+    /// Asks whether a sign-in started with `device_code` has been approved,
+    /// and collects its token if it has.
+    ///
+    /// # Errors
+    ///
+    /// When the server refuses, which includes "not yet": that is
+    /// `device_authorization_pending` in [`Error::Server`]'s `code`.
+    pub async fn redeem_device_code(&self, device_code: &str) -> Result<String> {
+        let request = self
+            .request(
+                reqwest::Method::POST,
+                self.url("/api/v1/auth/device/token")?,
+            )
+            .json(&serde_json::json!({ "device_code": device_code }));
+        let issued: Issued = accepted(request.send().await?).await?.json().await?;
+        Ok(issued.secret)
+    }
+
     /// Starts a download from `from` bytes in. Follows the server to the store
     /// when it sends one there.
     ///
@@ -290,17 +339,21 @@ async fn accepted(response: Response) -> Result<Response> {
     if status.is_success() {
         return Ok(response);
     }
-    let message = response.json::<Refusal>().await.map_or_else(
+    let (code, message) = response.json::<Refusal>().await.map_or_else(
         |_| {
-            status
-                .canonical_reason()
-                .unwrap_or("request refused")
-                .to_owned()
+            (
+                None,
+                status
+                    .canonical_reason()
+                    .unwrap_or("request refused")
+                    .to_owned(),
+            )
         },
-        |refusal| refusal.message,
+        |refusal| (refusal.code, refusal.message),
     );
     Err(Error::Server {
         status: status.as_u16(),
+        code,
         message,
     })
 }

@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 use tessera_cli::{
     Error, Result,
     client::Client,
-    get, link,
+    config, get, link, login,
     send::{self, Content, Options},
 };
 use url::Url;
@@ -30,10 +30,11 @@ enum Command {
         /// The files to put in one share. `-` reads a note from standard input.
         #[arg(required = true)]
         paths: Vec<PathBuf>,
-        /// The instance to upload to.
+        /// The instance to upload to. Defaults to the one `tessera login` saved.
         #[arg(long, env = "TESSERA_SERVER")]
-        server: Url,
+        server: Option<Url>,
         /// An API token, to upload as an account instead of anonymously.
+        /// Defaults to the one `tessera login` saved, for that instance.
         #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
         token: Option<String>,
         /// Seal the content on this machine. The server never sees the key:
@@ -56,12 +57,22 @@ enum Command {
     Get {
         /// The whole link, or the retrieval code.
         link: String,
-        /// The instance, when only a code is given.
+        /// The instance, when only a code is given. Defaults to the one
+        /// `tessera login` saved.
         #[arg(long, env = "TESSERA_SERVER")]
         server: Option<Url>,
         /// The directory to write files into. A note goes to standard output.
         #[arg(short, long, default_value = ".")]
         output: PathBuf,
+    },
+    /// Sign in to an instance by approving this machine in a browser, and
+    /// save it as the default for `send` and `get`.
+    Login {
+        /// The instance to sign in to.
+        server: Url,
+        /// Only print the link, without trying to open a browser.
+        #[arg(long)]
+        no_browser: bool,
     },
 }
 
@@ -106,6 +117,14 @@ async fn run(cli: Cli) -> Result<()> {
             } else {
                 None
             };
+            let saved = config::load(&config::default_path()?)?;
+            let server = server.or_else(|| saved.server.clone()).ok_or_else(|| {
+                Error::Usage(
+                    "no instance to send to; give --server, or run `tessera login` first"
+                        .to_owned(),
+                )
+            })?;
+            let token = token.or_else(|| saved.token_for(&server).map(str::to_owned));
             let client = Client::new(server, token)?;
             let sent = send::send(
                 &client,
@@ -128,6 +147,10 @@ async fn run(cli: Cli) -> Result<()> {
             server,
             output,
         } => {
+            let server = match server {
+                Some(server) => Some(server),
+                None => config::load(&config::default_path()?)?.server,
+            };
             let target = link::parse(&link, server.as_ref())?;
             let client = Client::new(target.server.clone(), None)?;
             let mut password = std::env::var("TESSERA_PASSWORD").ok();
@@ -158,7 +181,65 @@ async fn run(cli: Cli) -> Result<()> {
             }
             Ok(())
         }
+        Command::Login { server, no_browser } => sign_in(server, no_browser).await,
     }
+}
+
+/// Runs the browser sign-in and saves what it gets.
+async fn sign_in(server: Url, no_browser: bool) -> Result<()> {
+    let path = config::default_path()?;
+    let client = Client::new(server.clone(), None)?;
+    let started = client.start_device_sign_in(&login::client_name()).await?;
+    let url = login::approval_url(&client, &started)?;
+    let mut stderr = std::io::stderr();
+    writeln!(
+        stderr,
+        "Open {url}\nand check that it shows the code {}.",
+        started.user_code
+    )?;
+    if !no_browser && open_browser(&url) {
+        writeln!(stderr, "Opened it in your browser.")?;
+    }
+    writeln!(stderr, "Waiting for approval...")?;
+    let token = login::wait_for_approval(&client, &started).await?;
+
+    let mut saved = config::load(&path)?;
+    saved.server = Some(server.clone());
+    saved.token = Some(token);
+    config::save(&path, &saved)?;
+    writeln!(
+        stderr,
+        "Signed in to {server}. Saved to {}.",
+        path.display()
+    )?;
+    Ok(())
+}
+
+/// Tries to open `url` in a browser, and says whether something took it.
+///
+/// Over SSH, or on a server with no desktop, nothing will; the link printed
+/// above is the way then.
+fn open_browser(url: &Url) -> bool {
+    let url = url.as_str();
+    let mut command = if cfg!(target_os = "macos") {
+        std::process::Command::new("open")
+    } else if cfg!(windows) {
+        let mut command = std::process::Command::new("rundll32");
+        command.arg("url.dll,FileProtocolHandler");
+        command
+    } else {
+        if std::env::var_os("DISPLAY").is_none() && std::env::var_os("WAYLAND_DISPLAY").is_none() {
+            return false;
+        }
+        std::process::Command::new("xdg-open")
+    };
+    command
+        .arg(url)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
 }
 
 /// A password for a new share: from the environment, or typed twice.

@@ -16,6 +16,8 @@ path = "src/main.rs"
 [dependencies]
 base64ct = { version = "1.8", features = ["alloc"] }
 clap = { version = "4.6", features = ["derive", "env"] }
+# Where the config file goes: `~/.config` on Linux and macOS alike.
+etcetera = "0.11"
 futures-util = "0.3"
 getrandom = "0.3"
 # `rustls` for the same reason the server gives: no system OpenSSL to find.
@@ -25,8 +27,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tessera-crypto = { workspace = true }
 thiserror = { workspace = true }
+toml = "1.1"
 tokio = { version = "1.53", features = ["fs", "io-std", "io-util", "macros", "rt-multi-thread", "time"] }
-url = "2"
+url = { version = "2", features = ["serde"] }
 
 [dev-dependencies]
 axum = "0.8.9"
