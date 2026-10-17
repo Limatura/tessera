@@ -7,7 +7,7 @@ import { requireAuth } from "@/lib/route-guard";
 import { DeviceCard } from "./-components/device-card";
 
 /**
- * Where `tessera login` sends the person, with `?code=` filled in, to approve
+ * Where `tess login` sends the person, with `?code=` filled in, to approve
  * the terminal it runs in (see apps/server/src/api/device.rs). Signing in comes
  * first, and the sign-in page brings them back here with the code intact.
  */
