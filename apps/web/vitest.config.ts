@@ -1,14 +1,27 @@
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import { defineConfig } from "vite-plus";
 
-// Does not extend vite.config.ts: that loads paraglide, TanStack Router and other
-// plugins, and everything tested here is a pure function that touches neither
-// the DOM nor i18n, so loading them only slows things down. To test components
-// later, add a project with environment: "jsdom".
+import { paraglideOptions } from "./vite.config";
+
+// Does not extend vite.config.ts: that loads TanStack Router, React and other
+// plugins the unit tests have no use for, and only slows them down. Two pieces
+// are taken over, so source files import here exactly as they do in the app:
+//
+// - `@/` and the other tsconfig `paths`, resolved the same way vite does.
+// - Paraglide, which writes `src/paraglide` (gitignored). Without it `@/`
+//   resolves `@/paraglide/messages` to a file that does not exist yet on a
+//   fresh checkout, and every test importing a translated module fails.
+//
+// To test components later, add a project with environment: "jsdom".
 //
 // Coverage is not set here: it is a per-process option that Vitest reads only
 // from the root vitest.config.ts, and it is ignored in a project config. The
 // rules excluding generated files live there now.
 export default defineConfig({
+  plugins: [paraglideVitePlugin(paraglideOptions)],
+  resolve: {
+    tsconfigPaths: true,
+  },
   test: {
     // Vitest v4 compatibility: preserve mock call history.
     // Remove after tests no longer rely on calls from setup or earlier tests.
