@@ -77,6 +77,9 @@ export default defineConfig({
       ? "pnpm build && pnpm exec vp preview --port 3001 --strictPort"
       : "pnpm dev",
     reuseExistingServer: !isCI,
+    // The default 60 seconds covers starting vite dev, not a production build
+    // first on a slow runner, and a timeout here fails before any test runs.
+    timeout: 120_000,
     url: baseURL,
   },
   workers: isCI ? 1 : "50%",

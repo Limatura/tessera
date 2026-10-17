@@ -290,6 +290,10 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+  # Split out for the same reason `image-size-comment` is split out of
+  # `docker` in rust.yml: `check` runs no third-party action that could abuse
+  # `pull-requests: write`, but keeping the scope on a job that does nothing
+  # else means it stays that way even if one is added here later.
   bundle-size-comment:
     name: bundle size comment
     runs-on: ubuntu-latest
