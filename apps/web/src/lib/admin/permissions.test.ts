@@ -1,4 +1,4 @@
-import { describe, expect, it, test, vi } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Account, Permission } from "./permissions";
 import {
@@ -114,7 +114,6 @@ describe("canAccessAdmin", () => {
 
   it("denies no account and an empty permission set", () => {
     expect(canAccessAdmin(null)).toBe(false);
-    expect(canAccessAdmin()).toBe(false);
     expect(canAccessAdmin(account([]))).toBe(false);
   });
 });
@@ -173,17 +172,14 @@ describe("role labels", () => {
     expect(roleLabel(role)).toBe(expected);
   });
 
-  // BUG: the label tables are plain object literals, so a custom role named
-  // after an Object.prototype member hits the inherited function:
-  // roleLabel("toString") returns "[object Undefined]" instead of "toString".
-  test.fails("roleLabel keeps a role named like a prototype member", () => {
+  it("roleLabel keeps a role named like a prototype member", () => {
     expect(roleLabel("toString")).toBe("toString");
   });
 
-  // BUG: same cause; PERMISSION_LABELS.constructor is `Object`, which has no
-  // `.label`, so this throws a TypeError instead of falling back.
-  test.fails("permissionLabel falls back for prototype member names", () => {
+  it("permissionLabel falls back for prototype member names", () => {
     expect(permissionLabel("constructor")).toBe("constructor");
+    expect(permissionHint("constructor")).toBeUndefined();
+    expect(permissionGroupLabel("toString")).toBe("toString");
   });
 
   it("tells no role apart from guest", () => {

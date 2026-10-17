@@ -126,6 +126,16 @@ describe("requirePermission", () => {
     ).resolves.toBeDefined();
   });
 
+  it("keeps a query string on the landing page instead of redirecting", async () => {
+    await expect(
+      requirePermission(
+        clientFor(["users:read"]),
+        "/admin/users?q=ada",
+        PERMISSIONS.usersWrite
+      )
+    ).resolves.toBeDefined();
+  });
+
   it("only redirects to internal admin paths", async () => {
     const target = await redirectOf(
       requirePermission(
