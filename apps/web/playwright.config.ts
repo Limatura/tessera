@@ -13,8 +13,9 @@ const AUTHENTICATED_TAG = /@authenticated/u;
 // oxlint-disable-next-line import/no-default-export -- Playwright only reads the default export
 export default defineConfig({
   forbidOnly: isCI,
-  // CI runs serially and retries twice; locally the opposite, for speed.
-  fullyParallel: !isCI,
+  // Every test makes and deletes its own shares and signs in with its own
+  // session, so they can run side by side in CI too.
+  fullyParallel: true,
   // CI logs show which test is running and which failed; the html report is
   // uploaded as an artifact.
   reporter: isCI ? [["list"], ["html", { open: "never" }]] : "html",
@@ -73,5 +74,7 @@ export default defineConfig({
     reuseExistingServer: !isCI,
     url: baseURL,
   },
-  workers: isCI ? 1 : "50%",
+  // A hosted runner has 4 vCPUs, shared with the backend and vite dev; three
+  // browsers leave them a core. Serial took the suite to over two minutes.
+  workers: isCI ? 3 : "50%",
 });

@@ -201,7 +201,16 @@ jobs:
       # page and the backend still compiles. The pages come from the vite dev
       # server Playwright starts below, so a frontend change does not rebuild
       # the backend.
-      - run: cargo build --locked --bin tessera-server --all-features
+      #
+      # In the background: rust-cache restores dependencies only, so the
+      # workspace crates still take about 90 seconds, about as long as the
+      # Node and Chromium setup below. "Wait for the backend build" joins it.
+      - name: Start building the backend
+        run: |
+          (
+            cargo build --locked --bin tessera-server --all-features
+            echo $? > "$RUNNER_TEMP/cargo-build.exit"
+          ) > "$RUNNER_TEMP/cargo-build.log" 2>&1 &
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -212,9 +221,27 @@ jobs:
 
       # Full Chromium, not `--only-shell`: the headless shell computes grid
       # rows under `container-type: inline-size` as 0 high (see the e2e README).
-      # Hosted runners have passwordless sudo, so `--with-deps` installs the
-      # system libraries it needs.
-      - run: pnpm --filter web exec playwright install --with-deps chromium
+      # The browser is cached per Playwright version; the system libraries are
+      # not files a cache can restore, so `install-deps` runs either way
+      # (hosted runners have passwordless sudo).
+      - name: Which Playwright version
+        id: playwright
+        run: echo "version=$(pnpm --filter web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter web exec playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter web exec playwright install-deps chromium
+
+      - name: Wait for the backend build
+        run: |
+          while [ ! -f "$RUNNER_TEMP/cargo-build.exit" ]; do sleep 2; done
+          cat "$RUNNER_TEMP/cargo-build.log"
+          exit "$(cat "$RUNNER_TEMP/cargo-build.exit")"
 
       # An empty data directory on a fresh VM: no assertion depends on shares
       # or settings an earlier run left. Encryption is off by default and
