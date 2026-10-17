@@ -31,9 +31,12 @@ export async function requirePermission(
     if (fallback === null) {
       throw redirect({ to: "/" });
     }
-    // If the landing page is the one being requested, let it through, or two
-    // beforeLoads would redirect forever. Compare the path alone, so a query
-    // string on the landing page does not cost a redirect that drops it.
+    // Defensive only: `landingRoute` returns a page the account can open, and
+    // each landing page guards on the permission `LANDING_ORDER` lists for it
+    // (route-guard.test.ts checks this), so today a request never lacks the
+    // permission of its own landing page. Should a page ever guard on
+    // something else, this lets it through instead of redirecting to itself.
+    // The path is compared alone so a query string would not defeat it.
     if (fallback !== href.split(/[?#]/u)[0]) {
       throw redirect({ to: fallback });
     }

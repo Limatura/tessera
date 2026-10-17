@@ -156,6 +156,9 @@ export const uploadSettingsSchema = z
 
 export type UploadSettingsValues = z.infer<typeof uploadSettingsSchema>;
 
+/** `MAX_LOGIN_HISTORY_DAYS` in config.rs (two years). */
+export const MAX_LOGIN_HISTORY_DAYS = 365 * 2;
+
 // Accounts and registration: auth.registration / auth.default_role
 //      / auth.session_ttl_hours / auth.login_history_days
 
@@ -171,7 +174,10 @@ export const accountSettingsSchema = z.object({
   loginHistoryDays: z
     .number()
     .int()
-    .min(1, { error: () => m.settings_schema_at_least_days({ n: 1 }) }),
+    .min(1, { error: () => m.settings_schema_at_least_days({ n: 1 }) })
+    .max(MAX_LOGIN_HISTORY_DAYS, {
+      error: () => m.settings_schema_max_value({ max: MAX_LOGIN_HISTORY_DAYS }),
+    }),
   // auth.registration
   registration: z.enum(REGISTRATION_MODES),
   // auth.session_ttl_hours
@@ -203,6 +209,9 @@ export const LINK_BY_EMAIL_MODES = [
 ] as const;
 
 const HTTPS_URL = /^https:\/\/[^\s/][^\s]*$/u;
+/** `is_private_or_tls` in `auth/oidc/mod.rs`: plain http only on these hosts. */
+const LOOPBACK_HTTP_URL =
+  /^http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])(?:[:/?#]|$)/u;
 const ABSOLUTE_URL = /^https?:\/\/[^\s/][^\s]*$/u;
 
 /**
@@ -210,36 +219,51 @@ const ABSOLUTE_URL = /^https?:\/\/[^\s/][^\s]*$/u;
  * enable switch: another boolean would only make "issuer filled in but not
  * turned on" a possible state.
  */
-export const oidcSettingsSchema = z.object({
-  // auth.oidc.allow_registration
-  allowRegistration: z.enum(PROVIDER_REGISTRATION_MODES),
-  // auth.oidc.client_id
-  clientId: z.string(),
-  // auth.oidc.client_secret (SEALED, empty means unchanged)
-  clientSecret: z.string(),
-  // auth.oidc.display_name
-  displayName: z.string(),
-  // auth.oidc.group_claim
-  groupClaim: z.string(),
-  // auth.oidc.issuer: the spec requires an exact string match with the `iss` claim, and https
-  issuer: z
-    .string()
-    .refine((value) => value === "" || HTTPS_URL.test(value), {
-      error: () => m.settings_schema_oidc_issuer_https(),
-    })
-    // Pasting the discovery URL is a common mistake that passes the check
-    // above, but the server appends `/.well-known/...` itself, so every sign-in
-    // would fail
-    .refine((value) => !value.includes("/.well-known/"), {
-      error: () => m.settings_schema_oidc_issuer_not_discovery_url(),
-    }),
-  // auth.oidc.link_by_email
-  linkByEmail: z.enum(LINK_BY_EMAIL_MODES),
-  // auth.oidc.required_group: empty means anyone the provider authenticates may sign in
-  requiredGroup: z.string(),
-  // auth.oidc.scopes: string[] on the server, a space-separated string in the form
-  scopes: z.string(),
-});
+export const oidcSettingsSchema = z
+  .object({
+    // auth.oidc.allow_registration
+    allowRegistration: z.enum(PROVIDER_REGISTRATION_MODES),
+    // auth.oidc.client_id
+    clientId: z.string(),
+    // auth.oidc.client_secret (SEALED, empty means unchanged)
+    clientSecret: z.string(),
+    // auth.oidc.display_name
+    displayName: z.string(),
+    // auth.oidc.group_claim
+    groupClaim: z.string(),
+    // auth.oidc.issuer: the spec requires an exact string match with the `iss` claim, and https
+    issuer: z
+      .string()
+      .refine(
+        (value) =>
+          value === "" ||
+          HTTPS_URL.test(value) ||
+          LOOPBACK_HTTP_URL.test(value),
+        {
+          error: () => m.settings_schema_oidc_issuer_https(),
+        }
+      )
+      // Pasting the discovery URL is a common mistake that passes the check
+      // above, but the server appends `/.well-known/...` itself, so every sign-in
+      // would fail
+      .refine((value) => !value.includes("/.well-known/"), {
+        error: () => m.settings_schema_oidc_issuer_not_discovery_url(),
+      }),
+    // auth.oidc.link_by_email
+    linkByEmail: z.enum(LINK_BY_EMAIL_MODES),
+    // auth.oidc.required_group: empty means anyone the provider authenticates may sign in
+    requiredGroup: z.string(),
+    // auth.oidc.scopes: string[] on the server, a space-separated string in the form
+    scopes: z.string(),
+  })
+  // `OidcConfig::validate`: once an issuer is set the claim cannot be blank
+  .refine(
+    (values) => values.issuer.trim() === "" || values.groupClaim.trim() !== "",
+    {
+      error: () => m.settings_schema_oidc_group_claim_required(),
+      path: ["groupClaim"],
+    }
+  );
 
 export type OidcSettingsValues = z.infer<typeof oidcSettingsSchema>;
 
@@ -275,6 +299,8 @@ export type OauthSettingsValues = z.infer<typeof oauthSettingsSchema>;
 
 /** The server takes only these: clamd's `INSTREAM`, or an HTTP service the file is POSTed to. */
 const SCAN_URL_PATTERN = /^(?:clamd|https?):\/\/\S+$/u;
+/** `ScanConfig::validate`: a clamd address needs a host and an explicit port. */
+const CLAMD_URL_PATTERN = /^clamd:\/\/(?:\[[^\]\s]+\]|[^\s/:[\]]+):\d+\/?$/u;
 
 export const scanSettingsSchema = z.object({
   // scan.authorization (SEALED, empty means unchanged)
@@ -283,9 +309,15 @@ export const scanSettingsSchema = z.object({
   url: z
     .string()
     .trim()
-    .refine((value) => value === "" || SCAN_URL_PATTERN.test(value), {
-      error: () => m.settings_schema_scan_url_invalid(),
-    }),
+    .refine(
+      (value) =>
+        value === "" ||
+        (SCAN_URL_PATTERN.test(value) &&
+          (!value.startsWith("clamd:") || CLAMD_URL_PATTERN.test(value))),
+      {
+        error: () => m.settings_schema_scan_url_invalid(),
+      }
+    ),
 });
 
 export type ScanSettingsValues = z.infer<typeof scanSettingsSchema>;
@@ -502,6 +534,9 @@ export type ThrottleSettingsValues = z.infer<typeof throttleSettingsSchema>;
 // are the same bounds the registration and password change forms check
 // (`PasswordPolicy::FLOOR` / `CEILING`), defined in one place.
 
+/** `AuthHashing::validate` in config.rs: below 7 MiB the hash is cheap to brute-force. */
+export const MIN_MEMORY_KIB = 7 * 1024;
+
 export const passwordSettingsSchema = z
   // oxlint-disable-next-line sort-keys -- length rules first, hashing cost after
   .object({
@@ -532,7 +567,9 @@ export const passwordSettingsSchema = z
     memoryKib: z
       .number()
       .int()
-      .min(8, { error: () => m.settings_schema_min_kib({ min: 8 }) }),
+      .min(MIN_MEMORY_KIB, {
+        error: () => m.settings_schema_min_kib({ min: MIN_MEMORY_KIB }),
+      }),
     // auth.hashing.iterations
     iterations: z
       .number()
@@ -568,6 +605,12 @@ export type PasswordSettingsValues = z.infer<typeof passwordSettingsSchema>;
 export const CODE_LENGTH_MIN = 4;
 export const CODE_LENGTH_MAX = 32;
 
+/** `INLINE_CEILING` in config.rs. */
+export const MAX_INLINE_THRESHOLD_BYTES = 1024 * 1024;
+
+/** `MAX_TEXT_CEILING` in config.rs. */
+export const MAX_TEXT_BYTES = 16 * 1024 * 1024;
+
 export const shareSettingsSchema = z
   // oxlint-disable-next-line sort-keys -- grouped by code / capacity / tickets / sweep
   .object({
@@ -588,12 +631,22 @@ export const shareSettingsSchema = z
     // share.access_log.retention_days: cannot be 0 while enabled
     accessLogRetentionDays: z.number().int().min(0),
     // share.inline_threshold_bytes
-    inlineThresholdBytes: z.number().int().min(0),
+    inlineThresholdBytes: z
+      .number()
+      .int()
+      .min(0)
+      .max(MAX_INLINE_THRESHOLD_BYTES, {
+        error: () =>
+          m.settings_schema_max_value({ max: MAX_INLINE_THRESHOLD_BYTES }),
+      }),
     // share.max_text_bytes
     maxTextBytes: z
       .number()
       .int()
-      .min(1, { error: () => m.settings_schema_at_least_bytes({ n: 1 }) }),
+      .min(1, { error: () => m.settings_schema_at_least_bytes({ n: 1 }) })
+      .max(MAX_TEXT_BYTES, {
+        error: () => m.settings_schema_max_value({ max: MAX_TEXT_BYTES }),
+      }),
     // share.ticket_ttl_hours
     ticketTtlHours: z
       .number()

@@ -8,7 +8,8 @@
     "./permissions": "./src/permissions.ts"
   },
   "scripts": {
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "vp test run"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.5",
@@ -18,6 +19,7 @@
   "devDependencies": {
     "@tessera/config": "workspace:*",
     "@types/react": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
   }
 }

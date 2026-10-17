@@ -6,7 +6,10 @@ import { Controller, useWatch } from "react-hook-form";
 import { readSetting } from "@/hooks/admin/use-settings";
 import { useSettingsForm } from "@/hooks/admin/use-settings-form";
 import type { SettingsKeyMap } from "@/hooks/admin/use-settings-form";
-import { passwordSettingsSchema } from "@/lib/admin/settings-schema";
+import {
+  MIN_MEMORY_KIB,
+  passwordSettingsSchema,
+} from "@/lib/admin/settings-schema";
 import type { PasswordSettingsValues } from "@/lib/admin/settings-schema";
 import { asBoolean, asNumber, asString } from "@/lib/admin/settings-values";
 import {
@@ -236,7 +239,7 @@ function PasswordSettingsFields({
                 fieldState={fieldState}
                 id="hashing-memory-kib"
                 label={m.settings_password_form_memory_kib_label()}
-                min={8}
+                min={MIN_MEMORY_KIB}
                 unit="kib"
               />
             )}

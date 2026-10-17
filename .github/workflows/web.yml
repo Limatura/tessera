@@ -91,7 +91,7 @@ jobs:
       # Unit tests of pure functions (language detection, byte formatting, how
       # PATCH requests are built). No browser needed, so they are quick; last,
       # as the final gate.
-      - run: pnpm turbo run test --affected --filter=web --filter=@tessera/crypto
+      - run: pnpm turbo run test --affected --filter=web --filter=@tessera/auth --filter=@tessera/crypto
 
       # Bundle size only means anything for a package that just built — a
       # `dist` from an unrelated earlier run would report stale numbers as

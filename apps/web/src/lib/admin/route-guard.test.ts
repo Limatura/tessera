@@ -1,7 +1,12 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+
 import type { QueryClient } from "@tanstack/react-query";
+import { ADMIN_ENTRY_PERMISSIONS } from "@tessera/auth/permissions";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { PERMISSIONS } from "./permissions";
+import type { Permission } from "./permissions";
+import { landingRoute, PERMISSIONS } from "./permissions";
 import { requirePermission } from "./route-guard";
 
 vi.mock("@tessera/auth/hooks", () => ({
@@ -37,6 +42,36 @@ function clientFor(permissions: string[] | null) {
         ? Promise.resolve({ permissions, roles: [] })
         : Promise.reject(new Error("401")),
   } as unknown as QueryClient;
+}
+
+/** `[permission, landing page, permission that page's route guards on]`. */
+const LANDINGS = Object.values(PERMISSIONS).flatMap((permission) => {
+  const to = landingRoute({ permissions: [permission], roles: [] } as never);
+  return to === null ? [] : [[permission, to, permission] as const];
+});
+
+/**
+ * Route path -> the permission its `beforeLoad` passes to `requirePermission`,
+ * read from the route files' source. Parsing text rather than importing keeps
+ * React, the router plugin and every page's dependencies out of this test.
+ */
+const guardsByRoute = new Map<string, Permission>();
+const ROUTES_DIR = path.join(import.meta.dirname, "../../routes/admin");
+const ROUTE_ID = /createFileRoute\("(?<id>[^"]+)"\)/u;
+const GUARD = /requirePermission\([^)]*?PERMISSIONS\.(?<permission>\w+)/su;
+for (const file of readdirSync(ROUTES_DIR, { recursive: true })) {
+  if (!String(file).endsWith(".tsx")) {
+    continue;
+  }
+  const source = readFileSync(path.join(ROUTES_DIR, String(file)), "utf-8");
+  const id = ROUTE_ID.exec(source)?.groups?.id;
+  const guard = GUARD.exec(source)?.groups?.permission;
+  if (id && guard) {
+    guardsByRoute.set(
+      id.replace(/\/$/u, ""),
+      PERMISSIONS[guard as keyof typeof PERMISSIONS]
+    );
+  }
 }
 
 async function redirectOf(guard: Promise<unknown>) {
@@ -86,8 +121,8 @@ describe("requirePermission", () => {
     ],
     [
       ["invites:read", "settings:read"],
-      "/admin/settings",
-      PERMISSIONS.settingsWrite,
+      "/admin/users",
+      PERMISSIONS.usersRead,
       "/admin/invites",
     ],
   ])(
@@ -116,34 +151,26 @@ describe("requirePermission", () => {
     }
   );
 
-  it("does not loop when the landing page itself is requested", async () => {
-    await expect(
-      requirePermission(
-        clientFor(["users:read"]),
-        "/admin/users",
-        PERMISSIONS.usersWrite
-      )
-    ).resolves.toBeDefined();
-  });
+  it.each(LANDINGS)(
+    "lets an account holding only %s onto %s, query string and all",
+    async (permission, to, guarded) => {
+      await expect(
+        requirePermission(clientFor([permission]), `${to}?q=1`, guarded)
+      ).resolves.toBeDefined();
+    }
+  );
+});
 
-  it("keeps a query string on the landing page instead of redirecting", async () => {
-    await expect(
-      requirePermission(
-        clientFor(["users:read"]),
-        "/admin/users?q=ada",
-        PERMISSIONS.usersWrite
-      )
-    ).resolves.toBeDefined();
-  });
-
-  it("only redirects to internal admin paths", async () => {
-    const target = await redirectOf(
-      requirePermission(
-        clientFor(["roles:read"]),
-        "https://evil.example/admin",
-        PERMISSIONS.usersRead
-      )
+describe("landing pages", () => {
+  it("covers every admin entry permission", () => {
+    expect(LANDINGS.map(([permission]) => permission).toSorted()).toEqual(
+      [...ADMIN_ENTRY_PERMISSIONS].toSorted()
     );
-    expect(target).toEqual({ to: "/admin/roles" });
+  });
+
+  // A landing page whose route guarded on something else would bounce the
+  // account between pages, so each must guard on its own permission.
+  it.each(LANDINGS)("%s lands on %s, which guards on it", (permission, to) => {
+    expect(guardsByRoute.get(to)).toBe(permission);
   });
 });
