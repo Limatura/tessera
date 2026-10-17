@@ -13,6 +13,7 @@
 //! - [`storage`]: blob storage abstraction (local filesystem, optionally S3)
 //! - [`api`]: route assembly and the OpenAPI document
 //! - [`assets`]: the embedded SPA and its fallback routing
+//! - [`manifest`]: the web app manifest and the share target it declares
 //! - [`state`]: the shared application state handed to every handler
 //! - [`topic`]: changes announced inside the process, for event streams
 //!
@@ -28,6 +29,7 @@ pub mod db;
 pub mod error;
 pub mod mail;
 pub mod maintenance;
+pub mod manifest;
 #[cfg(feature = "og-images")]
 pub mod og;
 pub mod scan;

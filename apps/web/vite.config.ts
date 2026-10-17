@@ -71,6 +71,11 @@ export default defineConfig({
         changeOrigin: true,
         target: apiOrigin,
       },
+      // Generated per instance (name, colours), see apps/server/src/manifest.rs.
+      "/manifest.webmanifest": {
+        changeOrigin: true,
+        target: apiOrigin,
+      },
       // `/s/:code` itself is a client route (the share page), but what it links
       // to, the raw text view, file download and split-file pieces, is served by the backend
       // outside `/api`. Only these suffixes go to the backend; bare

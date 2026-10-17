@@ -29,6 +29,11 @@ struct Bundle;
 /// Entry point of the SPA.
 const INDEX: &str = "index.html";
 
+/// The service worker keeps its name across builds, so it is as mutable as
+/// `index.html`: a year-long cache in a proxy would pin every visitor to the
+/// worker they first got.
+const SERVICE_WORKER: &str = "sw.js";
+
 /// Where the frontend is read from.
 ///
 /// # Why the root is resolved once
@@ -468,7 +473,8 @@ fn respond(source: &Source, path: &str, asset: Asset) -> Response {
     // while the server runs. Telling a browser to keep `favicon.ico` for a year
     // would silently undo the one thing this mode is for, on exactly the files
     // vite does not hash.
-    let cache = if path == INDEX || matches!(source, Source::Directory(_)) {
+    let cache = if path == INDEX || path == SERVICE_WORKER || matches!(source, Source::Directory(_))
+    {
         NO_CACHE
     } else {
         IMMUTABLE_CACHE

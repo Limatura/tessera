@@ -9,6 +9,7 @@ import { Toaster } from "@tessera/ui/components/toast";
 import { lazy, Suspense, useEffect, useSyncExternalStore } from "react";
 
 import { AppearanceSync } from "@/components/appearance-sync";
+import { ThemeColorSync } from "@/components/theme-color-sync";
 import { readSiteAppearance } from "@/lib/appearance";
 import {
   applyDocumentLocale,
@@ -67,6 +68,7 @@ function RootComponent() {
         storageKey="theme"
       >
         <AppearanceSync />
+        <ThemeColorSync />
         {/*
           Message functions read the locale when called and do not re-render
           when it changes. key={locale} remounts the tree, the simplest reliable

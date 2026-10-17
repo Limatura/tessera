@@ -13,6 +13,8 @@
  * tab must stay open: the ping comes from here.
  */
 
+import { registerServiceWorker } from "@/lib/pwa/service-worker";
+
 /** Chromium's picker, which TypeScript's DOM library does not describe yet. */
 interface SavePickerWindow {
   showSaveFilePicker?: (options: {
@@ -28,7 +30,6 @@ export interface SaveTarget {
   cancel: () => void | Promise<void>;
 }
 
-const WORKER_PATH = "/download-sw.js";
 const WORKER_PREFIX = "/__download/";
 const PING_MS = 5000;
 const FRAME_LINGER_MS = 60_000;
@@ -113,7 +114,7 @@ async function workerTarget(name: string, size: number): Promise<SaveTarget> {
 }
 
 async function activeWorker(): Promise<ServiceWorker> {
-  const registration = await navigator.serviceWorker.register(WORKER_PATH);
+  const registration = await registerServiceWorker();
   await navigator.serviceWorker.ready;
   const worker =
     registration.active ?? registration.waiting ?? registration.installing;

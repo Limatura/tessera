@@ -57,6 +57,10 @@ src/
 └── index.css              # Tailwind entry point
 ```
 
+### PWA and the share target
+
+`public/sw.js` is the origin's **only** service worker (a scope holds one): streamed downloads (`lib/download/save-stream.ts`), the Web Share Target, and the asset cache all live there. Register it only through `lib/pwa/service-worker.ts`; registering another script at `/` would replace it. The manifest is not a file here: the backend generates `/manifest.webmanifest` from `site.title` and the appearance (`apps/server/src/manifest.rs`). A share from the system share sheet posts to `/share-target`, the worker stores it in IndexedDB and opens `/?share={id}`, and the home page prefills the matching tab (`hooks/use-shared-draft.ts`). Android only; iOS has no share target.
+
 The site's Header lives in the `_site` layout, not in `__root`, because the admin panel has its own sidebar frame. A new site page goes under `routes/_site/`; a new admin page under `routes/admin/`.
 
 **Convention:** Components local to a route use the `-components/` prefix (leading dash) so TanStack Router ignores them when scanning for route files.

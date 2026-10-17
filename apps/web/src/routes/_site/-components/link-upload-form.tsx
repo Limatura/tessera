@@ -10,15 +10,18 @@ interface LinkUploadFormProps {
   status: SubmitStatus;
   progress: number;
   onSubmit: (el: HTMLButtonElement | null, payload: { url: string }) => void;
+  /** Prefill, from a share sheet. */
+  initialUrl?: string;
 }
 
 export function LinkUploadForm({
   status,
   progress,
   onSubmit,
+  initialUrl = "",
 }: LinkUploadFormProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(initialUrl);
 
   const handleSubmit = () => {
     if (url.trim().length > 0) {
