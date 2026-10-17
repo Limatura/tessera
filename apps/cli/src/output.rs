@@ -10,11 +10,16 @@ use qrcode::{QrCode, render::unicode::Dense1x2};
 
 use crate::{Error, Result};
 
+/// Black on white, set explicitly: a terminal's own colours are dark on light
+/// or light on dark depending on its theme, and a phone only reads dark on
+/// light. Named colours rather than RGB, which every terminal understands.
+const BLACK_ON_WHITE: &str = "\x1b[30;47m";
+
+/// Back to the terminal's own colours.
+const RESET: &str = "\x1b[0m";
+
 /// `text` as a QR code drawn with block characters, two rows of modules to a
-/// line, with its quiet zone.
-///
-/// Drawn for a dark terminal, the usual kind: the dark modules are left as the
-/// background and the light ones are drawn, so a phone sees dark on light.
+/// line, with its quiet zone, in black on white whatever the terminal's theme.
 ///
 /// # Errors
 ///
@@ -22,12 +27,15 @@ use crate::{Error, Result};
 pub fn qr(text: &str) -> Result<String> {
     let code = QrCode::new(text.as_bytes())
         .map_err(|error| Error::Usage(format!("cannot draw that as a QR code: {error}")))?;
-    Ok(code
-        .render::<Dense1x2>()
-        .dark_color(Dense1x2::Light)
-        .light_color(Dense1x2::Dark)
-        .quiet_zone(true)
-        .build())
+    let drawn = code.render::<Dense1x2>().quiet_zone(true).build();
+    let mut out = String::with_capacity(drawn.len() * 2);
+    for line in drawn.lines() {
+        out.push_str(BLACK_ON_WHITE);
+        out.push_str(line);
+        out.push_str(RESET);
+        out.push('\n');
+    }
+    Ok(out)
 }
 
 /// How [`copy`] got the text onto a clipboard.
@@ -113,14 +121,62 @@ fn pipe_to(program: &str, args: &[&str], text: &str) -> bool {
 mod tests {
     use super::*;
 
+    /// What a camera sees: each character as its two modules, with the block
+    /// in the foreground colour (black) and the rest in the background
+    /// (white), blown up so the decoder has pixels to work with.
+    fn photograph(drawn: &str) -> (usize, usize, Vec<u8>) {
+        const SCALE: usize = 4;
+        let rows: Vec<Vec<char>> = drawn
+            .lines()
+            .map(|line| {
+                line.strip_prefix(BLACK_ON_WHITE)
+                    .and_then(|line| line.strip_suffix(RESET))
+                    .expect("every line is coloured")
+                    .chars()
+                    .collect()
+            })
+            .collect();
+        let width = rows.first().map_or(0, Vec::len);
+        let height = rows.len() * 2;
+        let mut pixels = vec![255_u8; width * SCALE * height * SCALE];
+        for (row, line) in rows.iter().enumerate() {
+            for (column, block) in line.iter().enumerate() {
+                let (top, bottom) = match block {
+                    '\u{2588}' => (true, true),
+                    '\u{2580}' => (true, false),
+                    '\u{2584}' => (false, true),
+                    _ => (false, false),
+                };
+                for (half, dark) in [(0, top), (1, bottom)] {
+                    if !dark {
+                        continue;
+                    }
+                    for dy in 0..SCALE {
+                        let y = (row * 2 + half) * SCALE + dy;
+                        for dx in 0..SCALE {
+                            if let Some(pixel) =
+                                pixels.get_mut(y * width * SCALE + column * SCALE + dx)
+                            {
+                                *pixel = 0;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        (width * SCALE, height * SCALE, pixels)
+    }
+
     #[test]
-    fn a_link_draws_as_a_square_of_blocks() {
-        let drawn = qr("https://share.example/s/P8D72PSF").expect("a code");
-        let lines: Vec<&str> = drawn.lines().collect();
-        let width = lines.first().map_or(0, |line| line.chars().count());
-        assert!(width > 20, "{drawn}");
-        assert!(lines.iter().all(|line| line.chars().count() == width));
-        // Two rows of modules to a line, give or take the odd last row.
-        assert!(lines.len().abs_diff(width / 2) <= 1, "{drawn}");
+    fn a_scanner_reads_the_link_back() {
+        let link = "https://share.example/device?code=WDJB-MJHT";
+        let (width, height, pixels) = photograph(&qr(link).expect("a code"));
+        let mut image = rqrr::PreparedImage::prepare_from_greyscale(width, height, |x, y| {
+            pixels.get(y * width + x).copied().unwrap_or(255)
+        });
+        let grids = image.detect_grids();
+        assert_eq!(grids.len(), 1);
+        let (_, content) = grids.first().expect("a grid").decode().expect("decoded");
+        assert_eq!(content, link);
     }
 }
