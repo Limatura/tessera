@@ -70,7 +70,13 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: {
-    command: "pnpm dev",
+    // CI serves a production build: vite dev compiles each module on first
+    // request, and on a 4-vCPU runner three browsers asking at once pushed
+    // page loads past the test timeout. The build takes seconds, and preview
+    // proxies /api the same way dev does.
+    command: isCI
+      ? "pnpm build && pnpm exec vp preview --port 3001 --strictPort"
+      : "pnpm dev",
     reuseExistingServer: !isCI,
     url: baseURL,
   },
