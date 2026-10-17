@@ -3,6 +3,11 @@ import { defineConfig, devices } from "@playwright/test";
 const baseURL = "http://localhost:3001";
 const isCI = Boolean(process.env.CI);
 
+/** Where the setup project leaves the signed-in admin's cookies. */
+export const ADMIN_STORAGE_STATE = "playwright/.auth/admin.json";
+/** Tests tagged with this run signed in, in the `authenticated` project. */
+const AUTHENTICATED_TAG = /@authenticated/u;
+
 // The backend (:12923) must already be running; vite dev only proxies /api to it.
 // See src/tests/e2e/README.md.
 // oxlint-disable-next-line import/no-default-export -- Playwright only reads the default export
@@ -15,7 +20,24 @@ export default defineConfig({
   reporter: isCI ? [["list"], ["html", { open: "never" }]] : "html",
   retries: isCI ? 2 : 0,
   testDir: "./src/tests/e2e",
-  testMatch: "**/*.spec.ts",
+  // `setup` signs in once through the API and saves the cookies; the
+  // `authenticated` project reuses them for tests tagged @authenticated, and
+  // `anonymous` runs everything else with no session at all.
+  projects: [
+    { name: "setup", testMatch: "**/*.setup.ts" },
+    {
+      dependencies: ["setup"],
+      grep: AUTHENTICATED_TAG,
+      name: "authenticated",
+      testMatch: "**/*.spec.ts",
+      use: { storageState: ADMIN_STORAGE_STATE },
+    },
+    {
+      grepInvert: AUTHENTICATED_TAG,
+      name: "anonymous",
+      testMatch: "**/*.spec.ts",
+    },
+  ],
   use: {
     ...devices["Desktop Chrome"],
     baseURL,

@@ -1,21 +1,22 @@
 # End-to-end tests
 
-The home page smoke tests are in `upload.spec.ts`, configured in `apps/web/playwright.config.ts`. The approach follows [nelsonlaidev/nelsonlai.dev][ref], but this project is a Rust backend with SQLite, so a few parts cannot be copied as they are; they are marked below.
+The tests are in this directory, configured in `apps/web/playwright.config.ts`. The approach follows [nelsonlaidev/nelsonlai.dev][ref], but this project is a Rust backend with SQLite, so a few parts cannot be copied as they are; they are marked below.
+
+The suite needs a backend with a known admin password and end-to-end encryption switched on (it is off by default). The simplest is a throwaway one on its own port, with vite's proxy pointed at it through `TESSERA_API_ORIGIN`, so the backend you work with is left alone:
 
 ```bash
-pnpm server:dev                    # start the backend first (:12923)
-pnpm --filter web test:e2e         # Playwright starts vite dev (:3001), or reuses one already running
-```
-
-To leave the backend you are working with alone, start a throwaway one and point vite's proxy at it with `TESSERA_API_ORIGIN`:
-
-```bash
+cargo build -p tessera-server      # a debug build is enough
 TESSERA_SERVER__PORT=8788 TESSERA_SERVER__DATA_DIR=/tmp/tessera-e2e \
-  TESSERA_DATABASE__URL=sqlite:///tmp/tessera-e2e/tessera.db target/debug/tessera-server &
-TESSERA_API_ORIGIN=http://127.0.0.1:8788 pnpm --filter web test:e2e
+  TESSERA_DATABASE__URL=sqlite:///tmp/tessera-e2e/tessera.db \
+  TESSERA_AUTH__ADMIN_PASSWORD='E2e-Tessera-9vQx-Lm4p' \
+  TESSERA_FEATURES__ENCRYPTION=true target/debug/tessera-server &
+TESSERA_API_ORIGIN=http://127.0.0.1:8788 E2E_ADMIN_PASSWORD='E2e-Tessera-9vQx-Lm4p' \
+  pnpm --filter web test:e2e       # Playwright starts vite dev (:3001), or reuses one already running
 ```
 
-The CI job is written in `.github/workflows/web.yml` (`e2e`) but **commented out**: the self-hosted runner it was written for lacked the system libraries Chromium needs. The comment above it lists what to change to turn it on with GitHub-hosted runners.
+`E2E_ADMIN_PASSWORD` must match `TESSERA_AUTH__ADMIN_PASSWORD`; without it the setup project fails with a message saying so. `E2E_ADMIN_USERNAME` defaults to `admin`, the server's default. A configured admin password is not marked "must change", which a generated one would be. The password has to pass the instance's password policy, so do not shorten it to something weak.
+
+CI runs these in the `e2e` job of `.github/workflows/web.yml` on GitHub-hosted runners, whenever `web` is affected. It starts the backend with the same admin password and encryption switch as above.
 
 [ref]: https://github.com/nelsonlaidev/nelsonlai.dev
 
@@ -32,6 +33,16 @@ Unit tests are colocated (`lib/upload.test.ts` sits beside `lib/upload.ts`), so 
 
 **The extension is `.spec.ts`** (not `.test.ts`) as a second safeguard: even if the exclude breaks one day, `.spec.ts` is not in vitest's include.
 
+## Projects
+
+`playwright.config.ts` defines three:
+
+- `setup` runs `auth.setup.ts`: `POST /api/v1/auth/login` as the admin, then saves the cookies (session and locale) to `playwright/.auth/admin.json`, which is gitignored
+- `authenticated` depends on `setup`, loads that file as `storageState`, and runs only tests tagged `@authenticated`
+- `anonymous` runs every other test with no session
+
+Signed-in tests go in a `test.describe(..., { tag: "@authenticated" }, ...)` block in whatever spec they belong to; there is no separate directory for them. A test that logs out must sign in on its own first, as the form test in `auth.spec.ts` does, or it would revoke the session the other signed-in tests share.
+
 ## The tests
 
 `upload.spec.ts`, all anonymous:
@@ -40,6 +51,16 @@ Unit tests are colocated (`lib/upload.test.ts` sits beside `lib/upload.ts`), so 
 - Once a language is detected, the editor loads its grammar and highlights. Guards the dynamic grammar loading in `code-upload-form.tsx`
 - Upload a snippet → code → retrieve it in another tab → delete
 - Upload a file → code → retrieve it in another tab → delete
+
+`auth.spec.ts`:
+
+- Anonymous: `/admin` sends the visitor to `/login?redirect=…`; a wrong password shows the error and stays on the page; signing in through the form lands on the admin dashboard, and Logout ends that session
+- `@authenticated`: `/admin` opens on the dashboard; the user menu leads to the admin console; `GET /api/v1/auth/session` answers for the admin
+
+`encrypted-share.spec.ts`, anonymous (needs `TESSERA_FEATURES__ENCRYPTION=true`):
+
+- A link-keyed snippet: the result URL carries the key after `#`, no request body sent to `/api/` contains the plaintext, the full link opens it, and the link without the fragment shows "This link is incomplete"
+- A password-keyed snippet: no request body contains the plaintext or the password, a wrong password is refused, the right one opens it
 
 Assertions use English strings; `playwright.config.ts` pins the locale to `en` with the `PARAGLIDE_LOCALE` cookie. Prefer semantic queries such as `getByRole` and `getByLabel`, and add a `data-testid` only when those cannot find it.
 
@@ -54,7 +75,7 @@ Assertions use English strings; `playwright.config.ts` pins the locale to `en` w
 
 **Clean up test data yourself.** They have a `global.teardown.ts` that deletes what the tests created. Here each upload test ends by pressing "Delete" on the result screen; the management token is only on that screen, and it tests deletion along the way. The cost is that a share from a test that failed midway is not deleted and has to expire by itself (7 days by default). For something cleaner, catch the token from the upload response and call `DELETE /api/v1/shares/{code}` in `afterEach`.
 
-**Separate authenticated and unauthenticated projects?** They use `projects` with `dependencies` to prepare a signed-in state once for many tests. Most of this app (uploading, sharing, browsing) works anonymously, so one project is enough for now; split it when several tests actually need to be signed in.
+**Authenticated and anonymous projects.** Like the reference repo, a `setup` project prepares the signed-in state once and the `authenticated` project depends on it. Where they split by file, this suite splits by the `@authenticated` tag, so signed-in and signed-out checks of one feature can sit in one spec.
 
 > Note: Playwright's chromium needs system libraries such as `libnspr4`, `libnss3` and `libcups2`. If they are missing, run `playwright install --with-deps chromium` first. On a distribution that list does not cover (Ubuntu 26.04, for example), find what is missing with `ldd ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | grep "not found"` and install it with apt.
 >

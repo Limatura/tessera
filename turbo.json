@@ -18,7 +18,12 @@
     },
     "test:e2e": {
       "cache": false,
-      "passThroughEnv": ["CI", "TESSERA_API_ORIGIN", "PLAYWRIGHT_*"]
+      "passThroughEnv": [
+        "CI",
+        "E2E_ADMIN_*",
+        "TESSERA_API_ORIGIN",
+        "PLAYWRIGHT_*"
+      ]
     },
     "dev": {
       "cache": false,
