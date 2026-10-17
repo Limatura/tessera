@@ -9,6 +9,22 @@ import { defineConfig, lazyPlugins } from "vite-plus";
 // Set this to point e2e at a fresh throwaway backend without stopping the one you are using.
 const apiOrigin = process.env.TESSERA_API_ORIGIN ?? "http://localhost:12923";
 
+// Shared with vitest.config.ts, which compiles the same messages for unit tests.
+export const paraglideOptions = {
+  emitTsDeclarations: true,
+  outdir: "./src/paraglide",
+  project: "./project.inlang",
+  // No SEO needs here: every route is either the app shell or a share link,
+  // and a share link must stay the same string for everyone who opens it.
+  // A locale in the path would give one share two URLs, `/s/ABC` and
+  // `/en/s/ABC`, gaining nothing and costing a rewrite layer plus a second
+  // parse on the Rust side.
+  //
+  // `cookie` remembers a returning visitor's choice; `preferredLanguage`
+  // (Accept-Language / navigator.languages) picks a sensible first default.
+  strategy: ["cookie", "preferredLanguage", "baseLocale"],
+} satisfies Parameters<typeof paraglideVitePlugin>[0];
+
 export default defineConfig({
   build: {
     // The 500 kB default misfires here: cpp.js, mermaid's per-diagram chunks,
@@ -32,20 +48,7 @@ export default defineConfig({
       target: "react",
     }),
     react(),
-    paraglideVitePlugin({
-      emitTsDeclarations: true,
-      outdir: "./src/paraglide",
-      project: "./project.inlang",
-      // No SEO needs here: every route is either the app shell or a share link,
-      // and a share link must stay the same string for everyone who opens it.
-      // A locale in the path would give one share two URLs, `/s/ABC` and
-      // `/en/s/ABC`, gaining nothing and costing a rewrite layer plus a second
-      // parse on the Rust side.
-      //
-      // `cookie` remembers a returning visitor's choice; `preferredLanguage`
-      // (Accept-Language / navigator.languages) picks a sensible first default.
-      strategy: ["cookie", "preferredLanguage", "baseLocale"],
-    }),
+    paraglideVitePlugin(paraglideOptions),
     !!process.env.ANALYZE &&
       visualizer({
         brotliSize: true,
