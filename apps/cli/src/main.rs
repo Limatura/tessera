@@ -12,6 +12,7 @@ use tessera_cli::{
     client::Client,
     config, get, link, login,
     send::{self, Content, Options},
+    shares,
 };
 use url::Url;
 
@@ -64,6 +65,27 @@ enum Command {
         /// The directory to write files into. A note goes to standard output.
         #[arg(short, long, default_value = ".")]
         output: PathBuf,
+    },
+    /// List your own shares: code, expiry, retrievals left, name.
+    Ls {
+        /// The instance. Defaults to the one `tess login` saved.
+        #[arg(long, env = "TESSERA_SERVER")]
+        server: Option<Url>,
+        /// An API token. Defaults to the one `tess login` saved.
+        #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
+        token: Option<String>,
+    },
+    /// Delete one of your own shares, by its code or its link.
+    Rm {
+        /// The code, or the whole link.
+        share: String,
+        /// The instance, when only a code is given. Defaults to the one
+        /// `tess login` saved.
+        #[arg(long, env = "TESSERA_SERVER")]
+        server: Option<Url>,
+        /// An API token. Defaults to the one `tess login` saved.
+        #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
+        token: Option<String>,
     },
     /// Sign in to an instance by approving this machine in a browser, and
     /// save it as the default for `send` and `get`.
@@ -180,6 +202,12 @@ async fn run(cli: Cli) -> Result<()> {
             }
             Ok(())
         }
+        Command::Ls { server, token } => list(server, token).await,
+        Command::Rm {
+            share,
+            server,
+            token,
+        } => remove(&share, server, token).await,
         Command::Login {
             server,
             no_browser,
@@ -198,6 +226,51 @@ fn sending_client(server: Option<Url>, token: Option<String>) -> Result<Client> 
     })?;
     let token = token.or_else(|| saved.token_for(&server).map(str::to_owned));
     Client::new(server, token)
+}
+
+/// Prints the account's shares.
+async fn list(server: Option<Url>, token: Option<String>) -> Result<()> {
+    let client = signed_in_client(server, token)?;
+    let mine = shares::all_mine(&client).await?;
+    write!(
+        std::io::stdout(),
+        "{}",
+        shares::table(&mine, time::OffsetDateTime::now_utc())
+    )?;
+    Ok(())
+}
+
+/// Deletes one of the account's shares, named by its code or its link.
+async fn remove(share: &str, server: Option<Url>, token: Option<String>) -> Result<()> {
+    // A link names its own instance; only a bare code needs one.
+    let server = if Url::parse(share).is_ok() {
+        None
+    } else {
+        server
+    };
+    let client = signed_in_client(server, token)?;
+    let target = link::parse(share, Some(client.server()))?;
+    if target.server.origin() != client.server().origin() {
+        return Err(Error::Usage(format!(
+            "that link is on {}, and you are signed in to {}",
+            target.server,
+            client.server()
+        )));
+    }
+    client.delete_share(&target.code).await
+}
+
+/// A client for `ls` and `rm`, which act as an account and so need a token.
+fn signed_in_client(server: Option<Url>, token: Option<String>) -> Result<Client> {
+    let client = sending_client(server, token)?;
+    if !client.signed_in() {
+        return Err(Error::Usage(format!(
+            "not signed in to {}; run `tess login {}` first",
+            client.server(),
+            client.server()
+        )));
+    }
+    Ok(client)
 }
 
 /// Gets a token one of three ways, checks it, and saves it.

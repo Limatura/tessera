@@ -129,6 +129,8 @@ tess login https://share.example.com
 tess send report.pdf --expires 24
 tess get https://share.example.com/s/P8D72PSF
 echo "hello" | tess send -
+tess ls
+tess rm P8D72PSF
 ```
 
 加上 `--encrypt` 会在内容离开你的电脑之前先加密，密钥是链接中 `#` 后面的部分，服务器永远看不到。

@@ -129,6 +129,8 @@ tess login https://share.example.com
 tess send report.pdf --expires 24
 tess get https://share.example.com/s/P8D72PSF
 echo "hello" | tess send -
+tess ls
+tess rm P8D72PSF
 ```
 
 `--encrypt` seals the content before it leaves your machine; the key is the part of the link after `#`, which the server never sees.
