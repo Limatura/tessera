@@ -14,6 +14,7 @@ pub mod link;
 pub mod login;
 pub mod names;
 pub mod send;
+pub mod shares;
 
 /// Everything that can stop a command.
 #[derive(Debug, thiserror::Error)]

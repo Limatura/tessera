@@ -81,6 +81,47 @@ struct Issued {
     secret: String,
 }
 
+/// One of the account's own shares, as `tess ls` shows it.
+#[derive(Debug, Clone, Deserialize)]
+pub struct OwnShare {
+    /// The retrieval code.
+    pub code: String,
+    /// What the uploader called it, if anything.
+    pub title: Option<String>,
+    /// The files, in order. Empty for a note.
+    #[serde(default)]
+    pub files: Vec<OwnFile>,
+    /// `link` or `password` when sealed on the uploader's machine.
+    pub encryption: Option<String>,
+    /// When it stops being served, RFC 3339, or `None` for never.
+    pub expires_at: Option<String>,
+    /// Retrievals left, or `None` for unlimited.
+    pub uses_remaining: Option<u64>,
+}
+
+/// One file of an own share.
+#[derive(Debug, Clone, Deserialize)]
+pub struct OwnFile {
+    /// Its name, unless the share is encrypted.
+    pub filename: Option<String>,
+}
+
+/// One page of the account's shares.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SharePage {
+    /// The shares on it, newest first.
+    pub data: Vec<OwnShare>,
+    /// How many there are in all.
+    pub meta: PageMeta,
+}
+
+/// Where a page sits in the whole list.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PageMeta {
+    /// How many there are in all.
+    pub total: u64,
+}
+
 /// An account, as much of it as the commands read.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Account {
@@ -457,6 +498,33 @@ impl Client {
             .http
             .post(self.url("/api/v1/auth/logout")?)
             .header(reqwest::header::COOKIE, cookie);
+        accepted(request.send().await?).await?;
+        Ok(())
+    }
+
+    /// One page of the signed-in account's shares, `offset` in.
+    ///
+    /// # Errors
+    ///
+    /// When there is no token, or the server refuses.
+    pub async fn list_shares(&self, offset: u64) -> Result<SharePage> {
+        let mut url = self.url("/api/v1/shares")?;
+        url.query_pairs_mut()
+            .append_pair("offset", &offset.to_string());
+        let request = self.request(reqwest::Method::GET, url);
+        Ok(accepted(request.send().await?).await?.json().await?)
+    }
+
+    /// Deletes one of the signed-in account's shares.
+    ///
+    /// # Errors
+    ///
+    /// When there is no such share of this account's, or the server refuses.
+    pub async fn delete_share(&self, code: &str) -> Result<()> {
+        let request = self.request(
+            reqwest::Method::DELETE,
+            self.url(&format!("/api/v1/shares/{code}"))?,
+        );
         accepted(request.send().await?).await?;
         Ok(())
     }

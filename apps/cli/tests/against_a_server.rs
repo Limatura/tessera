@@ -18,6 +18,7 @@ use tessera_cli::{
     client::Client,
     get, link, login,
     send::{self, Content, Options},
+    shares,
 };
 use tessera_server::{
     api,
@@ -451,4 +452,60 @@ async fn login_with_a_password_gets_a_token_and_ends_the_session() {
     })
     .await;
     assert!(matches!(refused, Err(Error::Server { status: 401, .. })));
+}
+
+#[tokio::test]
+async fn ls_lists_your_shares_and_rm_removes_one() {
+    let server = server().await;
+    let registered = reqwest::Client::new()
+        .post(server.url.join("/api/v1/auth/register").expect("a url"))
+        .json(&serde_json::json!({
+            "username": "alice",
+            "email": "alice@example.com",
+            "password": "a perfectly adequate passphrase",
+        }))
+        .send()
+        .await
+        .expect("registered");
+    assert!(registered.status().is_success());
+    let anonymous = Client::new(server.url.clone(), None).expect("a client");
+    let token = login::with_password(
+        &anonymous,
+        "alice",
+        "a perfectly adequate passphrase",
+        || Err(Error::Usage("no code was asked for".to_owned())),
+    )
+    .await
+    .expect("a token");
+    let client = Client::new(server.url.clone(), Some(token)).expect("a client");
+
+    let dir = tempfile::tempdir().expect("temp dir");
+    let mut codes = Vec::new();
+    for name in ["one.txt", "two.txt"] {
+        let path = write(dir.path(), name, b"hello");
+        let sent = send::send(
+            &client,
+            Content::Files(vec![path]),
+            Options::default(),
+            &mut |_, _, _| {},
+        )
+        .await
+        .expect("send");
+        codes.push(link::parse(&sent.link, None).expect("a link").code);
+    }
+
+    let mine = shares::all_mine(&client).await.expect("listed");
+    let mut listed: Vec<_> = mine.iter().map(|share| share.code.clone()).collect();
+    listed.sort();
+    let mut sent = codes.clone();
+    sent.sort();
+    assert_eq!(listed, sent);
+    let table = shares::table(&mine, time::OffsetDateTime::now_utc());
+    assert!(table.contains("one.txt"), "{table}");
+
+    let gone = codes.first().expect("a code");
+    client.delete_share(gone).await.expect("deleted");
+    let left = shares::all_mine(&client).await.expect("listed");
+    assert_eq!(left.len(), 1);
+    assert!(left.iter().all(|share| &share.code != gone));
 }
