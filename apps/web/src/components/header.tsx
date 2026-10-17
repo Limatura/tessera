@@ -26,6 +26,7 @@ import {
 import { cn } from "@tessera/ui/lib/utils";
 import { useEffect, useState } from "react";
 
+import { InstallAppButton } from "@/components/install-app-button";
 import { Logo } from "@/components/logo";
 import { LOCALE_LABELS, getLocale, setLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
@@ -104,6 +105,7 @@ export function Header() {
               </SelectGroup>
             </SelectContent>
           </Select>
+          <InstallAppButton />
           <AnimatedThemeToggler
             className={buttonVariants({ size: "icon", variant: "outline" })}
           />
