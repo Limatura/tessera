@@ -1047,6 +1047,133 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Starts a sign-in for a program, to be approved from a browser.
+         * @description # Errors
+         *
+         *     `400` when the name is empty or too long, `404` when this instance has no
+         *     accounts, `429` when this address has started too many.
+         */
+        post: operations["start_device_authorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Polls a started sign-in, and collects its API token once approved.
+         * @description The token is handed over once. The request is gone after that, so a
+         *     second poll gets `device_code_unusable`.
+         *
+         *     # Errors
+         *
+         *     `400` with `device_authorization_pending` while nobody has answered, and
+         *     with `device_code_unusable` when the code is unknown, expired or already
+         *     redeemed. `403` with `device_authorization_denied` when the person refused.
+         *     `404` when this instance has no accounts.
+         */
+        post: operations["redeem_device_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device/{user_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Shows a waiting request, so the person can see what they are approving.
+         * @description # Errors
+         *
+         *     `401` when not signed in, `403` when an API token was used, `404` when no
+         *     request is waiting under that code or this instance has no accounts, `429`
+         *     when this address has tried too many codes that do not exist.
+         */
+        get: operations["describe_device_authorization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device/{user_code}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approves a waiting request, so the program's next poll gets a token.
+         * @description The token may create, list and delete the approver's own shares, less
+         *     whatever of that the approver may not do themselves.
+         *
+         *     # Errors
+         *
+         *     `401` when not signed in, `403` when an API token was used or the account
+         *     may not issue tokens, `404` when no request is waiting under that code or
+         *     this instance has no accounts, `429` when this address has tried too many
+         *     codes that do not exist.
+         */
+        post: operations["approve_device_authorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/device/{user_code}/deny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refuses a waiting request, so the program's next poll is told no.
+         * @description # Errors
+         *
+         *     `401` when not signed in, `403` when an API token was used, `404` when no
+         *     request is waiting under that code or this instance has no accounts, `429`
+         *     when this address has tried too many codes that do not exist.
+         */
+        post: operations["deny_device_authorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -3186,6 +3313,42 @@ export interface components {
             /** @description The codes that were not, and why. */
             failed: components["schemas"]["DeleteShareFailure"][];
         };
+        /** @description Body of `POST /auth/device`. */
+        DeviceAuthorizationRequest: {
+            /**
+             * @description What the program calls itself, such as `tessera CLI on laptop`. Shown on
+             *     the approval page and used as the token's name.
+             * @example tessera CLI on laptop
+             */
+            client_name: string;
+        };
+        /** @description A started request, as the program needs it. */
+        DeviceAuthorizationResponse: {
+            /** @description The program keeps this and polls with it. Never shown to the person. */
+            device_code: string;
+            /**
+             * Format: int64
+             * @description Seconds until both codes stop working.
+             * @example 600
+             */
+            expires_in: number;
+            /**
+             * Format: int64
+             * @description Seconds to wait between polls.
+             * @example 5
+             */
+            interval: number;
+            /**
+             * @description What the person types on the site's `/device` page.
+             * @example WDJB-MJHT
+             */
+            user_code: string;
+        };
+        /** @description Body of `POST /auth/device/token`. */
+        DeviceTokenRequest: {
+            /** @description The device code from `POST /auth/device`. */
+            device_code: string;
+        };
         /** @description Body of `POST /admin/settings/oidc/discovery`. */
         DiscoveryProbeRequest: {
             /**
@@ -3247,7 +3410,7 @@ export interface components {
          *     change, and `details` carries what a translation needs.
          * @enum {string}
          */
-        ErrorCode: "not_found" | "not_signed_in" | "permission_denied" | "session_required" | "password_change_required" | "payload_too_large" | "insufficient_storage" | "range_not_satisfiable" | "too_many_requests" | "scanning" | "unsupported_media_type" | "timeout" | "unavailable" | "internal" | "invalid_body" | "invalid_query" | "invalid_path" | "body_empty" | "body_incomplete" | "body_length_mismatch" | "value_empty" | "value_length" | "value_invalid" | "value_reserved" | "value_out_of_range" | "conflicting_fields" | "invalid_credentials" | "current_password_incorrect" | "reauthentication_required" | "mfa_code_incorrect" | "mfa_challenge_unusable" | "mfa_already_enabled" | "passkey_rejected" | "passkey_invalid" | "passkey_already_registered" | "password_breached" | "registration_closed" | "invite_required" | "invite_unusable" | "registration_link_unusable" | "reset_link_unusable" | "verification_link_unusable" | "username_taken" | "email_taken" | "account_exists" | "email_already_verified" | "last_administrator" | "last_sign_in_method" | "unknown_permission" | "role_name_taken" | "builtin_role_immutable" | "share_password_required" | "share_password_incorrect" | "share_expired" | "share_exhausted" | "share_content_removed" | "share_is_file" | "share_encrypted" | "share_password_is_key" | "share_is_text" | "text_too_large" | "code_space_exhausted" | "archive_too_large_for_zip" | "encryption_disabled" | "encryption_invalid" | "upload_offset_mismatch" | "upload_exceeds_length" | "upload_conflict" | "upload_chunk_too_small" | "upload_parts_mismatch" | "upload_not_direct" | "upload_direct_unavailable" | "upload_abandoned" | "resumable_unsupported" | "setting_unknown" | "setting_secret" | "setting_fixed_at_boot" | "setting_invalid" | "confirmation_required" | "provider_insecure" | "provider_unreachable" | "backend_unreachable" | "backend_credential_unreadable" | "backend_credentials_required" | "backend_name_taken" | "backend_in_use" | "invalid_hash_prefix" | "invalid_configuration";
+        ErrorCode: "not_found" | "not_signed_in" | "permission_denied" | "session_required" | "password_change_required" | "payload_too_large" | "insufficient_storage" | "range_not_satisfiable" | "too_many_requests" | "scanning" | "unsupported_media_type" | "timeout" | "unavailable" | "internal" | "invalid_body" | "invalid_query" | "invalid_path" | "body_empty" | "body_incomplete" | "body_length_mismatch" | "value_empty" | "value_length" | "value_invalid" | "value_reserved" | "value_out_of_range" | "conflicting_fields" | "invalid_credentials" | "current_password_incorrect" | "reauthentication_required" | "mfa_code_incorrect" | "mfa_challenge_unusable" | "mfa_already_enabled" | "passkey_rejected" | "passkey_invalid" | "passkey_already_registered" | "password_breached" | "registration_closed" | "invite_required" | "invite_unusable" | "registration_link_unusable" | "reset_link_unusable" | "verification_link_unusable" | "device_authorization_pending" | "device_authorization_denied" | "device_code_unusable" | "username_taken" | "email_taken" | "account_exists" | "email_already_verified" | "last_administrator" | "last_sign_in_method" | "unknown_permission" | "role_name_taken" | "builtin_role_immutable" | "share_password_required" | "share_password_incorrect" | "share_expired" | "share_exhausted" | "share_content_removed" | "share_is_file" | "share_encrypted" | "share_password_is_key" | "share_is_text" | "text_too_large" | "code_space_exhausted" | "archive_too_large_for_zip" | "encryption_disabled" | "encryption_invalid" | "upload_offset_mismatch" | "upload_exceeds_length" | "upload_conflict" | "upload_chunk_too_small" | "upload_parts_mismatch" | "upload_not_direct" | "upload_direct_unavailable" | "upload_abandoned" | "resumable_unsupported" | "setting_unknown" | "setting_secret" | "setting_fixed_at_boot" | "setting_invalid" | "confirmation_required" | "provider_insecure" | "provider_unreachable" | "backend_unreachable" | "backend_credential_unreadable" | "backend_credentials_required" | "backend_name_taken" | "backend_in_use" | "invalid_hash_prefix" | "invalid_configuration";
         /** @description Body of a successful `GET /health`. */
         HealthResponse: {
             /**
@@ -3519,6 +3682,25 @@ export interface components {
              *     both is refused, not guessed at.
              */
             remove_password?: boolean;
+        };
+        /** @description A request waiting for an answer, as the approval page shows it. */
+        PendingDeviceResponse: {
+            /**
+             * @description What the program says it is. Its own claim, not checked.
+             * @example tessera CLI on laptop
+             */
+            client_name: string;
+            /** @description When it was started, RFC 3339. */
+            created_at: string;
+            /** @description When it stops working, RFC 3339. */
+            expires_at: string;
+            /** @description The address the request came from. */
+            requested_from: string;
+            /**
+             * @description The code, as it was shown to the person.
+             * @example WDJB-MJHT
+             */
+            user_code: string;
         };
         /**
          * @description Every permission this version has, so a screen can offer them.
@@ -7179,6 +7361,281 @@ export interface operations {
             };
             /** @description No account has that id */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    start_device_authorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceAuthorizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Started; show the user code and poll with the device code */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceAuthorizationResponse"];
+                };
+            };
+            /** @description The name is empty or too long */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no accounts */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too many started from this address */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    redeem_device_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Approved; the token's secret is shown only here */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedTokenResponse"];
+                };
+            };
+            /** @description Not answered yet, or the code is not usable */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The person refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no accounts */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    describe_device_authorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The code the program showed, with or without its dash */
+                user_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Waiting for an answer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingDeviceResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No request is waiting under that code */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too many codes tried that do not exist */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    approve_device_authorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The code the program showed, with or without its dash */
+                user_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Approved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Authenticated with an API token, or not allowed to issue tokens */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No request is waiting under that code */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too many codes tried that do not exist */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    deny_device_authorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The code the program showed, with or without its dash */
+                user_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Denied */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No request is waiting under that code */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too many codes tried that do not exist */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
