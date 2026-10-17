@@ -475,6 +475,16 @@ pub fn build(state: AppState) -> Router {
         // 404. Outside the contract, like the share routes: a stylesheet
         // points here, it is not an API.
         .merge(font_routes())
+        // Before the fallback for the same reason: the manifest is generated,
+        // not a file in the bundle, and the share target is a POST.
+        .route(
+            crate::manifest::MANIFEST_PATH,
+            axum::routing::get(crate::manifest::manifest),
+        )
+        .route(
+            crate::manifest::SHARE_TARGET_PATH,
+            axum::routing::post(crate::manifest::share_target),
+        )
         // Attached before the state is applied because the fallback needs it:
         // `/s/{code}` is served from the bundle like any client-side route, but
         // with the share's link preview spliced into the HTML on the way out.
