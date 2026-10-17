@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 use tessera_cli::{
     Error, Result,
     client::Client,
-    config, get, link, login,
+    config, get, link, login, output,
     send::{self, Content, Options},
     shares,
 };
@@ -53,6 +53,13 @@ enum Command {
         /// How many times it may be retrieved.
         #[arg(long, value_name = "N")]
         max_uses: Option<u32>,
+        /// Also draw the link as a QR code, for a phone to scan.
+        #[arg(long)]
+        qr: bool,
+        /// Also put the link on the clipboard. Over SSH, the clipboard of the
+        /// machine the terminal runs on, if the terminal allows it.
+        #[arg(long)]
+        copy: bool,
     },
     /// Download a share, from its link or from its code with --server.
     Get {
@@ -86,6 +93,11 @@ enum Command {
         /// An API token. Defaults to the one `tess login` saved.
         #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
         token: Option<String>,
+    },
+    /// Print a completion script for a shell, to source from its startup file.
+    Completions {
+        /// The shell to write it for.
+        shell: clap_complete::Shell,
     },
     /// Sign in to an instance by approving this machine in a browser, and
     /// save it as the default for `send` and `get`.
@@ -127,6 +139,8 @@ async fn run(cli: Cli) -> Result<()> {
             password,
             expires,
             max_uses,
+            qr,
+            copy,
         } => {
             let content = if paths.iter().any(|path| path.as_os_str() == "-") {
                 if paths.len() > 1 {
@@ -161,53 +175,29 @@ async fn run(cli: Cli) -> Result<()> {
             .await?;
             clear_progress();
             writeln!(std::io::stdout(), "{}", sent.link)?;
+            hand_on(&sent.link, qr, copy)?;
             Ok(())
         }
         Command::Get {
             link,
             server,
             output,
-        } => {
-            let server = match server {
-                Some(server) => Some(server),
-                None => config::load(&config::default_path()?)?.server,
-            };
-            let target = link::parse(&link, server.as_ref())?;
-            let client = Client::new(target.server.clone(), None)?;
-            let mut password = std::env::var("TESSERA_PASSWORD").ok();
-            let fetched = loop {
-                match get::get(
-                    &client,
-                    &target.code,
-                    target.key.clone(),
-                    password.as_deref(),
-                    &output,
-                    &mut progress,
-                )
-                .await
-                {
-                    Err(Error::PasswordRequired) if password.is_none() => {
-                        password = Some(rpassword::prompt_password("Password: ")?);
-                    }
-                    other => break other?,
-                }
-            };
-            clear_progress();
-            let mut stdout = std::io::stdout();
-            if let Some(note) = fetched.note {
-                stdout.write_all(&note)?;
-            }
-            for file in fetched.files {
-                writeln!(stdout, "{}", file.display())?;
-            }
-            Ok(())
-        }
+        } => fetch(&link, server, &output).await,
         Command::Ls { server, token } => list(server, token).await,
         Command::Rm {
             share,
             server,
             token,
         } => remove(&share, server, token).await,
+        Command::Completions { shell } => {
+            clap_complete::generate(
+                shell,
+                &mut <Cli as clap::CommandFactory>::command(),
+                "tess",
+                &mut std::io::stdout(),
+            );
+            Ok(())
+        }
         Command::Login {
             server,
             no_browser,
@@ -226,6 +216,62 @@ fn sending_client(server: Option<Url>, token: Option<String>) -> Result<Client> 
     })?;
     let token = token.or_else(|| saved.token_for(&server).map(str::to_owned));
     Client::new(server, token)
+}
+
+/// Downloads a share, asking for its password if it has one.
+async fn fetch(link: &str, server: Option<Url>, output: &std::path::Path) -> Result<()> {
+    let server = match server {
+        Some(server) => Some(server),
+        None => config::load(&config::default_path()?)?.server,
+    };
+    let target = link::parse(link, server.as_ref())?;
+    let client = Client::new(target.server.clone(), None)?;
+    let mut password = std::env::var("TESSERA_PASSWORD").ok();
+    let fetched = loop {
+        match get::get(
+            &client,
+            &target.code,
+            target.key.clone(),
+            password.as_deref(),
+            output,
+            &mut progress,
+        )
+        .await
+        {
+            Err(Error::PasswordRequired) if password.is_none() => {
+                password = Some(rpassword::prompt_password("Password: ")?);
+            }
+            other => break other?,
+        }
+    };
+    clear_progress();
+    let mut stdout = std::io::stdout();
+    if let Some(note) = fetched.note {
+        stdout.write_all(&note)?;
+    }
+    for file in fetched.files {
+        writeln!(stdout, "{}", file.display())?;
+    }
+    Ok(())
+}
+
+/// The QR code on standard error and the clipboard, as asked: standard output
+/// carries only the link, so it can still be piped.
+fn hand_on(link: &str, qr: bool, copy: bool) -> Result<()> {
+    let mut stderr = std::io::stderr();
+    if qr {
+        write!(stderr, "{}", output::qr(link)?)?;
+    }
+    if copy {
+        match output::copy(link)? {
+            output::Copied::Here => writeln!(stderr, "Copied to the clipboard.")?,
+            output::Copied::ToTerminal => writeln!(
+                stderr,
+                "Sent to your terminal's clipboard; if it is not there, the terminal does not allow it."
+            )?,
+        }
+    }
+    Ok(())
 }
 
 /// Prints the account's shares.
@@ -311,6 +357,14 @@ async fn sign_in_with_browser(client: &Client, no_browser: bool) -> Result<Strin
     )?;
     if !no_browser && open_browser(&url) {
         writeln!(stderr, "Opened it in your browser.")?;
+    } else if stderr.is_terminal() {
+        // No browser here, so the approving is done on another device, and a
+        // phone would rather scan than be typed into.
+        write!(
+            stderr,
+            "\nOr scan it with your phone:\n{}\n",
+            output::qr(url.as_str())?
+        )?;
     }
     writeln!(stderr, "Waiting for approval...")?;
     login::wait_for_approval(client, &started).await

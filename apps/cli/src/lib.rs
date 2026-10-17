@@ -13,6 +13,7 @@ pub mod get;
 pub mod link;
 pub mod login;
 pub mod names;
+pub mod output;
 pub mod send;
 pub mod shares;
 
