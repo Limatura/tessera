@@ -1280,6 +1280,70 @@
         ],
         "type": "object"
       },
+      "DeviceAuthorizationRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /auth/device`.",
+        "properties": {
+          "client_name": {
+            "description": "What the program calls itself, such as `tessera CLI on laptop`. Shown on\nthe approval page and used as the token's name.",
+            "example": "tessera CLI on laptop",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_name"
+        ],
+        "type": "object"
+      },
+      "DeviceAuthorizationResponse": {
+        "description": "A started request, as the program needs it.",
+        "properties": {
+          "device_code": {
+            "description": "The program keeps this and polls with it. Never shown to the person.",
+            "type": "string"
+          },
+          "expires_in": {
+            "description": "Seconds until both codes stop working.",
+            "example": 600,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "interval": {
+            "description": "Seconds to wait between polls.",
+            "example": 5,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "user_code": {
+            "description": "What the person types on the site's `/device` page.",
+            "example": "WDJB-MJHT",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_code",
+          "user_code",
+          "expires_in",
+          "interval"
+        ],
+        "type": "object"
+      },
+      "DeviceTokenRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /auth/device/token`.",
+        "properties": {
+          "device_code": {
+            "description": "The device code from `POST /auth/device`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_code"
+        ],
+        "type": "object"
+      },
       "DiscoveryProbeRequest": {
         "additionalProperties": false,
         "description": "Body of `POST /admin/settings/oidc/discovery`.",
@@ -1405,6 +1469,9 @@
           "registration_link_unusable",
           "reset_link_unusable",
           "verification_link_unusable",
+          "device_authorization_pending",
+          "device_authorization_denied",
+          "device_code_unusable",
           "username_taken",
           "email_taken",
           "account_exists",
@@ -1853,6 +1920,41 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "PendingDeviceResponse": {
+        "description": "A request waiting for an answer, as the approval page shows it.",
+        "properties": {
+          "client_name": {
+            "description": "What the program says it is. Its own claim, not checked.",
+            "example": "tessera CLI on laptop",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "When it was started, RFC 3339.",
+            "type": "string"
+          },
+          "expires_at": {
+            "description": "When it stops working, RFC 3339.",
+            "type": "string"
+          },
+          "requested_from": {
+            "description": "The address the request came from.",
+            "type": "string"
+          },
+          "user_code": {
+            "description": "The code, as it was shown to the person.",
+            "example": "WDJB-MJHT",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_code",
+          "client_name",
+          "requested_from",
+          "created_at",
+          "expires_at"
+        ],
         "type": "object"
       },
       "PermissionResponse": {
@@ -6731,6 +6833,350 @@
         "summary": "Ends every share one account uploaded.",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/v1/auth/device": {
+      "post": {
+        "description": "# Errors\n\n`400` when the name is empty or too long, `404` when this instance has no\naccounts, `429` when this address has started too many.",
+        "operationId": "start_device_authorization",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceAuthorizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceAuthorizationResponse"
+                }
+              }
+            },
+            "description": "Started; show the user code and poll with the device code"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The name is empty or too long"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no accounts"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many started from this address"
+          }
+        },
+        "summary": "Starts a sign-in for a program, to be approved from a browser.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/device/token": {
+      "post": {
+        "description": "The token is handed over once. The request is gone after that, so a\nsecond poll gets `device_code_unusable`.\n\n# Errors\n\n`400` with `device_authorization_pending` while nobody has answered, and\nwith `device_code_unusable` when the code is unknown, expired or already\nredeemed. `403` with `device_authorization_denied` when the person refused.\n`404` when this instance has no accounts.",
+        "operationId": "redeem_device_code",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedTokenResponse"
+                }
+              }
+            },
+            "description": "Approved; the token's secret is shown only here"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not answered yet, or the code is not usable"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The person refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no accounts"
+          }
+        },
+        "summary": "Polls a started sign-in, and collects its API token once approved.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/device/{user_code}": {
+      "get": {
+        "description": "# Errors\n\n`401` when not signed in, `403` when an API token was used, `404` when no\nrequest is waiting under that code or this instance has no accounts, `429`\nwhen this address has tried too many codes that do not exist.",
+        "operationId": "describe_device_authorization",
+        "parameters": [
+          {
+            "description": "The code the program showed, with or without its dash",
+            "in": "path",
+            "name": "user_code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingDeviceResponse"
+                }
+              }
+            },
+            "description": "Waiting for an answer"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No request is waiting under that code"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many codes tried that do not exist"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Shows a waiting request, so the person can see what they are approving.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/device/{user_code}/approve": {
+      "post": {
+        "description": "The token may create, list and delete the approver's own shares, less\nwhatever of that the approver may not do themselves.\n\n# Errors\n\n`401` when not signed in, `403` when an API token was used or the account\nmay not issue tokens, `404` when no request is waiting under that code or\nthis instance has no accounts, `429` when this address has tried too many\ncodes that do not exist.",
+        "operationId": "approve_device_authorization",
+        "parameters": [
+          {
+            "description": "The code the program showed, with or without its dash",
+            "in": "path",
+            "name": "user_code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Approved"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token, or not allowed to issue tokens"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No request is waiting under that code"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many codes tried that do not exist"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Approves a waiting request, so the program's next poll gets a token.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/device/{user_code}/deny": {
+      "post": {
+        "description": "# Errors\n\n`401` when not signed in, `403` when an API token was used, `404` when no\nrequest is waiting under that code or this instance has no accounts, `429`\nwhen this address has tried too many codes that do not exist.",
+        "operationId": "deny_device_authorization",
+        "parameters": [
+          {
+            "description": "The code the program showed, with or without its dash",
+            "in": "path",
+            "name": "user_code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Denied"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No request is waiting under that code"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many codes tried that do not exist"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Refuses a waiting request, so the program's next poll is told no.",
+        "tags": [
+          "auth"
         ]
       }
     },

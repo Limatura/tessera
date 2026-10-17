@@ -14,6 +14,7 @@ pub mod api_token;
 pub mod api_token_permission;
 pub mod auth_flow;
 pub mod credential;
+pub mod device_authorization;
 pub mod email_verification;
 pub mod file_segment;
 pub mod file_share;

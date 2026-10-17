@@ -29,7 +29,7 @@ CREATE TABLE users (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) [identities](identities.md) [credentials](credentials.md) [auth_flows](auth_flows.md) [user_preferences](user_preferences.md) [email_verifications](email_verifications.md) [totp_authenticators](totp_authenticators.md) [recovery_codes](recovery_codes.md) [mfa_challenges](mfa_challenges.md) [passkeys](passkeys.md) [webauthn_challenges](webauthn_challenges.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) [identities](identities.md) [credentials](credentials.md) [auth_flows](auth_flows.md) [user_preferences](user_preferences.md) [email_verifications](email_verifications.md) [totp_authenticators](totp_authenticators.md) [recovery_codes](recovery_codes.md) [mfa_challenges](mfa_challenges.md) [passkeys](passkeys.md) [webauthn_challenges](webauthn_challenges.md) [device_authorizations](device_authorizations.md) |  |  |
 | username | TEXT |  | false |  |  |  |
 | email | TEXT |  | false |  |  |  |
 | must_change_password | INTEGER | 0 | false |  |  |  |
@@ -83,6 +83,7 @@ erDiagram
 "mfa_challenges" }o--|| "users" : ""
 "passkeys" }o--|| "users" : ""
 "webauthn_challenges" }o--o| "users" : ""
+"device_authorizations" }o--o| "users" : ""
 "users" }o--o| "roles" : ""
 
 "users" {
@@ -249,6 +250,18 @@ erDiagram
   TEXT secret_hash PK
   TEXT purpose
   TEXT user_id FK
+  TEXT created_at
+  TEXT expires_at
+}
+"device_authorizations" {
+  TEXT device_code_hash PK
+  TEXT user_code
+  TEXT client_name
+  TEXT requested_from
+  TEXT user_id FK
+  TEXT permissions
+  TEXT approved_at
+  TEXT denied_at
   TEXT created_at
   TEXT expires_at
 }

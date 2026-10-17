@@ -63,6 +63,72 @@ pub struct Upload {
     pub token: Option<String>,
 }
 
+/// A sign-in waiting for a person to approve it in a browser.
+#[derive(Debug, Clone, Deserialize)]
+pub struct DeviceSignIn {
+    /// What this program polls with. Never shown.
+    pub device_code: String,
+    /// What the person enters on the site.
+    pub user_code: String,
+    /// Seconds until both codes stop working.
+    pub expires_in: u64,
+    /// Seconds to wait between polls.
+    pub interval: u64,
+}
+
+#[derive(Deserialize)]
+struct Issued {
+    secret: String,
+}
+
+/// An account, as much of it as the commands read.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Account {
+    /// Its name.
+    pub username: String,
+    /// What it may do, as `resource:verb` strings.
+    pub permissions: Vec<String>,
+}
+
+/// Where a password sign-in got to.
+#[derive(Debug, Clone)]
+pub enum PasswordSignIn {
+    /// Signed in. The session cookie, as `name=value`, and the account.
+    Done {
+        /// Sent back as the `Cookie` header.
+        cookie: String,
+        /// Who signed in.
+        account: Account,
+    },
+    /// The password was right and the account asks for a code from its
+    /// authenticator app. Finish with [`Client::finish_password_sign_in`].
+    NeedsCode {
+        /// What the code is sent back with.
+        ticket: String,
+    },
+}
+
+#[derive(Deserialize)]
+struct Challenge {
+    ticket: String,
+}
+
+/// The session cookie a sign-in set, as `name=value`.
+fn session_cookie(response: &Response) -> Result<String> {
+    response
+        .headers()
+        .get_all(reqwest::header::SET_COOKIE)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .filter_map(|value| value.split(';').next())
+        .find(|pair| pair.starts_with(SESSION_COOKIE))
+        .map(str::to_owned)
+        .ok_or_else(|| Error::Protocol("signed in, but no session cookie came back".to_owned()))
+}
+
+/// The cookie the server keeps a browser session in.
+const SESSION_COOKIE: &str = "tessera_session=";
+
 #[derive(Deserialize)]
 struct Ticket {
     ticket: String,
@@ -70,6 +136,7 @@ struct Ticket {
 
 #[derive(Deserialize)]
 struct Refusal {
+    code: Option<String>,
     message: String,
 }
 
@@ -269,6 +336,131 @@ impl Client {
         Ok(ticket.ticket)
     }
 
+    /// Starts signing in from a browser, as `client_name`.
+    ///
+    /// # Errors
+    ///
+    /// When the server refuses it, which an instance without accounts does.
+    pub async fn start_device_sign_in(&self, client_name: &str) -> Result<DeviceSignIn> {
+        let request = self
+            .request(reqwest::Method::POST, self.url("/api/v1/auth/device")?)
+            .json(&serde_json::json!({ "client_name": client_name }));
+        Ok(accepted(request.send().await?).await?.json().await?)
+    }
+
+    /// Asks whether a sign-in started with `device_code` has been approved,
+    /// and collects its token if it has.
+    ///
+    /// # Errors
+    ///
+    /// When the server refuses, which includes "not yet": that is
+    /// `device_authorization_pending` in [`Error::Server`]'s `code`.
+    pub async fn redeem_device_code(&self, device_code: &str) -> Result<String> {
+        let request = self
+            .request(
+                reqwest::Method::POST,
+                self.url("/api/v1/auth/device/token")?,
+            )
+            .json(&serde_json::json!({ "device_code": device_code }));
+        let issued: Issued = accepted(request.send().await?).await?.json().await?;
+        Ok(issued.secret)
+    }
+
+    /// The account this client's token belongs to.
+    ///
+    /// # Errors
+    ///
+    /// When there is no token, or the server does not accept it.
+    pub async fn account(&self) -> Result<Account> {
+        let request = self.request(reqwest::Method::GET, self.url("/api/v1/auth/session")?);
+        Ok(accepted(request.send().await?).await?.json().await?)
+    }
+
+    /// Signs in with a username or address and a password.
+    ///
+    /// # Errors
+    ///
+    /// When the server refuses, which a wrong password does.
+    pub async fn sign_in_with_password(
+        &self,
+        identifier: &str,
+        password: &str,
+    ) -> Result<PasswordSignIn> {
+        let request = self
+            .http
+            .post(self.url("/api/v1/auth/login")?)
+            .json(&serde_json::json!({ "identifier": identifier, "password": password }));
+        let response = accepted(request.send().await?).await?;
+        if response.status() == StatusCode::ACCEPTED {
+            let challenge: Challenge = response.json().await?;
+            return Ok(PasswordSignIn::NeedsCode {
+                ticket: challenge.ticket,
+            });
+        }
+        let cookie = session_cookie(&response)?;
+        Ok(PasswordSignIn::Done {
+            cookie,
+            account: response.json().await?,
+        })
+    }
+
+    /// Finishes a password sign-in with a code from the authenticator app, or
+    /// a recovery code.
+    ///
+    /// # Errors
+    ///
+    /// When the code is wrong or the ticket has run out.
+    pub async fn finish_password_sign_in(
+        &self,
+        ticket: &str,
+        code: &str,
+    ) -> Result<PasswordSignIn> {
+        let request = self
+            .http
+            .post(self.url("/api/v1/auth/login/mfa")?)
+            .json(&serde_json::json!({ "ticket": ticket, "code": code }));
+        let response = accepted(request.send().await?).await?;
+        let cookie = session_cookie(&response)?;
+        Ok(PasswordSignIn::Done {
+            cookie,
+            account: response.json().await?,
+        })
+    }
+
+    /// Issues an API token named `name` with `permissions`, from a session.
+    ///
+    /// # Errors
+    ///
+    /// When the server refuses it.
+    pub async fn create_token(
+        &self,
+        cookie: &str,
+        name: &str,
+        permissions: &[&str],
+    ) -> Result<String> {
+        let request = self
+            .http
+            .post(self.url("/api/v1/tokens")?)
+            .header(reqwest::header::COOKIE, cookie)
+            .json(&serde_json::json!({ "name": name, "permissions": permissions }));
+        let issued: Issued = accepted(request.send().await?).await?.json().await?;
+        Ok(issued.secret)
+    }
+
+    /// Ends a session.
+    ///
+    /// # Errors
+    ///
+    /// When the request does not get an answer.
+    pub async fn sign_out(&self, cookie: &str) -> Result<()> {
+        let request = self
+            .http
+            .post(self.url("/api/v1/auth/logout")?)
+            .header(reqwest::header::COOKIE, cookie);
+        accepted(request.send().await?).await?;
+        Ok(())
+    }
+
     /// Starts a download from `from` bytes in. Follows the server to the store
     /// when it sends one there.
     ///
@@ -290,17 +482,21 @@ async fn accepted(response: Response) -> Result<Response> {
     if status.is_success() {
         return Ok(response);
     }
-    let message = response.json::<Refusal>().await.map_or_else(
+    let (code, message) = response.json::<Refusal>().await.map_or_else(
         |_| {
-            status
-                .canonical_reason()
-                .unwrap_or("request refused")
-                .to_owned()
+            (
+                None,
+                status
+                    .canonical_reason()
+                    .unwrap_or("request refused")
+                    .to_owned(),
+            )
         },
-        |refusal| refusal.message,
+        |refusal| (refusal.code, refusal.message),
     );
     Err(Error::Server {
         status: status.as_u16(),
+        code,
         message,
     })
 }

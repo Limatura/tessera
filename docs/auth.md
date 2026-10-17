@@ -113,3 +113,17 @@ The link is for the addresses registration never proved: one changed afterwards,
 - **Confirming needs no session**, because the link is opened wherever the mail is read. It lasts `mail.registration_ttl_hours`, works once, and every unusable link gets the same `400`.
 
 Both answer `404` on an instance that sends no mail.
+
+## Signing in a program from a browser
+
+`tess login` runs where there may be no browser at all, over SSH for one, so it cannot send one to the sign-in page and wait for it to come back. It uses the device authorization grant (RFC 8628) instead. Code: `api/device.rs`, `db/repository/device_authorization.rs`.
+
+1. The program calls `POST /api/v1/auth/device` with a name for itself and gets a device code, which it keeps, and a user code like `WDJB-MJHT`, which it shows.
+2. The person opens `/device` on the site, signs in the usual way, enters the user code and approves (`POST /api/v1/auth/device/{user_code}/approve`) or denies.
+3. The program polls `POST /api/v1/auth/device/token` every `interval` seconds. Until somebody answers it gets `device_authorization_pending`; after an approval it gets an API token, once.
+
+- **Only the device code's digest is stored**, like every other secret. The user code is stored as typed, since it is looked up by what a person types, lives ten minutes, and can only approve a request, never redeem one.
+- **The token is minted on redemption, not on approval.** Approval records who and which permissions; minting it earlier would mean keeping the secret somewhere until the program comes back.
+- **The token may create, list and delete the approver's own shares**, less whatever of that the approver may not do. Approving needs `tokens:manage` and a session, for the same reason creating a token does.
+- **The approval page shows what the program calls itself and the address it asked from.** The attack on this flow is a stranger starting a request and sending you the code, and that is the only place it can be noticed.
+- **Starting one is counted against the address on `auth.throttle.source`**, every request and not only failures, since each writes a row anyone can ask for. User codes tried and not found count on `auth.throttle.lookup`, the same budget mistyped retrieval codes spend.

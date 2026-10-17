@@ -1,4 +1,4 @@
-//! `tessera`: send and fetch shares from a terminal.
+//! `tess`: send and fetch shares from a terminal.
 //!
 //! A client of the same HTTP API the web page uses, and of the same encryption
 //! format: `tessera-crypto`, natively here and as WebAssembly there. A file one
@@ -8,8 +8,10 @@
 //! talks to a server is here, so the tests can drive it against a real one.
 
 pub mod client;
+pub mod config;
 pub mod get;
 pub mod link;
+pub mod login;
 pub mod names;
 pub mod send;
 
@@ -28,6 +30,8 @@ pub enum Error {
     Server {
         /// The HTTP status.
         status: u16,
+        /// The server's machine-readable reason, when it gave one.
+        code: Option<String>,
         /// What the server said, or the status's own name when it said nothing.
         message: String,
     },
@@ -40,6 +44,14 @@ pub enum Error {
     /// Reading or writing a local file.
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    /// The config file does not read.
+    #[error("{path}: {message}")]
+    Config {
+        /// Where it is.
+        path: std::path::PathBuf,
+        /// What is wrong with it.
+        message: String,
+    },
     /// Sealing or opening.
     #[error(transparent)]
     Crypto(#[from] tessera_crypto::Error),

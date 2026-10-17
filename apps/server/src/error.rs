@@ -291,6 +291,14 @@ error_codes! {
     ResetLinkUnusable => BAD_REQUEST, "this reset link is not usable; ask for a new one";
     /// The address confirmation link is unknown, spent, expired, or for an address the account has left.
     VerificationLinkUnusable => BAD_REQUEST, "this confirmation link is not usable; ask for a new one";
+    /// A program signing in from another device polled before anyone answered.
+    /// It waits `interval` seconds and asks again.
+    DeviceAuthorizationPending => BAD_REQUEST, "waiting for the sign-in to be approved in a browser";
+    /// The person at the browser refused the program's sign-in.
+    DeviceAuthorizationDenied => FORBIDDEN, "the sign-in was denied";
+    /// The device code is unknown, expired, or already redeemed. The program
+    /// starts again.
+    DeviceCodeUnusable => BAD_REQUEST, "this sign-in request is not usable; start again";
     /// Another account has this name.
     UsernameTaken => CONFLICT, "that username is taken";
     /// Another account has this address.
@@ -703,6 +711,7 @@ repository_error!(session::SessionRepositoryError);
 repository_error!(api_token::ApiTokenRepositoryError);
 repository_error!(share::ShareRepositoryError);
 repository_error!(upload::UploadRepositoryError);
+repository_error!(device_authorization::DeviceAuthorizationRepositoryError);
 
 /// Passkey-table failures are ours: a database error or a row that does not
 /// read back. Logged, and a 500.

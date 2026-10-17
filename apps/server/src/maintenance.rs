@@ -297,6 +297,10 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
         "unanswered passkey challenges",
         state.passkeys.delete_expired_challenges(now).await,
     );
+    report(
+        "unredeemed device sign-ins",
+        state.devices.delete_expired(now).await,
+    );
     // A browser closed on the provider's login page leaves a row that will
     // never be used. It holds no credential, only the values the callback
     // would check against, but would otherwise grow without bound.
