@@ -13,9 +13,9 @@ const AUTHENTICATED_TAG = /@authenticated/u;
 // oxlint-disable-next-line import/no-default-export -- Playwright only reads the default export
 export default defineConfig({
   forbidOnly: isCI,
-  // Every test makes and deletes its own shares and signs in with its own
-  // session, so they can run side by side in CI too.
-  fullyParallel: true,
+  // CI runs serially: password key derivation is CPU-bound by design, and on
+  // a 4-vCPU runner parallel browsers starved each other into timeouts.
+  fullyParallel: !isCI,
   // CI logs show which test is running and which failed; the html report is
   // uploaded as an artifact.
   reporter: isCI ? [["list"], ["html", { open: "never" }]] : "html",
@@ -71,16 +71,13 @@ export default defineConfig({
   },
   webServer: {
     // CI serves a production build: vite dev compiles each module on first
-    // request, and on a 4-vCPU runner three browsers asking at once pushed
-    // page loads past the test timeout. The build takes seconds, and preview
-    // proxies /api the same way dev does.
+    // request, which a fresh runner pays on every page. The build takes
+    // seconds, and preview proxies /api the same way dev does.
     command: isCI
       ? "pnpm build && pnpm exec vp preview --port 3001 --strictPort"
       : "pnpm dev",
     reuseExistingServer: !isCI,
     url: baseURL,
   },
-  // A hosted runner has 4 vCPUs, shared with the backend and vite dev; three
-  // browsers leave them a core. Serial took the suite to over two minutes.
-  workers: isCI ? 3 : "50%",
+  workers: isCI ? 1 : "50%",
 });
