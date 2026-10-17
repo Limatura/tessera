@@ -125,9 +125,10 @@ Files go to a local directory unless you add another backend in the admin panel.
 ```bash
 cargo install --path apps/cli
 
-tessera send report.pdf --server https://share.example.com --expires 24
-tessera get https://share.example.com/s/P8D72PSF
-echo "hello" | tessera send - --server https://share.example.com
+tess login https://share.example.com
+tess send report.pdf --expires 24
+tess get https://share.example.com/s/P8D72PSF
+echo "hello" | tess send -
 ```
 
 `--encrypt` seals the content before it leaves your machine; the key is the part of the link after `#`, which the server never sees.

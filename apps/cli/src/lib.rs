@@ -1,4 +1,4 @@
-//! `tessera`: send and fetch shares from a terminal.
+//! `tess`: send and fetch shares from a terminal.
 //!
 //! A client of the same HTTP API the web page uses, and of the same encryption
 //! format: `tessera-crypto`, natively here and as WebAssembly there. A file one

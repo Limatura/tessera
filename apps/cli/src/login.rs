@@ -1,4 +1,4 @@
-//! `tessera login`: get an API token for this machine.
+//! `tess login`: get an API token for this machine.
 //!
 //! Three ways, for three situations:
 //!
@@ -18,7 +18,7 @@ use crate::{
     client::{Client, DeviceSignIn, PasswordSignIn},
 };
 
-/// What a token from `tessera login --password` may do, less what the account
+/// What a token from `tess login --password` may do, less what the account
 /// itself may not: the same as one approved in a browser.
 const TOKEN_PERMISSIONS: [&str; 3] = ["shares:create", "shares:read", "shares:delete"];
 
@@ -55,8 +55,7 @@ pub async fn wait_for_approval(client: &Client, started: &DeviceSignIn) -> Resul
                 }
                 "device_code_unusable" => {
                     return Err(Error::Usage(
-                        "the sign-in was not approved in time; run `tessera login` again"
-                            .to_owned(),
+                        "the sign-in was not approved in time; run `tess login` again".to_owned(),
                     ));
                 }
                 _ => {

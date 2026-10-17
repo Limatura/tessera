@@ -1,4 +1,4 @@
-//! The config file `tessera login` writes: which instance, and the token for it.
+//! The config file `tess login` writes: which instance, and the token for it.
 //!
 //! TOML, at `$XDG_CONFIG_HOME/tessera/config.toml`, which is
 //! `~/.config/tessera/config.toml` unless set otherwise, on macOS too, and the

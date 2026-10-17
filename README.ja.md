@@ -125,9 +125,10 @@ TESSERA_SERVER__DATA_DIR=/var/lib/tessera
 ```bash
 cargo install --path apps/cli
 
-tessera send report.pdf --server https://share.example.com --expires 24
-tessera get https://share.example.com/s/P8D72PSF
-echo "hello" | tessera send - --server https://share.example.com
+tess login https://share.example.com
+tess send report.pdf --expires 24
+tess get https://share.example.com/s/P8D72PSF
+echo "hello" | tess send -
 ```
 
 `--encrypt` を付けると、内容はマシンを離れる前に暗号化されます。鍵はリンクの `#` 以降の部分で、サーバーが目にすることはありません。

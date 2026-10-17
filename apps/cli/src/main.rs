@@ -1,4 +1,4 @@
-//! The `tessera` command.
+//! The `tess` command.
 
 use std::{
     io::{IsTerminal as _, Read as _, Write as _},
@@ -17,7 +17,7 @@ use url::Url;
 
 /// Send and fetch Tessera shares.
 #[derive(Debug, Parser)]
-#[command(name = "tessera", version, about)]
+#[command(name = "tess", version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -30,11 +30,11 @@ enum Command {
         /// The files to put in one share. `-` reads a note from standard input.
         #[arg(required = true)]
         paths: Vec<PathBuf>,
-        /// The instance to upload to. Defaults to the one `tessera login` saved.
+        /// The instance to upload to. Defaults to the one `tess login` saved.
         #[arg(long, env = "TESSERA_SERVER")]
         server: Option<Url>,
         /// An API token, to upload as an account instead of anonymously.
-        /// Defaults to the one `tessera login` saved, for that instance.
+        /// Defaults to the one `tess login` saved, for that instance.
         #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
         token: Option<String>,
         /// Seal the content on this machine. The server never sees the key:
@@ -58,7 +58,7 @@ enum Command {
         /// The whole link, or the retrieval code.
         link: String,
         /// The instance, when only a code is given. Defaults to the one
-        /// `tessera login` saved.
+        /// `tess login` saved.
         #[arg(long, env = "TESSERA_SERVER")]
         server: Option<Url>,
         /// The directory to write files into. A note goes to standard output.
@@ -89,7 +89,7 @@ async fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             // Nowhere left to report a failure to write the failure.
-            writeln!(std::io::stderr(), "tessera: {error}").ok();
+            writeln!(std::io::stderr(), "tess: {error}").ok();
             ExitCode::FAILURE
         }
     }
@@ -189,14 +189,12 @@ async fn run(cli: Cli) -> Result<()> {
     }
 }
 
-/// A client for `send`: flags and environment first, then what `tessera login`
+/// A client for `send`: flags and environment first, then what `tess login`
 /// saved. The saved token goes only to the instance it came from.
 fn sending_client(server: Option<Url>, token: Option<String>) -> Result<Client> {
     let saved = config::load(&config::default_path()?)?;
     let server = server.or_else(|| saved.server.clone()).ok_or_else(|| {
-        Error::Usage(
-            "no instance to send to; give --server, or run `tessera login` first".to_owned(),
-        )
+        Error::Usage("no instance to send to; give --server, or run `tess login` first".to_owned())
     })?;
     let token = token.or_else(|| saved.token_for(&server).map(str::to_owned));
     Client::new(server, token)
@@ -260,7 +258,7 @@ async fn sign_in_with_password(client: &Client) -> Result<String> {
             code: Some(code), ..
         } if code == "invalid_credentials" => Error::Usage(
             "wrong username or password. An account that signs in with a passkey or a \
-             provider has no password here; run `tessera login` without --password"
+             provider has no password here; run `tess login` without --password"
                 .to_owned(),
         ),
         other => other,

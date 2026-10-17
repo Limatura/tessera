@@ -116,7 +116,7 @@ Both answer `404` on an instance that sends no mail.
 
 ## Signing in a program from a browser
 
-`tessera login` runs where there may be no browser at all, over SSH for one, so it cannot send one to the sign-in page and wait for it to come back. It uses the device authorization grant (RFC 8628) instead. Code: `api/device.rs`, `db/repository/device_authorization.rs`.
+`tess login` runs where there may be no browser at all, over SSH for one, so it cannot send one to the sign-in page and wait for it to come back. It uses the device authorization grant (RFC 8628) instead. Code: `api/device.rs`, `db/repository/device_authorization.rs`.
 
 1. The program calls `POST /api/v1/auth/device` with a name for itself and gets a device code, which it keeps, and a user code like `WDJB-MJHT`, which it shows.
 2. The person opens `/device` on the site, signs in the usual way, enters the user code and approves (`POST /api/v1/auth/device/{user_code}/approve`) or denies.

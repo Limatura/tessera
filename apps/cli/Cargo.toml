@@ -7,7 +7,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "tessera"
+name = "tess"
 path = "src/main.rs"
 
 # A client, so the opposite trade-off from the server: the server counts every
