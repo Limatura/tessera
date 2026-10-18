@@ -118,9 +118,95 @@ pub struct Config {
     /// Measuring the line to this instance. See [`SpeedConfig`].
     #[serde(default)]
     pub speed: SpeedConfig,
+    /// The copy of the log kept on disk for the panel. See [`LogsConfig`].
+    #[serde(default)]
+    pub logs: LogsConfig,
     /// The key recoverable secrets are sealed under. See [`SecurityConfig`].
     #[serde(default)]
     pub security: SecurityConfig,
+}
+
+/// The copy of the log written under `server.data_dir`, for the panel to read.
+///
+/// Separate from `telemetry.*`, which decides what reaches stdout and is fixed
+/// at boot. These two are read per line and per sweep, so the panel can change
+/// them on a running server.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct LogsConfig {
+    /// How many days of files to keep, today's included.
+    pub retention_days: u16,
+    /// The least severe line written to the file. Narrows `telemetry.filter`,
+    /// never widens it: a line that filter drops is gone before it gets here.
+    pub min_level: LogLevel,
+}
+
+impl Default for LogsConfig {
+    fn default() -> Self {
+        Self {
+            retention_days: 3,
+            min_level: LogLevel::Trace,
+        }
+    }
+}
+
+impl LogsConfig {
+    /// The most days a file is kept.
+    pub const MAX_RETENTION_DAYS: u16 = 90;
+
+    fn validate(self) -> Result<(), ConfigError> {
+        if !(1..=Self::MAX_RETENTION_DAYS).contains(&self.retention_days) {
+            return Err(ConfigError::Invalid {
+                field: "logs.retention_days",
+                reason: format!("must be between 1 and {}", Self::MAX_RETENTION_DAYS),
+            });
+        }
+        Ok(())
+    }
+}
+
+/// How severe a log line is, least first.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, utoipa::ToSchema,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    /// Step by step.
+    Trace,
+    /// For whoever is working on the server.
+    Debug,
+    /// Something worth knowing happened.
+    Info,
+    /// Something went wrong and was handled.
+    Warn,
+    /// Something went wrong and was not.
+    Error,
+}
+
+impl LogLevel {
+    /// The spelling in a log entry and a setting.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Trace => "trace",
+            Self::Debug => "debug",
+            Self::Info => "info",
+            Self::Warn => "warn",
+            Self::Error => "error",
+        }
+    }
+}
+
+impl From<tracing::Level> for LogLevel {
+    fn from(level: tracing::Level) -> Self {
+        match level {
+            tracing::Level::TRACE => Self::Trace,
+            tracing::Level::DEBUG => Self::Debug,
+            tracing::Level::INFO => Self::Info,
+            tracing::Level::WARN => Self::Warn,
+            tracing::Level::ERROR => Self::Error,
+        }
+    }
 }
 
 /// The key everything recoverable is stored under.
@@ -2109,6 +2195,7 @@ impl Config {
         self.scan.validate()?;
         self.site.validate()?;
         self.speed.validate()?;
+        self.logs.validate()?;
         self.mail.validate()
     }
 }

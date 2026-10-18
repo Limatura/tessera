@@ -25,8 +25,15 @@ impl<T: Clone> Topic<T> {
     /// A topic nobody is subscribed to yet.
     #[must_use]
     pub fn new() -> Self {
+        Self::with_capacity(CAPACITY)
+    }
+
+    /// A topic whose subscribers may fall `capacity` announcements behind,
+    /// for one announced far more often than by hand.
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            sender: broadcast::channel(CAPACITY).0,
+            sender: broadcast::channel(capacity).0,
         }
     }
 

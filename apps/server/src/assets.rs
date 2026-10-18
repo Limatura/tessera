@@ -407,6 +407,38 @@ fn share_code(path: &str) -> Option<&str> {
     (!rest.is_empty() && !rest.contains('/')).then_some(rest)
 }
 
+/// `path` as the log may keep it, with any retrieval code replaced by
+/// `{code}`.
+///
+/// For requests no route matched, which the fallback answers. The routes that
+/// did match are logged by their pattern and never get here. A code is the
+/// segment after `s` (a share page, in any locale) or after `shares` (the
+/// API): loose on purpose, since a path no route knows is a guess or a stale
+/// link, and either may still hold a real code.
+#[must_use]
+pub fn loggable_path(path: &str) -> std::borrow::Cow<'_, str> {
+    let mut after_code_prefix = false;
+    let mut masked = false;
+    let segments: Vec<&str> = path
+        .split('/')
+        .map(|segment| {
+            let segment = if after_code_prefix && !segment.is_empty() {
+                masked = true;
+                "{code}"
+            } else {
+                segment
+            };
+            after_code_prefix = matches!(segment, "s" | "shares");
+            segment
+        })
+        .collect();
+    if masked {
+        std::borrow::Cow::Owned(segments.join("/"))
+    } else {
+        std::borrow::Cow::Borrowed(path)
+    }
+}
+
 /// Drops a leading `{locale}/`, if the path starts with one.
 fn strip_locale_prefix(path: &str) -> &str {
     let Some((head, tail)) = path.split_once('/') else {
@@ -822,5 +854,16 @@ mod tests {
     #[case::unterminated("<html><head><title>Tessera</head></html>")]
     fn a_document_without_a_title_is_untouched(#[case] html: &str) {
         assert_eq!(retitled(html, "Acme"), html);
+    }
+
+    #[rstest]
+    #[case::share_page("/s/ABC123", "/s/{code}")]
+    #[case::localised_share_page("/en/s/ABC123", "/en/s/{code}")]
+    #[case::other_page("/admin/users", "/admin/users")]
+    #[case::below_a_share("/s/ABC123/nonsense", "/s/{code}/nonsense")]
+    #[case::the_api("/api/v1/shares/ABC123/nonsense", "/api/v1/shares/{code}/nonsense")]
+    #[case::nothing_after("/s/", "/s/")]
+    fn share_codes_are_kept_out_of_logged_paths(#[case] path: &str, #[case] logged: &str) {
+        assert_eq!(loggable_path(path), logged);
     }
 }

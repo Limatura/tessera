@@ -1394,6 +1394,47 @@
         ],
         "type": "object"
       },
+      "Entry": {
+        "description": "One line of a log file, as written and as served.",
+        "properties": {
+          "fields": {
+            "description": "The line's own fields, and those of the spans it was logged inside,\nsuch as the request's `method`, `path` and `request_id`.",
+            "type": "object"
+          },
+          "id": {
+            "description": "Where the line starts: its day and byte offset in that day's file.\nStable, so it doubles as a cursor.",
+            "example": "2026-10-19:48213",
+            "type": "string"
+          },
+          "level": {
+            "$ref": "#/components/schemas/LogLevel",
+            "description": "How severe it is."
+          },
+          "message": {
+            "description": "What happened.",
+            "type": "string"
+          },
+          "target": {
+            "description": "The module that logged it.",
+            "example": "tessera_server::scan",
+            "type": "string"
+          },
+          "time": {
+            "description": "When it was logged, RFC 3339 in UTC.",
+            "example": "2026-10-19T03:12:09.381Z",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "time",
+          "level",
+          "target",
+          "message",
+          "fields"
+        ],
+        "type": "object"
+      },
       "ErrorBody": {
         "description": "The JSON body returned for every non-2xx response.",
         "properties": {
@@ -1632,6 +1673,61 @@
           "used",
           "active",
           "created_at"
+        ],
+        "type": "object"
+      },
+      "LogFile": {
+        "description": "One day's file.",
+        "properties": {
+          "date": {
+            "description": "The day it holds, in UTC.",
+            "example": "2026-10-19",
+            "type": "string"
+          },
+          "size_bytes": {
+            "description": "How large it is.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "size_bytes"
+        ],
+        "type": "object"
+      },
+      "LogLevel": {
+        "description": "How severe a log line is, least first.",
+        "enum": [
+          "trace",
+          "debug",
+          "info",
+          "warn",
+          "error"
+        ],
+        "type": "string"
+      },
+      "LogPage": {
+        "description": "Lines from `GET /admin/logs`, newest first.",
+        "properties": {
+          "data": {
+            "description": "The lines.",
+            "items": {
+              "$ref": "#/components/schemas/Entry"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "description": "Pass back as `cursor` for older lines. `null` when there are none.\n\nA page can be short, or even empty, and still have a cursor: a query\nstops reading after a fixed amount so a rare match costs several\nrequests rather than one very long one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -4697,6 +4793,316 @@
           }
         ],
         "summary": "Revokes an invite.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/logs": {
+      "get": {
+        "description": "# Errors\n\n`400` for a time, cursor or level that does not parse, `401` when nothing\nwas signed in, `403` without `logs:read` or with an API token.",
+        "operationId": "read_logs",
+        "parameters": [
+          {
+            "description": "Nothing logged before this, RFC 3339.",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Nothing logged after this, RFC 3339.",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The least severe level wanted: `warn` is warnings and errors.",
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/LogLevel"
+            }
+          },
+          {
+            "description": "Text the message or a field value contains, ignoring case.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many lines, 200 when omitted, at most 1000.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "`next_cursor` from the previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogPage"
+                }
+              }
+            },
+            "description": "A page of lines"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A parameter does not parse"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read the log, or authenticated with an API token"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Reads log lines, newest first, a page at a time.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/logs/files": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` without `logs:read` or with an API\ntoken, `404` when this instance has no administration.",
+        "operationId": "list_log_files",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LogFile"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "The days kept"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read the log, or authenticated with an API token"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lists the days there are log files for, newest first.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/logs/files/{date}": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` without `logs:read` or with an API\ntoken, `404` when there is no file for that day or it is not a date.",
+        "operationId": "download_log_file",
+        "parameters": [
+          {
+            "description": "The day, `YYYY-MM-DD` in UTC",
+            "in": "path",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The day's lines, one JSON object each"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read the log, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No file for that day"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Downloads one day's file.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/logs/stream": {
+      "get": {
+        "description": "`entry` events carry one line each, with the line's `id` as the event id.\nA `lagged` event says the stream fell behind and missed some; read them\nwith `GET /admin/logs`. Lines from before the stream opened are not sent.\n\n# Errors\n\n`400` for a level that does not parse, `401` when nothing was signed in,\n`403` without `logs:read` or with an API token.",
+        "operationId": "stream_logs",
+        "parameters": [
+          {
+            "description": "The least severe level wanted.",
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/LogLevel"
+            }
+          },
+          {
+            "description": "Text the message or a field value contains, ignoring case.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                }
+              }
+            },
+            "description": "`entry` events, each a line; `lagged` events, each a count"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A parameter does not parse"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read the log, or authenticated with an API token"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Streams log lines as they are written.",
         "tags": [
           "admin"
         ]
