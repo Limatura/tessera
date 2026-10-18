@@ -188,7 +188,7 @@ impl Capabilities {
     ///
     /// `storage_remaining_bytes` is left `None` here and filled in by the
     /// handler, because it is the one field that depends on who is asking.
-    fn from_state(state: &AppState) -> Self {
+    pub(crate) fn from_state(state: &AppState) -> Self {
         let config = state.config();
         let FeatureConfig {
             accounts,
