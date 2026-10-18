@@ -1,13 +1,13 @@
 import { Label } from "@tessera/ui/components/label";
 import { Switch } from "@tessera/ui/components/switch";
 import { toast } from "@tessera/ui/components/toast";
+import type { ShareSettings } from "@tessera/upload";
 import { Flame, KeyRound } from "lucide-react";
 import { useState } from "react";
 
 import { useCapabilities } from "@/hooks/use-capabilities";
 import { apiErrorMessage } from "@/lib/api-error";
-import { updateShare } from "@/lib/upload/share-api";
-import type { ShareSettings } from "@/lib/upload/share-api";
+import { uploader } from "@/lib/uploader";
 import * as m from "@/paraglide/messages";
 
 import { ShareExpiryField } from "./share-expiry-field";
@@ -68,7 +68,7 @@ export function ShareSettingsPanel({
     rollback: () => void
   ) => {
     try {
-      await updateShare(code, settings, managementToken);
+      await uploader.updateShare(code, settings, managementToken);
       onChange?.(next);
     } catch (error) {
       rollback();

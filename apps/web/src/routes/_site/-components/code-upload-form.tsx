@@ -19,6 +19,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@tessera/ui/components/tabs";
+import { LANGUAGE_LABELS, detectLanguage } from "@tessera/upload/languages";
 import { ExternalChange } from "@uiw/react-codemirror";
 import type { Extension, ViewUpdate } from "@uiw/react-codemirror";
 import { Maximize2, Sparkles } from "lucide-react";
@@ -30,21 +31,15 @@ import {
   MermaidDiagram,
 } from "@/components/mermaid/mermaid-diagram";
 import { SvgImage } from "@/components/svg-image";
-import { detectLanguage } from "@/lib/detect-language";
-import { LANGUAGE_LABELS } from "@/lib/language-labels";
 import { readPasteSource } from "@/lib/paste-source";
 import * as m from "@/paraglide/messages";
 
 import { QuickSubmitButton } from "./quick-submit-button";
 import type { SubmitStatus } from "./use-submit-transition";
 
-// Adding a language touches four places, and missing one fails silently:
-//   1. LANGUAGES here: the select option, and editor highlighting if `load` is given
-//   2. lib/detect-language.ts: detection on paste (its id must match the value here)
-//   3. bundledLanguages in lib/shiki.ts: highlighting on the share page, which
-//      otherwise falls back to plain text
-//   4. LANGUAGE_ALIASES in lib/paste-source.ts: recognising the language when
-//      pasting from VS Code or a file
+// Adding a language touches the places listed in @tessera/upload's
+// `languages/index.ts`, and one more here: LANGUAGES, the select option and
+// editor highlighting if `load` is given. Missing one fails silently.
 // Mermaid is the exception: the share page renders it instead of highlighting
 // it, so it is not in shiki. SVG is highlighted by shiki as xml
 // (HIGHLIGHT_ALIASES in text-preview.tsx).

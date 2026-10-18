@@ -1,0 +1,145 @@
+extName: Tessera
+extDescription: どのページでも右クリックで、画像・リンク・選択したテキストを Tessera にアップロードできます。
+
+common:
+  copied: リンクをコピーしました
+  copyLink: リンクをコピー
+  open: 開く
+  loading: 読み込み中…
+
+menu:
+  root: Tessera にアップロード
+  uploadImage: この画像をアップロード
+  uploadVideo: この動画をアップロード
+  uploadAudio: この音声をアップロード
+  uploadSelection: 選択したテキストをノートとしてアップロード
+  uploadLinkedFile: リンク先のファイルをアップロード
+  shareLink: このリンクを共有
+  sharePage: このページの URL を共有
+
+jobs:
+  empty: アップロード中の項目はありません
+  preparing: 準備中…
+  cancel: アップロードを中止
+  cancelled: 中止しました
+  clear: 完了した項目を消去
+  note: ノート
+
+notify:
+  doneTitle: アップロード完了
+  done: $1 をアップロードしました。クリックで開きます。
+  doneCopied: $1 をアップロードし、リンクをコピーしました。クリックで開きます。
+  failedTitle: $1 をアップロードできませんでした
+
+signIn:
+  action: ログイン
+  doneTitle: ログインしました
+  done: $1 としてログインしました
+  failedTitle: ログインに失敗しました
+  noUploadPermission: このアカウントにはアップロード権限がありません。管理者に問い合わせてください。
+  noTokenPermission: このアカウントは API キーを作成できないため、拡張機能が自動でログインできません。管理者に「API キーの管理」権限を依頼するか、キーを手動で貼り付けてください。
+  badToken: このキーは受け付けられませんでした。すべてコピーされているか、失効していないか確認してください。
+  tokenName: ブラウザ拡張機能 · $1 · $2
+
+signOut:
+  action: ログアウト
+  done: ログアウトしました
+  revokeOnSite: 拡張機能の API キーはまだ有効です。サイトの「API キー」ページで失効させてください。
+
+errors:
+  noServerTitle: サーバーが未設定です
+  noServer: 先に拡張機能の設定で Tessera の URL を入力してください。
+  signInRequired: このサーバーは匿名アップロードを受け付けていません。先にログインしてください。
+  network: サーバーに接続できません。URL とネットワーク接続を確認してください。
+  mediaBlocked: このサイトからファイルを取得できませんでした。拡張機能の設定で「任意のサイトからメディアを取得」を有効にしてから再試行してください。
+  mediaTooLarge: ファイルが大きすぎてページから直接取り出せません。拡張機能の設定で「任意のサイトからメディアを取得」を有効にしてください。
+  mediaStream: ストリーミング再生のメディアのため、ダウンロードできる完全なファイルがありません。
+  mediaHttp: サイトがこのファイルの提供を拒否しました(HTTP $1)。
+  interrupted: ブラウザによってアップロードが中断されました。もう一度アップロードしてください。
+  unknownTitle: エラーが発生しました
+  unknown: 予期しないエラーが発生しました。
+
+expiry:
+  instance: サーバーの既定値
+  instanceIs: サーバーの既定値($1)
+  never: 無期限
+  hours:
+    1: 1 時間
+    n: $1 時間
+  days:
+    1: 1 日
+    n: $1 日
+
+popup:
+  noServer: サーバーが未設定です
+  noServerHint: Tessera の URL を入力すると、右クリックメニューからアップロードできます。
+  openSettings: 設定を開く
+  openSite: サイトを開く
+  openAdmin: 管理画面を開く
+  anonymous: 匿名でアップロード
+  signInLapsed: ログインが無効になりました
+  unreachable: サーバーに接続できません:$1
+  uploadFiles: ファイルをアップロード
+  uploadText: テキストをアップロード
+  notePlaceholder: 共有するテキストを貼り付けるか入力…
+  noteSubmit: ノートをアップロード
+  tabJobs: アップロード状況
+  tabJobsActive: アップロード状況($1)
+  tabShares: 自分の共有
+  encryptingDefault: 既定でエンドツーエンド暗号化してアップロード
+  defaults: 既定:$1
+
+shares:
+  empty: まだ共有はありません
+  sealed: 暗号化された共有
+  encrypted: エンドツーエンド暗号化
+  password: パスワード保護あり
+  keyMissing: 鍵はアップロードしたブラウザにしかないため、ここでは完全なリンクを作れません
+  expires: $1 · $2 に期限切れ
+  delete: 共有を削除
+  confirmDelete: 削除しますか?
+  deleted: 共有を削除しました
+  deleteFailed: 共有を削除できませんでした
+
+options:
+  title: Tessera 拡張機能の設定
+  subtitle: アップロード先のサーバーと、右クリックでアップロードするときの既定の動作を設定します。
+  serverTitle: サーバー
+  serverDescription: Tessera の URL です。保存時に、拡張機能がこの URL に接続することを許可するかブラウザが確認します。
+  serverSave: 保存して接続
+  serverConnectedTo: "$1 に接続済み"
+  serverConnecting: "$1 に接続中…"
+  serverConnectingButton: 接続中…
+  serverFailedAt: "$1 に接続できません:$2"
+  serverNotTessera: この URL は Tessera として応答しません。サーバーのトップページの URL か確認してください。
+  serverDetails: Tessera $1 · $2 · $3
+  serverInvalid: 有効な URL ではありません
+  serverPermissionDenied: この URL に接続する権限が許可されませんでした。
+  serverNoPermission: 拡張機能にこのサーバーへ接続する権限がありません。
+  serverRegrant: 再度許可
+  encryptionOn: エンドツーエンド暗号化を利用可能
+  encryptionOff: エンドツーエンド暗号化は無効
+  anonymousOn: 匿名アップロード可
+  anonymousOff: アップロードにはログインが必要
+  accountTitle: アカウント
+  accountDescription: ログインすると、アップロードはあなたのアカウントに記録され、「自分の共有」で管理できます。
+  signedInAs: $1 としてログイン中
+  signInHint: 新しいタブでサイトのログインページを開きます。ログイン後、拡張機能が自動で設定を完了します。
+  tokenInstead: API キーを使う
+  tokenLabel: API キー
+  tokenUse: 使用
+  tokenHint: サイトでアップロード権限のあるキーを作成し、ここに貼り付けてください。
+  tokenPage: API キーのページへ
+  defaultsTitle: アップロードの既定値
+  defaultsDescription: 右クリックメニューとポップアップのテキストからのアップロードに使われます。サイトでアップロードする場合はサイト側の設定に従います。
+  encryptLabel: エンドツーエンド暗号化
+  encryptDescription: "ファイルはブラウザ内で暗号化されてから送信されます。鍵はリンクの # の後ろに入り、サーバーは内容を見られません。"
+  expiryLabel: 保存期間
+  expiryDescription: 期限を過ぎると共有は自動的に削除されます。
+  burnLabel: 読んだら削除
+  burnDescription: 最初に取得された時点で無効になります。
+  copyLabel: アップロード完了時にリンクをコピー
+  notifyLabel: アップロードの完了・失敗を通知
+  mediaTitle: メディアの取得
+  mediaDescription: 画像や動画を別のドメインから配信しているサイトでは、ダウンロードに追加の権限が必要です。この権限を無効にすると、サーバーへの接続も再度許可が必要になる場合があります。
+  mediaLabel: 任意のサイトからメディアを取得

@@ -6,12 +6,12 @@ import {
 } from "@tessera/ui/components/collapsible";
 import { Input } from "@tessera/ui/components/input";
 import { toast } from "@tessera/ui/components/toast";
+import type { ShareSettings } from "@tessera/upload";
 import { ChevronDown, Eye, EyeOff, Lock } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { apiErrorMessage } from "@/lib/api-error";
-import type { ShareSettings } from "@/lib/upload/share-api";
-import { updateShare } from "@/lib/upload/share-api";
+import { uploader } from "@/lib/uploader";
 import * as m from "@/paraglide/messages";
 
 interface SharePasswordFieldProps {
@@ -59,7 +59,7 @@ export function SharePasswordField({
   const submit = async (settings: ShareSettings, nextHasPassword: boolean) => {
     setSaving(true);
     try {
-      await updateShare(code, settings, managementToken);
+      await uploader.updateShare(code, settings, managementToken);
       setHasPassword(nextHasPassword);
       onChange?.(nextHasPassword);
       setOpen(false);

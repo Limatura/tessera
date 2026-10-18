@@ -9,8 +9,8 @@ import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 // `dist/` into the binary, so unused languages are dead weight there even
 // though the browser only fetches what it uses.
 // A language missing here silently falls back to plain text on the share page.
-// The other two places to update: the select in code-upload-form.tsx and the
-// rules in detect-language.ts.
+// The other places to update are listed in @tessera/upload's
+// `languages/index.ts`.
 // svg has no grammar of its own; text-preview.tsx highlights it as xml.
 const bundledLanguages = {
   c: () => import("@shikijs/langs/c"),

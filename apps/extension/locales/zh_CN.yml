@@ -1,0 +1,145 @@
+extName: Tessera
+extDescription: 在任何网页上右键,把图片、链接或选中的文字上传到你的 Tessera。
+
+common:
+  copied: 已复制链接
+  copyLink: 复制链接
+  open: 打开
+  loading: 加载中…
+
+menu:
+  root: 上传到 Tessera
+  uploadImage: 上传这张图片
+  uploadVideo: 上传这个视频
+  uploadAudio: 上传这段音频
+  uploadSelection: 将选中的文字上传为笔记
+  uploadLinkedFile: 上传链接指向的文件
+  shareLink: 分享这个链接
+  sharePage: 分享这个页面的网址
+
+jobs:
+  empty: 当前没有正在上传的项目
+  preparing: 准备中…
+  cancel: 取消上传
+  cancelled: 已取消
+  clear: 清除已完成
+  note: 笔记
+
+notify:
+  doneTitle: 上传完成
+  done: $1 已上传。点击这里打开。
+  doneCopied: $1 已上传,链接已复制。点击这里打开。
+  failedTitle: 无法上传 $1
+
+signIn:
+  action: 登录
+  doneTitle: 已登录
+  done: 已登录为 $1
+  failedTitle: 登录失败
+  noUploadPermission: 这个账号没有上传权限,请联系实例管理员。
+  noTokenPermission: 这个账号不能创建 API 密钥,所以扩展无法自动登录。请管理员开放“管理 API 密钥”权限,或改用手动粘贴的密钥。
+  badToken: 实例不接受这个密钥,请确认是否完整复制、尚未撤销。
+  tokenName: 浏览器扩展 · $1 · $2
+
+signOut:
+  action: 退出登录
+  done: 已退出登录
+  revokeOnSite: 扩展使用的 API 密钥仍然有效,请到网站的“API 密钥”页面撤销它。
+
+errors:
+  noServerTitle: 尚未设置实例
+  noServer: 请先在扩展设置中填写你的 Tessera 地址。
+  signInRequired: 这个实例不接受匿名上传,请先登录。
+  network: 无法连接到实例,请检查地址和网络连接。
+  mediaBlocked: 无法从这个网站获取文件。可以在扩展设置中开启“从任意网站获取媒体”后再试一次。
+  mediaTooLarge: 文件太大,无法直接从页面中提取。请在扩展设置中开启“从任意网站获取媒体”。
+  mediaStream: 这是流式播放的媒体,没有可以下载的完整文件。
+  mediaHttp: 网站拒绝提供这个文件(HTTP $1)。
+  interrupted: 上传被浏览器中断了,请重新上传。
+  unknownTitle: 出错了
+  unknown: 发生了意外错误。
+
+expiry:
+  instance: 实例默认
+  instanceIs: 实例默认($1)
+  never: 永久保存
+  hours:
+    1: 1 小时
+    n: $1 小时
+  days:
+    1: 1 天
+    n: $1 天
+
+popup:
+  noServer: 还没有设置实例
+  noServerHint: 填写你的 Tessera 地址后,就能通过右键菜单上传。
+  openSettings: 打开设置
+  openSite: 打开网站
+  openAdmin: 打开后台管理
+  anonymous: 匿名上传
+  signInLapsed: 登录已失效
+  unreachable: 无法连接到实例:$1
+  uploadFiles: 上传文件
+  uploadText: 上传文字
+  notePlaceholder: 粘贴或输入要分享的文字…
+  noteSubmit: 上传笔记
+  tabJobs: 上传进度
+  tabJobsActive: 上传进度($1)
+  tabShares: 我的分享
+  encryptingDefault: 默认以端到端加密上传
+  defaults: 默认:$1
+
+shares:
+  empty: 还没有分享
+  sealed: 已加密的分享
+  encrypted: 端到端加密
+  password: 有密码保护
+  keyMissing: 密钥只在上传它的浏览器里,这里无法生成完整链接
+  expires: $1 · $2 到期
+  delete: 删除分享
+  confirmDelete: 确定删除?
+  deleted: 已删除分享
+  deleteFailed: 无法删除分享
+
+options:
+  title: Tessera 扩展设置
+  subtitle: 设置上传到哪个实例,以及右键上传时的默认行为。
+  serverTitle: 实例
+  serverDescription: 你的 Tessera 地址。保存时浏览器会询问是否允许扩展连接到这个地址。
+  serverSave: 保存并连接
+  serverConnectedTo: 已连接到 $1
+  serverConnecting: 正在连接到 $1…
+  serverConnectingButton: 连接中…
+  serverFailedAt: 无法连接到 $1:$2
+  serverNotTessera: 这个地址没有响应 Tessera 的 API,请确认填写的是实例首页的地址。
+  serverDetails: Tessera $1 · $2 · $3
+  serverInvalid: 这不是有效的地址
+  serverPermissionDenied: 没有获得连接到这个地址的权限。
+  serverNoPermission: 扩展当前没有连接到这个实例的权限。
+  serverRegrant: 重新授权
+  encryptionOn: 可使用端到端加密
+  encryptionOff: 未开放端到端加密
+  anonymousOn: 接受匿名上传
+  anonymousOff: 需要登录才能上传
+  accountTitle: 账号
+  accountDescription: 登录后,上传会计入你的账号,也能在“我的分享”中管理它们。
+  signedInAs: 已登录为 $1
+  signInHint: 会在新标签页打开网站的登录页,登录后扩展会自动完成设置。
+  tokenInstead: 改用 API 密钥
+  tokenLabel: API 密钥
+  tokenUse: 使用
+  tokenHint: 在网站上创建一个有上传权限的密钥,再粘贴到这里。
+  tokenPage: 前往 API 密钥页面
+  defaultsTitle: 上传默认值
+  defaultsDescription: 从右键菜单上传、或在弹出窗口上传文字时使用。在网站上传时,以网站上的设置为准。
+  encryptLabel: 端到端加密
+  encryptDescription: "文件在浏览器中加密后才发送,密钥放在链接的 # 后面,实例看不到内容。"
+  expiryLabel: 保存期限
+  expiryDescription: 超过期限后分享会自动删除。
+  burnLabel: 下载即焚
+  burnDescription: 第一次被获取后就失效。
+  copyLabel: 上传完成后自动复制链接
+  notifyLabel: 上传完成或失败时显示通知
+  mediaTitle: 媒体获取
+  mediaDescription: 有些网站的图片或视频放在其他域名,扩展需要额外权限才能下载。关闭这项权限时,可能也需要重新授权实例。
+  mediaLabel: 从任意网站获取媒体

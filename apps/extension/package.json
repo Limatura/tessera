@@ -2,7 +2,7 @@
   "name": "extension",
   "version": "0.1.0-rc.2",
   "private": true,
-  "description": "manifest.json description",
+  "description": "Upload to Tessera from any page: right-click an image, a link or a selection.",
   "type": "module",
   "scripts": {
     "dev": "wxt --port 5555",
@@ -12,17 +12,36 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
-    "postinstall": "wxt prepare"
+    "postinstall": "wxt prepare",
+    "check-types": "tsc --noEmit",
+    "build:e2e": "wxt build --mode e2e",
+    "test:e2e": "wxt build --mode e2e && playwright test",
+    "test:e2e:ui": "wxt build --mode e2e && playwright test --ui",
+    "icons": "node scripts/icons.ts",
+    "test": "vp test run"
   },
   "dependencies": {
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "@tanstack/react-query": "^5.90.5",
+    "@tessera/api": "workspace:*",
+    "@tessera/auth": "workspace:*",
+    "@tessera/ui": "workspace:*",
+    "@tessera/upload": "workspace:*",
+    "lucide-react": "catalog:",
+    "openapi-fetch": "^0.15.0",
+    "react": "catalog:",
+    "react-dom": "catalog:"
   },
   "devDependencies": {
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tessera/config": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@wxt-dev/i18n": "^0.2.4",
     "@wxt-dev/module-react": "^1.1.5",
+    "tailwindcss": "catalog:",
     "typescript": "^5.9.3",
+    "vite-plus": "catalog:",
     "web-ext": "^10.5.0",
     "wxt": "^0.21.3"
   }

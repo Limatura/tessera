@@ -10,9 +10,9 @@ name: web
 # marks every app that depends on it, not every app in the repo), so the
 # workflow triggers on every push/PR and lets `--affected` decide per package
 # rather than this file guessing from glob patterns. That is also why a commit
-# touching only `apps/tui` or `apps/extension` no longer runs `web`
-# work for nothing — those two apps have no `build`/`check-types`/`test` tasks
-# of their own, so `--affected` finds nothing to run for them.
+# touching only `apps/tui` no longer runs `web` work for nothing: it has no
+# `build`/`check-types`/`test` tasks of its own, so `--affected` finds nothing
+# to run for it.
 on:
   push:
     branches: [main]
@@ -34,11 +34,12 @@ jobs:
     runs-on: ubuntu-latest
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
-    # `report` is read by `bundle-size-comment`. `web` decides whether the
-    # `e2e` job below runs.
+    # `report` is read by `bundle-size-comment`. `web` and `extension` decide
+    # whether the `e2e` and `extension-e2e` jobs below run.
     outputs:
       report: ${{ steps.bundle-size.outputs.report }}
       web: ${{ steps.affected.outputs.web }}
+      extension: ${{ steps.affected.outputs.extension }}
     steps:
       # `fetch-depth: 0` — full history, not the default shallow clone.
       # `--affected` below works by asking git for the merge base against
@@ -89,9 +90,9 @@ jobs:
       - run: pnpm exec vp check
 
       # Unit tests of pure functions (language detection, byte formatting, how
-      # PATCH requests are built). No browser needed, so they are quick; last,
-      # as the final gate.
-      - run: pnpm turbo run test --affected --filter=web --filter=@tessera/auth --filter=@tessera/crypto
+      # PATCH requests are built, the extension's translations). No browser
+      # needed, so they are quick; last, as the final gate.
+      - run: pnpm turbo run test --affected --filter=web --filter=@tessera/auth --filter=@tessera/crypto --filter=@tessera/upload --filter=extension
 
       # Bundle size only means anything for a package that just built — a
       # `dist` from an unrelated earlier run would report stale numbers as
@@ -107,7 +108,7 @@ jobs:
       - name: Which apps are affected
         id: affected
         run: |
-          for app in web; do
+          for app in web extension; do
             count=$(pnpm turbo query affected --packages "$app" \
               | sed -n '/^{/,$p' \
               | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(String(JSON.parse(s).data.affectedPackages.length)))')
@@ -287,6 +288,86 @@ jobs:
         with:
           name: playwright-report
           path: apps/web/playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # The browser extension (apps/extension/tests/e2e), loaded into Chromium
+  # against a real backend: right-click uploads, the popup, sign-in through the
+  # site. Its Playwright setup starts the server itself, from the binary built
+  # here, and a small site of its own.
+  #
+  # Unlike `e2e`, web is built before the backend: one test opens a sealed
+  # share in the site the server serves, and build.rs only copies
+  # apps/web/dist in if it exists when cargo runs. Without it the server
+  # would serve its placeholder page.
+  extension-e2e:
+    name: extension e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: check
+    if: needs.check.outputs.extension == 'true'
+    # The same values as `e2e`, so the `test` cache restores a build cargo
+    # reuses.
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      RUSTFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/rust
+        with:
+          cache-key: test
+          save-cache: "false"
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run build --filter=web
+
+      # In the background while Chromium installs, as in `e2e`.
+      - name: Start building the backend
+        run: |
+          (
+            cargo build --locked --bin tessera-server --all-features
+            echo $? > "$RUNNER_TEMP/cargo-build.exit"
+          ) > "$RUNNER_TEMP/cargo-build.log" 2>&1 &
+
+      - name: Which Playwright version
+        id: playwright
+        run: echo "version=$(pnpm --filter extension exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter extension exec playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter extension exec playwright install-deps chromium
+
+      - name: Wait for the backend build
+        run: |
+          while [ ! -f "$RUNNER_TEMP/cargo-build.exit" ]; do sleep 2; done
+          cat "$RUNNER_TEMP/cargo-build.log"
+          exit "$(cat "$RUNNER_TEMP/cargo-build.exit")"
+
+      # Builds the extension with --mode e2e, then runs Playwright, whose
+      # global setup starts target/debug/tessera-server on a free port.
+      - run: pnpm turbo run test:e2e --filter=extension
+
+      - name: Upload the Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: extension-playwright-report
+          path: apps/extension/playwright-report/
           retention-days: 14
           if-no-files-found: ignore
 

@@ -8,6 +8,7 @@ import {
   ResponsiveDialogTitle,
 } from "@tessera/ui/components/responsive-dialog";
 import { toast } from "@tessera/ui/components/toast";
+import { minutesUntil } from "@tessera/upload";
 import { Check, Copy, QrCode, Share2, ShieldAlert, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -16,7 +17,7 @@ import { AnimatedQRCode } from "@/components/animated-qr-code";
 import { useManagedShare } from "@/hooks/use-managed-share";
 import { useShare } from "@/hooks/use-share";
 import { apiErrorMessage } from "@/lib/api-error";
-import { deleteShare, minutesUntil } from "@/lib/upload/share-api";
+import { uploader } from "@/lib/uploader";
 import * as m from "@/paraglide/messages";
 import { useShareStore } from "@/stores/share";
 
@@ -168,7 +169,7 @@ function ManageShareContent({
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await deleteShare(share.code, share.managementToken);
+      await uploader.deleteShare(share.code, share.managementToken);
       onDeleted?.(share.code);
       onClose();
     } catch (error) {

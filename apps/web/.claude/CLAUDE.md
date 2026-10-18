@@ -122,11 +122,13 @@ pnpm check-types          # Type check + build (catches routing issues)
 
 ### Upload Flow
 
-`src/lib/upload/` — import the file you need directly; `index.ts` is not a barrel.
+The upload code lives in `packages/upload` (`@tessera/upload`), shared with `apps/extension`. It is framework-free: every operation returns a `Promise`, bound to one instance by `createUploader({ baseUrl, credentials, headers })`. This app's instance is `uploader` in `src/lib/uploader.ts` (its own origin, `credentials: "include"`); call `uploader.upload(...)`, `uploader.updateShare(...)`, `uploader.deleteShare(...)`, `uploader.toResult(...)`, and import types and `minutesUntil` from `@tessera/upload`.
 
-- `index.ts` — `upload(payload, { onProgress, signal })`, dispatching file / paste / link. A multi-file upload creates the share with the first file and attaches the rest one by one (in order, so progress is real); if any later file fails, the half-built share is deleted. A file larger than `max_upload_bytes` from `/capabilities` goes resumable instead of one `POST`.
+- `upload.ts` — `upload(payload, { onProgress, signal, encryption })`, dispatching file / paste / link. A multi-file upload creates the share with the first file and attaches the rest one by one (in order, so progress is real); if any later file fails, the half-built share is deleted. A file larger than `max_upload_bytes` from `/capabilities` goes resumable instead of one `POST`.
 - `resumable.ts` — `POST /uploads` sessions: parts go straight to the store when the session says `direct`, and fall back to `PATCH` for the rest of the upload the first time a direct `PUT` fails (a bucket without CORS looks exactly like that). `runResumableUpload` takes its I/O injected so `resumable.test.ts` can drive that fallback.
-- `share-api.ts` — `createShare` (XHR, for progress), `updateShare`, `deleteShare`, `toResult`. Anonymous uploads authorize later changes with the `management_token` from the create response.
+- `share-api.ts` — `createShare`, `updateShare`, `deleteShare`, `toResult`. Anonymous uploads authorize later changes with the `management_token` from the create response.
+- `context.ts` — base URL, credentials, headers, and `send`: XHR where it exists (for upload progress), `fetch` in a service worker, which has no XHR.
+- `languages/` (imported as `@tessera/upload/languages`) — `detectLanguage`, `LANGUAGE_LABELS`/`languageLabel`, `normalizeLanguage` (other tools' names and extensions) and `languageFromClassName` (a code block's `language-ts` / `highlight-source-js` class). The code tab, the share page, `lib/paste-source.ts` and the extension all read these; `languages/index.ts` lists every place a new language has to be added.
 
 Retrieving a share (`/s/$code`) goes through `hooks/use-share.ts`: `useShare` is free to call, `useShareTicket` spends one retrieval, which is why it has no `queryOptions` to preload with.
 

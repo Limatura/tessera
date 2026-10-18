@@ -60,7 +60,7 @@ test("once a language is detected the editor loads its grammar and highlights", 
   await page.getByRole("tab", { name: "Code" }).click();
   const editor = page.locator(".cm-content");
   await editor.click();
-  // `let mut` is a Rust-only rule in detect-language; one match settles it.
+  // `let mut` is a Rust-only rule in detectLanguage; one match settles it.
   await page.keyboard.type("fn main() { let mut total = 0; }");
 
   await expect(page.getByText("auto-detected")).toBeVisible();

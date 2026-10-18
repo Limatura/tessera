@@ -17,7 +17,7 @@ import {
   SHARES_PAGE_SIZE,
   useMyShares,
 } from "@/hooks/use-shares";
-import { toResult } from "@/lib/upload/share-api";
+import { uploader } from "@/lib/uploader";
 import * as m from "@/paraglide/messages";
 import { useShareKeysStore } from "@/stores/share-keys";
 
@@ -167,7 +167,7 @@ export function MyShares({ page }: { page: number }) {
 
 /** List data is fresh from the server, so no refetch. Authorised by the session, so no token. */
 function toManaged(share: Share): ManagedShare {
-  const result = toResult(share);
+  const result = uploader.toResult(share);
   // A link-encrypted share opens only with the key after `#`, which the
   // server never had: it comes from this browser, if it uploaded the share.
   const key =

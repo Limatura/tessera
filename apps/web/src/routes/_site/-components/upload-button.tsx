@@ -1,11 +1,11 @@
 import { cn } from "@tessera/ui/lib/utils";
+import type { FileEntry } from "@tessera/upload";
 import { Check, Upload } from "lucide-react";
 import { motion } from "motion/react";
 import type { Ref } from "react";
 import { useRef, useState } from "react";
 
 import { RollingNumber } from "@/components/rolling-number";
-import type { FileEntry } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
 
 import { BlobCanvas } from "./blob-canvas";
