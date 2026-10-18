@@ -122,9 +122,15 @@ TESSERA_SERVER__DATA_DIR=/var/lib/tessera
 
 ## コマンドラインクライアント
 
-```bash
-cargo install --path apps/cli
+Linux または macOS に `tess` をインストールします。Windows 版は [リリースページ](https://github.com/Limatura/tessera/releases) にあり、`cargo install --path apps/cli` でソースからビルドすることもできます。
 
+```bash
+curl -fsSL https://raw.githubusercontent.com/Limatura/tessera/main/scripts/install.sh | sh
+```
+
+安定版のリリースまでは、`-s -- --version <バージョン>`を付けてください。
+
+```bash
 tess login https://share.example.com
 tess send report.pdf --expires 24
 tess get https://share.example.com/s/P8D72PSF
