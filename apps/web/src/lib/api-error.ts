@@ -272,6 +272,10 @@ const translations: Record<
   mfa_challenge_unusable: () => m.api_error_mfa_challenge_unusable(),
   mfa_already_enabled: () => m.api_error_mfa_already_enabled(),
   passkey_rejected: () => m.api_error_passkey_rejected(),
+  device_authorization_pending: () =>
+    m.api_error_device_authorization_pending(),
+  device_authorization_denied: () => m.api_error_device_authorization_denied(),
+  device_code_unusable: () => m.api_error_device_code_unusable(),
   passkey_invalid: () => m.api_error_passkey_invalid(),
   passkey_already_registered: () => m.api_error_passkey_already_registered(),
   password_breached: () => m.api_error_password_breached(),

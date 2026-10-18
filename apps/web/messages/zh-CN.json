@@ -1561,5 +1561,22 @@
   "settings_scanner_status_pending": "等待首次判定",
   "settings_scanner_status_deferred": "未扫描即提供，重试中",
   "dashboard_scanner_unreachable": "扫描服务没有响应。恢复之前新上传的文件不会被扫描就提供下载；目前有 {deferred} 个在等待扫描。",
-  "dashboard_scanner_check": "扫描设置"
+  "dashboard_scanner_check": "扫描设置",
+  "device_title": "登录设备",
+  "device_enter_description": "输入 tess login 显示的代码。",
+  "device_code_label": "设备代码",
+  "device_confirm_title": "允许这台设备登录？",
+  "device_confirm_description": "与终端上的代码相同才允许",
+  "device_warning": "它将能管理你的分享。不是你自己运行 tess login 的话，请拒绝。",
+  "device_approve": "允许",
+  "device_deny": "拒绝",
+  "device_approved_title": "已登录",
+  "device_approved_description": "可以回到终端了。",
+  "device_denied_title": "已拒绝登录",
+  "device_denied_description": "这个设备没有获得访问权限，可以关闭此页。",
+  "device_not_found": "代码无效或已过期，请重新运行 tess login 获取新的代码。",
+  "device_try_another": "输入其他代码",
+  "api_error_device_authorization_pending": "正在等待登录被批准。",
+  "api_error_device_authorization_denied": "登录已被拒绝。",
+  "api_error_device_code_unusable": "这个登录请求已过期，请重新开始。"
 }
