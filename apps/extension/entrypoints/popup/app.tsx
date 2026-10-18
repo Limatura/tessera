@@ -326,9 +326,7 @@ function DefaultsSummary() {
     defaults.expiresInHours === null
       ? i18n.t("expiry.instance")
       : expiryLabel(defaults.expiresInHours),
-    defaults.maxUses === null
-      ? i18n.t("uses.unlimited")
-      : i18n.t("uses.count", defaults.maxUses),
+    ...(defaults.burnAfterReading ? [i18n.t("options.burnLabel")] : []),
   ];
   return (
     <button

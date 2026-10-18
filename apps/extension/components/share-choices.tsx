@@ -11,13 +11,9 @@ import { expiryLabel } from "@/lib/format";
 import type { Capabilities } from "@/lib/instance";
 
 const INSTANCE_DEFAULT = "instance";
-const UNLIMITED = "unlimited";
 
 /** Lifetimes offered, in hours: an hour, a day, a week, a month. */
 const EXPIRY_HOURS = [1, 24, 168, 720];
-
-/** Retrieval limits offered; `1` is burn-after-reading. */
-const USE_LIMITS = [1, 5, 10];
 
 interface ExpirySelectProps {
   id: string;
@@ -74,43 +70,6 @@ export function ExpirySelect({
         {options.map((hours) => (
           <SelectItem key={hours} value={String(hours)}>
             {expiryLabel(hours)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-interface UsesSelectProps {
-  id: string;
-  /** `null` for no limit. */
-  value: number | null;
-  onChange: (uses: number | null) => void;
-}
-
-export function UsesSelect({ id, value, onChange }: UsesSelectProps) {
-  const label = (selected: string) =>
-    selected === UNLIMITED
-      ? i18n.t("uses.unlimited")
-      : i18n.t("uses.count", Number(selected));
-
-  return (
-    <Select
-      onValueChange={(selected) =>
-        onChange(
-          selected === UNLIMITED || selected === null ? null : Number(selected)
-        )
-      }
-      value={value === null ? UNLIMITED : String(value)}
-    >
-      <SelectTrigger className="min-w-44 shrink-0" id={id} size="sm">
-        <SelectValue>{(selected: string) => label(selected)}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={UNLIMITED}>{label(UNLIMITED)}</SelectItem>
-        {USE_LIMITS.map((uses) => (
-          <SelectItem key={uses} value={String(uses)}>
-            {label(String(uses))}
           </SelectItem>
         ))}
       </SelectContent>

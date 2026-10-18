@@ -29,8 +29,11 @@ export interface UploadDefaults {
   encrypt: boolean;
   /** `null` leaves it to the instance's default; `0` never expires. */
   expiresInHours: number | null;
-  /** `null` for no limit; `1` is burn-after-reading. */
-  maxUses: number | null;
+  /**
+   * Gone after its first retrieval. The site offers only this or no limit,
+   * so the extension does too, though the API takes any count.
+   */
+  burnAfterReading: boolean;
   /** Put the link on the clipboard when an upload finishes. */
   copyLink: boolean;
   /** Say so with a system notification when an upload finishes or fails. */
@@ -85,7 +88,7 @@ export const DEFAULT_UPLOAD_DEFAULTS: UploadDefaults = {
   copyLink: true,
   encrypt: false,
   expiresInHours: null,
-  maxUses: null,
+  burnAfterReading: false,
   notify: true,
 };
 

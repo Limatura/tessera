@@ -23,7 +23,7 @@ import type { FormEvent, ReactNode } from "react";
 
 import { i18n } from "#i18n";
 import { browser } from "#imports";
-import { ExpirySelect, UsesSelect } from "@/components/share-choices";
+import { ExpirySelect } from "@/components/share-choices";
 import { toastError } from "@/components/toast-error";
 import {
   useAccount,
@@ -402,11 +402,11 @@ function DefaultsCard({ connection }: { connection: Connection }) {
   const defaults = useStorageItem(defaultsItem) ?? DEFAULT_UPLOAD_DEFAULTS;
   const capabilities = useCapabilities(connection);
   const ids = {
+    burn: useId(),
     copy: useId(),
     encrypt: useId(),
     expiry: useId(),
     notify: useId(),
-    uses: useId(),
   };
 
   const change = async (patch: Partial<UploadDefaults>) => {
@@ -445,14 +445,14 @@ function DefaultsCard({ connection }: { connection: Connection }) {
         />
       </Row>
       <Row
-        description={i18n.t("options.usesDescription")}
-        id={ids.uses}
-        label={i18n.t("options.usesLabel")}
+        description={i18n.t("options.burnDescription")}
+        id={ids.burn}
+        label={i18n.t("options.burnLabel")}
       >
-        <UsesSelect
-          id={ids.uses}
-          onChange={(maxUses) => change({ maxUses })}
-          value={defaults.maxUses}
+        <Switch
+          checked={defaults.burnAfterReading}
+          id={ids.burn}
+          onCheckedChange={(burnAfterReading) => change({ burnAfterReading })}
         />
       </Row>
       <Row id={ids.copy} label={i18n.t("options.copyLabel")}>

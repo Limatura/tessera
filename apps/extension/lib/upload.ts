@@ -121,7 +121,7 @@ async function upload(
 
   const settings = shareSettings(
     defaults.expiresInHours,
-    defaults.maxUses,
+    defaults.burnAfterReading,
     capabilities.max_expiry_hours ?? null
   );
   if (Object.keys(settings).length > 0) {
@@ -156,7 +156,7 @@ async function upload(
 
 function shareSettings(
   expiresInHours: number | null,
-  maxUses: number | null,
+  burnAfterReading: boolean,
   maxExpiryHours: number | null
 ): ShareSettings {
   const settings: ShareSettings = {};
@@ -169,8 +169,8 @@ function shareSettings(
         : Math.min(expiresInHours || maxExpiryHours, maxExpiryHours);
     settings.expiresInMinutes = hours * MINUTES_PER_HOUR;
   }
-  if (maxUses !== null) {
-    settings.maxUses = maxUses;
+  if (burnAfterReading) {
+    settings.maxUses = 1;
   }
   return settings;
 }

@@ -70,12 +70,6 @@ expiry:
     1: 1 天
     n: $1 天
 
-uses:
-  unlimited: 不限次數
-  count:
-    1: 1 次(閱後即焚)
-    n: $1 次
-
 popup:
   noServer: 還沒有設定主機
   noServerHint: 填入你的 Tessera 主機網址後,就能從右鍵選單上傳。
@@ -139,8 +133,8 @@ options:
   encryptDescription: "檔案在瀏覽器裡加密後才送出,金鑰放在連結的 # 後面,主機看不到內容。"
   expiryLabel: 保存期限
   expiryDescription: 超過期限後分享會自動刪除。
-  usesLabel: 下載次數上限
-  usesDescription: 被取用這麼多次之後就失效。
+  burnLabel: 下載即焚
+  burnDescription: 第一次被取用後就失效。
   copyLabel: 上傳完成後自動複製連結
   notifyLabel: 上傳完成或失敗時顯示通知
   mediaTitle: 媒體擷取

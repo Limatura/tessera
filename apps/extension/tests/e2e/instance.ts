@@ -105,6 +105,8 @@ export interface DescribedShare {
   has_password: boolean;
   title: string | null;
   language: string | null;
+  /** `null` for no limit. */
+  uses_remaining: number | null;
   files: { filename: string | null; size_bytes: number }[];
 }
 

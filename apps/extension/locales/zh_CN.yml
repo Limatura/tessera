@@ -70,12 +70,6 @@ expiry:
     1: 1 天
     n: $1 天
 
-uses:
-  unlimited: 不限次数
-  count:
-    1: 1 次(阅后即焚)
-    n: $1 次
-
 popup:
   noServer: 还没有设置实例
   noServerHint: 填写你的 Tessera 地址后,就能通过右键菜单上传。
@@ -139,8 +133,8 @@ options:
   encryptDescription: "文件在浏览器中加密后才发送,密钥放在链接的 # 后面,实例看不到内容。"
   expiryLabel: 保存期限
   expiryDescription: 超过期限后分享会自动删除。
-  usesLabel: 下载次数上限
-  usesDescription: 被获取这么多次之后就失效。
+  burnLabel: 下载即焚
+  burnDescription: 第一次被获取后就失效。
   copyLabel: 上传完成后自动复制链接
   notifyLabel: 上传完成或失败时显示通知
   mediaTitle: 媒体获取

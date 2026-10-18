@@ -86,4 +86,27 @@ test.describe("popup", () => {
     ]);
     await site.waitForURL(`${env().server}/`);
   });
+
+  test("burn after reading, set as a default, leaves a share one retrieval", async ({
+    extension,
+  }) => {
+    await setEncryption(false);
+    await extension.useTestServer();
+    const options = await extension.open("options");
+    const burn = options.getByRole("switch", { name: "Burn after reading" });
+    await burn.click();
+    await expect(burn).toBeChecked();
+    await options.close();
+
+    const popup = await extension.open("popup");
+    await expect(popup.getByText(/Burn after reading/u)).toBeVisible();
+    const before = await extension.jobs();
+    await popup.getByRole("button", { name: "Upload text" }).click();
+    await popup.getByLabel("Upload text").fill("read me once");
+    await popup.getByRole("button", { name: "Upload note" }).click();
+    const job = await extension.nextJob(before);
+    expect(job.state, job.error).toBe("done");
+    const share = await describeShare(job.link ?? "");
+    expect(share?.uses_remaining).toBe(1);
+  });
 });

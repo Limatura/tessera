@@ -70,12 +70,6 @@ expiry:
     1: 1 日
     n: $1 日
 
-uses:
-  unlimited: 回数制限なし
-  count:
-    1: 1 回(閲覧後に削除)
-    n: $1 回
-
 popup:
   noServer: サーバーが未設定です
   noServerHint: Tessera の URL を入力すると、右クリックメニューからアップロードできます。
@@ -139,8 +133,8 @@ options:
   encryptDescription: "ファイルはブラウザ内で暗号化されてから送信されます。鍵はリンクの # の後ろに入り、サーバーは内容を見られません。"
   expiryLabel: 保存期間
   expiryDescription: 期限を過ぎると共有は自動的に削除されます。
-  usesLabel: ダウンロード回数の上限
-  usesDescription: この回数取得されると無効になります。
+  burnLabel: 読んだら削除
+  burnDescription: 最初に取得された時点で無効になります。
   copyLabel: アップロード完了時にリンクをコピー
   notifyLabel: アップロードの完了・失敗を通知
   mediaTitle: メディアの取得

@@ -70,12 +70,6 @@ expiry:
     1: 1 day
     n: $1 days
 
-uses:
-  unlimited: No limit
-  count:
-    1: Once (burn after reading)
-    n: $1 times
-
 popup:
   noServer: No instance set up yet
   noServerHint: Enter your Tessera's address to upload from the right-click menu.
@@ -139,8 +133,8 @@ options:
   encryptDescription: "Files are encrypted in the browser before they leave. The key goes after # in the link, so the instance never sees the content."
   expiryLabel: Keep for
   expiryDescription: The share is deleted once this runs out.
-  usesLabel: Download limit
-  usesDescription: Stops working after this many retrievals.
+  burnLabel: Burn after reading
+  burnDescription: Stops working after it is first retrieved.
   copyLabel: Copy the link when an upload finishes
   notifyLabel: Notify when an upload finishes or fails
   mediaTitle: Fetching media
