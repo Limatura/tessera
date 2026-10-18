@@ -29,7 +29,8 @@ struct Cli {
 enum Command {
     /// Upload files, or a note from standard input, and print the link.
     Send {
-        /// The files to put in one share. `-` reads a note from standard input.
+        /// The files to put in one share; a directory sends every file under
+        /// it, keeping their paths. `-` reads a note from standard input.
         #[arg(required = true)]
         paths: Vec<PathBuf>,
         /// The instance to upload to. Defaults to the one `tess login` saved.
@@ -178,6 +179,12 @@ async fn run(cli: Cli) -> Result<()> {
             }
             let sent = send::send(&client, content, options, &mut progress).await?;
             clear_progress();
+            if sent.skipped_empty > 0 {
+                anstream::eprintln!(
+                    "{DIM}Left out {} empty file(s); a share cannot hold an empty file unless it is encrypted.{DIM:#}",
+                    sent.skipped_empty
+                );
+            }
             writeln!(std::io::stdout(), "{}", sent.link)?;
             hand_on(&sent.link, qr, copy)?;
             Ok(())

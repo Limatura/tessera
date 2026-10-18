@@ -43,6 +43,23 @@ fn name(share: &OwnShare) -> String {
     if let Some(title) = share.title.as_deref().filter(|title| !title.is_empty()) {
         return title.to_owned();
     }
+    // A folder sent whole, from the web page or `tess send <dir>`: every name
+    // starts with the folder's, and the folder is what the person sent.
+    if share.files.len() > 1
+        && let Some((folder, _)) = share
+            .files
+            .first()
+            .and_then(|file| file.filename.as_deref())
+            .and_then(|first| first.split_once('/'))
+        && share.files.iter().all(|file| {
+            file.filename
+                .as_deref()
+                .and_then(|name| name.strip_prefix(folder))
+                .is_some_and(|rest| rest.starts_with('/'))
+        })
+    {
+        return format!("{folder}/ ({} files)", share.files.len());
+    }
     let mut names = share
         .files
         .iter()
@@ -167,6 +184,13 @@ mod tests {
         ];
         assert_eq!(name(&files), "report.pdf (+1)");
         assert_eq!(name(&share("B")), "(note)");
+        let mut folder = share("C");
+        folder.files = ["photos/a.jpg", "photos/2024/b.jpg"]
+            .map(|name| OwnFile {
+                filename: Some(name.to_owned()),
+            })
+            .to_vec();
+        assert_eq!(name(&folder), "photos/ (2 files)");
         let mut sealed = files;
         sealed.encryption = Some("link".to_owned());
         assert_eq!(name(&sealed), "(encrypted)");

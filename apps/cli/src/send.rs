@@ -51,6 +51,84 @@ pub struct Sent {
     pub link: String,
     /// The retrieval code alone.
     pub code: String,
+    /// Empty files found inside a directory and left out, since a share cannot
+    /// hold an empty file unless it is sealed.
+    pub skipped_empty: usize,
+}
+
+/// One file to send, and the name it goes under.
+#[derive(Debug, Clone)]
+pub struct Entry {
+    /// Where it is on this machine.
+    pub path: PathBuf,
+    /// Its name in the share: the file's own name, or for a file found inside
+    /// a directory, the directory's name and the path below it, `/`-separated,
+    /// the way the web page names a folder's files.
+    pub name: String,
+}
+
+/// The files `paths` names: each file as it is, and each directory as every
+/// file under it, in name order.
+///
+/// Symbolic links to directories are not followed, so a link back up the tree
+/// cannot make the walk endless. With `skip_empty`, empty files found inside a
+/// directory are left out and counted; an empty file named on its own is still
+/// an error later, since that one was asked for.
+///
+/// # Errors
+///
+/// When a path cannot be read, or a directory holds nothing to send.
+pub fn expand(paths: &[PathBuf], skip_empty: bool) -> Result<(Vec<Entry>, usize)> {
+    let mut entries = Vec::new();
+    let mut skipped = 0;
+    for path in paths {
+        if !std::fs::metadata(path)?.is_dir() {
+            entries.push(Entry {
+                path: path.clone(),
+                name: file_name(path),
+            });
+            continue;
+        }
+        let root = file_name(&std::fs::canonicalize(path)?);
+        let mut found = Vec::new();
+        walk(path, &root, &mut found)?;
+        found.sort_by(|a, b| a.name.cmp(&b.name));
+        let before = found.len();
+        if skip_empty {
+            found.retain(|entry| std::fs::metadata(&entry.path).is_ok_and(|meta| meta.len() > 0));
+        }
+        skipped += before - found.len();
+        if found.is_empty() {
+            return Err(Error::Usage(format!(
+                "`{}` has no files to send",
+                path.display()
+            )));
+        }
+        entries.extend(found);
+    }
+    Ok((entries, skipped))
+}
+
+fn walk(dir: &Path, prefix: &str, into: &mut Vec<Entry>) -> Result<()> {
+    for item in std::fs::read_dir(dir)? {
+        let item = item?;
+        let path = item.path();
+        let name = format!("{prefix}/{}", item.file_name().to_string_lossy());
+        let kind = item.file_type()?;
+        if kind.is_dir() {
+            walk(&path, &name, into)?;
+        } else if kind.is_file() || (kind.is_symlink() && std::fs::metadata(&path)?.is_file()) {
+            into.push(Entry { path, name });
+        }
+    }
+    Ok(())
+}
+
+fn file_name(path: &Path) -> String {
+    path.file_name().map_or_else(
+        || "file".to_owned(),
+        |name| name.to_string_lossy().into_owned(),
+    )
 }
 
 /// How far a transfer has got: a name, bytes done, bytes in all.
@@ -115,12 +193,17 @@ pub async fn send(
     options: Options,
     progress: Progress<'_>,
 ) -> Result<Sent> {
+    let mut skipped_empty = 0;
     let (share, sealing, job) = match content {
         Content::Note(body) => {
             let sealing = sealing(&options).await?;
             (send_note(client, &sealing, body).await?, sealing, None)
         }
-        Content::Files(paths) => send_files(client, &options, &paths, progress).await?,
+        Content::Files(paths) => {
+            let (entries, skipped) = expand(&paths, !options.encrypt)?;
+            skipped_empty = skipped;
+            send_files(client, &options, &entries, progress).await?
+        }
     };
 
     // The password a server checks: the one typed, or for a key that came from
@@ -157,6 +240,7 @@ pub async fn send(
     Ok(Sent {
         link: link::to_share(client.server(), &share.code, key),
         code: share.code,
+        skipped_empty,
     })
 }
 
@@ -200,6 +284,11 @@ pub fn will_resume(client: &Client, paths: &[PathBuf], options: &Options) -> boo
     let Some(dir) = options.resume.as_deref() else {
         return false;
     };
+    let Ok((entries, _)) = expand(paths, !options.encrypt) else {
+        return false;
+    };
+    let paths: Vec<PathBuf> = entries.into_iter().map(|entry| entry.path).collect();
+    let paths = paths.as_slice();
     let Ok(fingerprints) = fingerprints(paths) else {
         return false;
     };
@@ -256,12 +345,14 @@ async fn same_password(sealing: &Sealing, options: &Options) -> Result<()> {
 async fn send_files(
     client: &Client,
     options: &Options,
-    paths: &[PathBuf],
+    entries: &[Entry],
     progress: Progress<'_>,
 ) -> Result<(Share, Sealing, Option<Job>)> {
-    if paths.is_empty() {
+    if entries.is_empty() {
         return Err(Error::Usage("nothing to send".to_owned()));
     }
+    let paths: Vec<PathBuf> = entries.iter().map(|entry| entry.path.clone()).collect();
+    let paths = paths.as_slice();
     let fingerprints = fingerprints(paths)?;
     let job = options
         .resume
@@ -290,14 +381,14 @@ async fn send_files(
         (sealing, state)
     };
 
-    for (index, (path, fingerprint)) in paths.iter().zip(&fingerprints).enumerate() {
+    for (index, (entry, fingerprint)) in entries.iter().zip(&fingerprints).enumerate() {
         if index < state.done {
             continue;
         }
         let share = upload_file(
             client,
             &sealing,
-            path,
+            entry,
             fingerprint,
             &mut state,
             job.as_ref(),
@@ -326,16 +417,14 @@ async fn send_files(
 async fn upload_file(
     client: &Client,
     sealing: &Sealing,
-    path: &Path,
+    entry: &Entry,
     fingerprint: &Fingerprint,
     state: &mut State,
     job: Option<&Job>,
     progress: Progress<'_>,
 ) -> Result<Share> {
-    let name = path.file_name().map_or_else(
-        || "file".to_owned(),
-        |name| name.to_string_lossy().into_owned(),
-    );
+    let path = entry.path.as_path();
+    let name = entry.name.clone();
     let declared = match sealing.key() {
         Some(_) => tessera_crypto::sealed_len(fingerprint.len)
             .ok_or_else(|| Error::Usage(format!("`{name}` is too large to seal")))?,
