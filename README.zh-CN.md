@@ -141,6 +141,15 @@ tess rm P8D72PSF
 
 加上 `--encrypt` 会在内容离开你的电脑之前先加密，密钥是链接中 `#` 后面的部分，服务器永远看不到。
 
+手边没有 CLI？用 `curl` 也可以，会直接打印链接：
+
+```bash
+curl -T report.pdf https://share.example.com/
+echo "hello" | curl -T - https://share.example.com/
+```
+
+选项放在 header：`-H 'X-Share-Expires: 1d'`、`-H 'X-Share-Max-Downloads: 3'`、`-H 'X-Share-Password: …'`。
+
 ## 文档
 
 - [使用与部署指南](https://github.com/Limatura/tessera-docs)

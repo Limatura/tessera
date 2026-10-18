@@ -141,6 +141,15 @@ tess rm P8D72PSF
 
 `--encrypt` seals the content before it leaves your machine; the key is the part of the link after `#`, which the server never sees.
 
+No CLI at hand? `curl` will do, and prints the link:
+
+```bash
+curl -T report.pdf https://share.example.com/
+echo "hello" | curl -T - https://share.example.com/
+```
+
+Options go in headers: `-H 'X-Share-Expires: 1d'`, `-H 'X-Share-Max-Downloads: 3'`, `-H 'X-Share-Password: …'`.
+
 ## Documentation
 
 - [User and operator guide](https://github.com/Limatura/tessera-docs)
