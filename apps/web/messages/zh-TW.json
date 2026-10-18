@@ -1417,6 +1417,8 @@
   "api_error_upload_interrupted": "上傳過程出了狀況，請重新上傳。",
   "api_error_upload_abandoned": "這次上傳已經中止，請重新上傳。",
   "api_error_resumable_unsupported": "這台伺服器的儲存空間不支援續傳。",
+  "api_error_anonymous_upload_disabled": "這台伺服器不開放匿名上傳，請先登入帳號再上傳。",
+  "api_error_network": "無法連線到伺服器，或無法讀取所選的檔案。請檢查網路，並確認檔案已完整存在手機上後再試一次。",
   "api_error_setting_unknown": "「{key}」不是這個版本的設定項目。",
   "api_error_setting_secret": "「{key}」含有憑證，只能透過環境變數設定。",
   "api_error_setting_fixed_at_boot": "「{key}」在伺服器執行中無法變更，請透過環境變數設定。",

@@ -209,6 +209,7 @@ export async function createShare(
   }
   throw apiError(
     response.body as ErrorBody | null,
-    `Upload failed: ${response.status}`
+    `Upload failed: ${response.status}`,
+    response.status
   );
 }

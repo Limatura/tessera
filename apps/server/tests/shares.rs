@@ -249,6 +249,12 @@ async fn an_instance_that_refuses_anonymous_uploads_says_so() {
         )
         .await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    // Not `not_signed_in`: signing in is not the whole story, and the page
+    // needs to tell this apart from an expired session.
+    assert_eq!(
+        body_json(response).await["code"],
+        "anonymous_upload_disabled"
+    );
 }
 
 #[tokio::test]

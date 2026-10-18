@@ -1417,6 +1417,8 @@
   "api_error_upload_interrupted": "Something went wrong during the upload. Please upload again.",
   "api_error_upload_abandoned": "This upload was abandoned. Please upload again.",
   "api_error_resumable_unsupported": "This server's storage can't resume uploads.",
+  "api_error_anonymous_upload_disabled": "This server doesn't allow anonymous uploads. Sign in to upload.",
+  "api_error_network": "Couldn't reach the server, or the selected file couldn't be read. Check your connection, and make sure the file is fully stored on your device, then try again.",
   "api_error_setting_unknown": "\"{key}\" isn't a setting this version has.",
   "api_error_setting_secret": "\"{key}\" holds a credential and is set through the environment.",
   "api_error_setting_fixed_at_boot": "\"{key}\" can't change while the server runs. Set it through the environment.",

@@ -222,7 +222,7 @@ pub async fn create(
     headers: HeaderMap,
 ) -> Result<Response> {
     if current.is_none() && !state.config().features.anonymous_upload {
-        return Err(Error::Unauthorized);
+        return Err(Error::new(ErrorCode::AnonymousUploadDisabled));
     }
     if let Some(user) = current.as_ref() {
         user.require(Permission::SharesCreate)?;

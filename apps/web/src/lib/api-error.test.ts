@@ -171,6 +171,39 @@ describe("apiErrorMessage", () => {
     expect(apiErrorMessage(null)).toBe("api_error_unknown");
   });
 
+  it("an upload that got no answer says so; a proxy's bodyless refusal is read from its status", () => {
+    expect(
+      apiErrorMessage(
+        Object.assign(new Error("x"), { network: true }),
+        "try again"
+      )
+    ).toBe("api_error_network");
+    expect(
+      apiErrorMessage(
+        Object.assign(new Error("x"), { status: 413 }),
+        "try again"
+      )
+    ).toBe("api_error_payload_too_large");
+    expect(
+      apiErrorMessage(
+        Object.assign(new Error("x"), { status: 502 }),
+        "try again"
+      )
+    ).toBe("api_error_unavailable");
+    expect(
+      apiErrorMessage(
+        Object.assign(new Error("x"), { status: 400 }),
+        "try again"
+      )
+    ).toBe("try again");
+  });
+
+  it("an instance that refuses anonymous uploads says that, not 'sign in again'", () => {
+    expect(apiErrorMessage(body("anonymous_upload_disabled"))).toBe(
+      "api_error_anonymous_upload_disabled"
+    );
+  });
+
   it("missing or mistyped details do not throw", () => {
     expect(
       apiErrorMessage({ code: "value_length", details: null, message: "x" })
