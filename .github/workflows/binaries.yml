@@ -1,0 +1,155 @@
+name: binaries
+
+# Builds `tess` and `tessera-server` for the platforms people run them on, as
+# the archives `release.yml` attaches to a GitHub Release:
+#
+#   tess-<platform>.tar.gz            linux-x86_64, linux-aarch64,
+#   tessera-server-<platform>.tar.gz  macos-x86_64, macos-aarch64
+#   tess-windows-x86_64.zip           the CLI only; the server runs in Docker there
+#
+# The names carry no version, so `releases/latest/download/<name>` always works,
+# which is what `scripts/install.sh` relies on.
+#
+# Each platform builds on its own runner rather than cross-compiling from one:
+# the C in aws-lc and SQLite then meets a compiler made for that target. Linux
+# builds are musl, statically linked, like the image, so they run on any
+# distribution. A pull request that touches this file or the install script
+# runs it too, to show the builds still work, and keeps the archives a day.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version without the leading `v`
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - ".github/workflows/binaries.yml"
+      - "scripts/install.sh"
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: web bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.version && format('v{0}', inputs.version) || '' }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      # No dependency cache: what goes into a release is built from the lock
+      # file alone, never from a cache a pull request could have written.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile --filter web...
+      - run: pnpm --filter web build
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-dist
+          path: apps/web/dist
+          retention-days: 1
+
+  build:
+    name: ${{ matrix.platform }}
+    needs: web
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            server: true
+          - platform: linux-aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            server: true
+          - platform: macos-aarch64
+            runner: macos-15
+            target: aarch64-apple-darwin
+            server: true
+          - platform: macos-x86_64
+            runner: macos-15
+            target: x86_64-apple-darwin
+            server: true
+          - platform: windows-x86_64
+            runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            server: false
+    defaults:
+      run:
+        shell: bash
+    env:
+      TARGET: ${{ matrix.target }}
+      PLATFORM: ${{ matrix.platform }}
+      SERVER: ${{ matrix.server }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.version && format('v{0}', inputs.version) || '' }}
+          persist-credentials: false
+
+      - name: musl toolchain
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
+
+      # `rust-toolchain.toml` picks the compiler; this adds the target to it.
+      - run: rustup target add "$TARGET"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: matrix.server
+        with:
+          name: web-dist
+          path: apps/web/dist
+
+      - name: Build
+        run: |
+          packages=(-p tessera-cli)
+          if [ "$SERVER" = true ]; then
+            packages+=(-p tessera-server --bin tess --bin tessera-server)
+          fi
+          cargo build --release --locked --target "$TARGET" "${packages[@]}"
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          bin="target/$TARGET/release"
+          pack() {
+            name=$1
+            stage=$(mktemp -d)
+            cp LICENSE README.md "$stage/"
+            if [ "$RUNNER_OS" = Windows ]; then
+              cp "$bin/$name.exe" "$stage/"
+              (cd "$stage" && 7z a -tzip "$GITHUB_WORKSPACE/dist/$name-$PLATFORM.zip" "$name.exe" LICENSE README.md)
+            else
+              cp "$bin/$name" "$stage/"
+              tar -czf "dist/$name-$PLATFORM.tar.gz" -C "$stage" "$name" LICENSE README.md
+            fi
+          }
+          pack tess
+          if [ "$SERVER" = true ]; then
+            pack tessera-server
+          fi
+          ls -l dist
+
+      - name: Smoke test
+        if: runner.os != 'macOS' || matrix.target == 'aarch64-apple-darwin'
+        run: |
+          "target/$TARGET/release/tess" --version
+          if [ "$SERVER" = true ]; then
+            "target/$TARGET/release/tessera-server" --help > /dev/null
+          fi
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.platform }}
+          path: dist/*
+          retention-days: ${{ inputs.version && 7 || 1 }}

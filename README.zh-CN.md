@@ -122,9 +122,15 @@ TESSERA_SERVER__DATA_DIR=/var/lib/tessera
 
 ## 命令行工具
 
-```bash
-cargo install --path apps/cli
+在 Linux 或 macOS 安装 `tess`。Windows 版在 [releases 页面](https://github.com/Limatura/tessera/releases)；也可以用 `cargo install --path apps/cli` 从源码编译。
 
+```bash
+curl -fsSL https://raw.githubusercontent.com/Limatura/tessera/main/scripts/install.sh | sh
+```
+
+正式版发布之前，请在后面加上 `-s -- --version <版本>`。
+
+```bash
 tess login https://share.example.com
 tess send report.pdf --expires 24
 tess get https://share.example.com/s/P8D72PSF

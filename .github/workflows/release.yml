@@ -1,6 +1,7 @@
 name: release
 
-# Builds and publishes one version: the image to GHCR and a GitHub Release.
+# Builds and publishes one version: the image to GHCR, and a GitHub Release
+# carrying the binaries from `binaries.yml`.
 # Called by `version.yml` after it tags `v<version>`; run it by hand only to
 # retry a release whose tag already exists.
 #
@@ -95,9 +96,15 @@ jobs:
           build-args: |
             TESSERA_BUILD_REV=${{ steps.source.outputs.rev }}
 
+  binaries:
+    name: binaries
+    uses: ./.github/workflows/binaries.yml
+    with:
+      version: ${{ inputs.version }}
+
   github-release:
     name: GitHub Release
-    needs: image
+    needs: [image, binaries]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -109,6 +116,18 @@ jobs:
           ref: v${{ inputs.version }}
           fetch-depth: 0
           persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cp scripts/install.sh dist/
+          (cd dist && sha256sum -- * > SHA256SUMS)
+          cat dist/SHA256SUMS
 
       # How to upgrade first, since that is what someone running their own
       # instance opens this page for; then the changeset summaries.
@@ -125,6 +144,14 @@ jobs:
             echo '```'
             echo
             echo "Back up the database before upgrading; downgrades are not supported."
+            echo
+            echo "## Command-line client"
+            echo
+            echo '```sh'
+            echo "curl -fsSL https://github.com/$REPO/releases/download/v$VERSION/install.sh | sh -s -- --version $VERSION"
+            echo '```'
+            echo
+            echo "Or download \`tess\` for your platform below. The server is also attached, for running without Docker."
             echo
             echo "## What's changed"
             echo "$section"
@@ -150,7 +177,7 @@ jobs:
           flags=()
           case "$VERSION" in *-*) flags+=(--prerelease) ;; esac
           gh release create "v$VERSION" --verify-tag --title "v$VERSION" \
-            --notes-file /tmp/notes.md "${flags[@]}"
+            --notes-file /tmp/notes.md "${flags[@]}" dist/*
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
