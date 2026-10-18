@@ -2,10 +2,10 @@ import { MIN_PASSWORD_LENGTH } from "@tessera/crypto";
 import { Input } from "@tessera/ui/components/input";
 import { Label } from "@tessera/ui/components/label";
 import { Switch } from "@tessera/ui/components/switch";
+import type { EncryptionChoice } from "@tessera/upload";
 import { Eye, EyeOff, KeyRound, LockKeyhole } from "lucide-react";
 import { useState } from "react";
 
-import type { EncryptionChoice } from "@/lib/upload/encryption";
 import * as m from "@/paraglide/messages";
 
 export interface EncryptionState {

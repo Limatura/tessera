@@ -1,12 +1,8 @@
 import type { components } from "@tessera/api/schema";
 
-import { apiError } from "./share-api";
-import type {
-  ErrorBody,
-  ShareQuery,
-  ShareResponse,
-  UploadOptions,
-} from "./share-api";
+import { accepted, apiError, request, send } from "./context";
+import type { Context, ErrorBody } from "./context";
+import type { ShareQuery, ShareResponse, UploadOptions } from "./share-api";
 
 export type UploadSessionResponse = components["schemas"]["UploadResponse"];
 type PartUrlResponse = components["schemas"]["PartUrlResponse"];
@@ -95,12 +91,22 @@ function planParts(totalBytes: number, partSize: number): UploadPart[] {
  * can be tested without real XHR/fetch.
  */
 export interface ResumableIo {
-  putPartDirect: typeof putPartDirect;
-  patchPart: typeof patchPart;
-  completeUpload: typeof completeUpload;
+  putPartDirect: OmitContext<typeof putPartDirect>;
+  patchPart: OmitContext<typeof patchPart>;
+  completeUpload: OmitContext<typeof completeUpload>;
 }
 
-const resumableIo: ResumableIo = { completeUpload, patchPart, putPartDirect };
+type OmitContext<F> = F extends (context: Context, ...rest: infer A) => infer R
+  ? (...args: A) => R
+  : never;
+
+function resumableIo(context: Context): ResumableIo {
+  return {
+    completeUpload: (...args) => completeUpload(context, ...args),
+    patchPart: (...args) => patchPart(context, ...args),
+    putPartDirect: (...args) => putPartDirect(context, ...args),
+  };
+}
 
 /**
  * A file too big for one `POST` goes through a resumable session instead:
@@ -113,6 +119,7 @@ const resumableIo: ResumableIo = { completeUpload, patchPart, putPartDirect };
  * `direct: true` upload the browser cannot actually reach.
  */
 export async function uploadResumable(
+  context: Context,
   file: Blob | UploadSource,
   query: ShareQuery,
   options: UploadOptions,
@@ -120,6 +127,7 @@ export async function uploadResumable(
   managementToken?: string
 ): Promise<ShareResponse> {
   const session = await createUploadSession(
+    context,
     file,
     query,
     existingCode,
@@ -131,7 +139,7 @@ export async function uploadResumable(
     session,
     options,
     managementToken,
-    resumableIo
+    resumableIo(context)
   );
 }
 
@@ -193,6 +201,7 @@ export async function runResumableUpload(
 }
 
 async function createUploadSession(
+  context: Context,
   file: Blob | UploadSource,
   query: ShareQuery,
   existingCode: string | undefined,
@@ -218,47 +227,48 @@ async function createUploadSession(
   }
   const search = params.toString();
 
-  const headers: HeadersInit = { "Upload-Length": String(file.size) };
+  const headers: Record<string, string> = {
+    "Upload-Length": String(file.size),
+  };
   if (managementToken) {
     headers["X-Upload-Token"] = managementToken;
   }
 
-  const response = await fetch(`/api/v1/uploads${search ? `?${search}` : ""}`, {
-    credentials: "include",
-    headers,
-    method: "POST",
-    signal,
-  });
-  if (!response.ok) {
-    const errorBody = (await response
-      .json()
-      .catch(() => null)) as ErrorBody | null;
-    throw apiError(errorBody, `Upload session failed: ${response.status}`);
-  }
+  const response = await accepted(
+    await request(context, `/api/v1/uploads${search ? `?${search}` : ""}`, {
+      headers,
+      method: "POST",
+      signal,
+    }),
+    "Upload session failed"
+  );
   return response.json() as Promise<UploadSessionResponse>;
 }
 
 /** `GET` the part's direct URL, `PUT` the bytes, and return the store's `ETag`. */
 async function putPartDirect(
+  context: Context,
   sessionId: string,
   partNumber: number,
   bytes: Blob,
   token: string | null | undefined,
   signal: AbortSignal | undefined
 ): Promise<string> {
-  const headers: HeadersInit = {};
+  const headers: Record<string, string> = {};
   if (token) {
     headers["X-Upload-Token"] = token;
   }
-  const urlResponse = await fetch(
+  const urlResponse = await request(
+    context,
     `/api/v1/uploads/${encodeURIComponent(sessionId)}/parts/${partNumber}`,
-    { credentials: "include", headers, signal }
+    { headers, signal }
   );
   if (!urlResponse.ok) {
     throw new Error(`Part URL request failed: ${urlResponse.status}`);
   }
   const { url } = (await urlResponse.json()) as PartUrlResponse;
 
+  // Straight to the store: neither the instance's credentials nor its headers.
   const putResponse = await fetch(url, { body: bytes, method: "PUT", signal });
   if (!putResponse.ok) {
     throw new Error(`Direct part upload failed: ${putResponse.status}`);
@@ -278,98 +288,61 @@ export type PatchOutcome =
  * `PATCH`es one part at `offset`. `204` means keep going; `201` means this
  * was the last part and the session is a share now.
  */
-function patchPart(
+async function patchPart(
+  context: Context,
   sessionId: string,
   offset: number,
   bytes: Blob,
   token: string | null | undefined,
   options: UploadOptions
 ): Promise<PatchOutcome> {
-  // oxlint-disable-next-line promise/avoid-new -- XHR progress is only available through callbacks
-  return new Promise((resolve, reject) => {
-    if (options.signal?.aborted) {
-      reject(
-        options.signal.reason ?? new DOMException("Aborted", "AbortError")
-      );
-      return;
-    }
-
-    const xhr = new XMLHttpRequest();
-    xhr.open("PATCH", `/api/v1/uploads/${encodeURIComponent(sessionId)}`);
-    xhr.responseType = "json";
-    xhr.withCredentials = true;
-    xhr.setRequestHeader("Content-Type", "application/offset+octet-stream");
-    xhr.setRequestHeader("Upload-Offset", String(offset));
-    if (token) {
-      xhr.setRequestHeader("X-Upload-Token", token);
-    }
-
-    const handleAbort = () => xhr.abort();
-    options.signal?.addEventListener("abort", handleAbort);
-    const cleanup = () =>
-      options.signal?.removeEventListener("abort", handleAbort);
-
-    xhr.upload.addEventListener("progress", (event) => {
-      if (event.lengthComputable) {
-        options.onProgress?.((event.loaded / event.total) * 100);
-      }
-    });
-
-    xhr.addEventListener("abort", () => {
-      cleanup();
-      reject(new DOMException("Upload cancelled", "AbortError"));
-    });
-    xhr.addEventListener("error", () => {
-      cleanup();
-      reject(new Error("Network error during upload"));
-    });
-    xhr.addEventListener("load", () => {
-      cleanup();
-      if (xhr.status === 201) {
-        resolve({ done: true, share: xhr.response as ShareResponse });
-        return;
-      }
-      if (xhr.status === 204) {
-        resolve({ done: false });
-        return;
-      }
-      reject(
-        apiError(
-          xhr.response as ErrorBody | null,
-          `Upload failed: ${xhr.status}`
-        )
-      );
-    });
-
-    xhr.send(bytes);
+  const headers: Record<string, string> = {
+    "Content-Type": "application/offset+octet-stream",
+    "Upload-Offset": String(offset),
+  };
+  if (token) {
+    headers["X-Upload-Token"] = token;
+  }
+  const response = await send(context, {
+    body: bytes,
+    headers,
+    method: "PATCH",
+    onProgress: options.onProgress,
+    path: `/api/v1/uploads/${encodeURIComponent(sessionId)}`,
+    signal: options.signal,
   });
+  if (response.status === 201) {
+    return { done: true, share: response.body as ShareResponse };
+  }
+  if (response.status === 204) {
+    return { done: false };
+  }
+  throw apiError(
+    response.body as ErrorBody | null,
+    `Upload failed: ${response.status}`
+  );
 }
 
 async function completeUpload(
+  context: Context,
   sessionId: string,
   etags: string[],
   token: string | null | undefined,
   signal: AbortSignal | undefined
 ): Promise<ShareResponse> {
-  const headers: HeadersInit = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (token) {
     headers["X-Upload-Token"] = token;
   }
-  const response = await fetch(
-    `/api/v1/uploads/${encodeURIComponent(sessionId)}/complete`,
-    {
-      body: JSON.stringify({ etags }),
-      credentials: "include",
-      headers,
-      method: "POST",
-      signal,
-    }
+  const response = await accepted(
+    await request(
+      context,
+      `/api/v1/uploads/${encodeURIComponent(sessionId)}/complete`,
+      { body: JSON.stringify({ etags }), headers, method: "POST", signal }
+    ),
+    "Upload completion failed"
   );
-  if (!response.ok) {
-    const errorBody = (await response
-      .json()
-      .catch(() => null)) as ErrorBody | null;
-    throw apiError(errorBody, `Upload completion failed: ${response.status}`);
-  }
   return response.json() as Promise<ShareResponse>;
 }

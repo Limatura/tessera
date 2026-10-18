@@ -1,8 +1,8 @@
 import { toast } from "@tessera/ui/components/toast";
+import type { UploadResultData } from "@tessera/upload";
 import { useRef, useState } from "react";
 
 import { apiErrorMessage } from "@/lib/api-error";
-import type { UploadResultData } from "@/lib/upload/share-api";
 import * as m from "@/paraglide/messages";
 
 export type SubmitStatus = "idle" | "uploading" | "done";

@@ -1,0 +1,24 @@
+{
+  "name": "@tessera/upload",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./languages": "./src/languages/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@tessera/api": "workspace:*",
+    "@tessera/crypto": "workspace:*"
+  },
+  "devDependencies": {
+    "@tessera/config": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

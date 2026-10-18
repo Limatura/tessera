@@ -12,14 +12,14 @@ import {
   TabsList,
   TabsTrigger,
 } from "@tessera/ui/components/tabs";
+import type { FileEntry } from "@tessera/upload";
 import { AnimatePresence, motion } from "motion/react";
 import { Suspense, lazy, useRef, useState } from "react";
 
 import { GlassBackground } from "@/components/glass-background";
 import { useCapabilities } from "@/hooks/use-capabilities";
 import type { SharedDraft } from "@/lib/pwa/shared-payload";
-import type { FileEntry } from "@/lib/upload";
-import { upload } from "@/lib/upload";
+import { uploader } from "@/lib/uploader";
 import * as m from "@/paraglide/messages";
 
 import { BlobBackground } from "./blob-background";
@@ -114,7 +114,10 @@ export function UploadPanel({ shared, onSharedDone }: UploadPanelProps) {
       return;
     }
     start(el, (onProgress) =>
-      upload({ files, type: "file" }, { encryption: choice, onProgress })
+      uploader.upload(
+        { files, type: "file" },
+        { encryption: choice, onProgress }
+      )
     );
   };
 
@@ -127,7 +130,7 @@ export function UploadPanel({ shared, onSharedDone }: UploadPanelProps) {
       return;
     }
     start(el, (onProgress) =>
-      upload(
+      uploader.upload(
         {
           content: payload.content,
           language: payload.language,
@@ -144,7 +147,7 @@ export function UploadPanel({ shared, onSharedDone }: UploadPanelProps) {
     payload: { url: string }
   ) => {
     start(el, (onProgress) =>
-      upload({ type: "link", url: payload.url }, { onProgress })
+      uploader.upload({ type: "link", url: payload.url }, { onProgress })
     );
   };
 

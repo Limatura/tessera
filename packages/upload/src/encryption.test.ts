@@ -12,7 +12,6 @@ import {
 } from "@tessera/crypto";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { byteDiff } from "../../tests/unit/bytes";
 import {
   prepareSealing,
   sealedBlob,
@@ -21,6 +20,7 @@ import {
   sealedSource,
   sealedText,
 } from "./encryption";
+import { byteDiff } from "./testing/bytes";
 
 /** What the crate says for an altered object or the wrong key: one message for both. */
 const UNAUTHENTIC = /altered, or the key is wrong/u;

@@ -1,9 +1,10 @@
 import type { components } from "@tessera/api/schema";
 
+import { accepted, apiError, request, send } from "./context";
+import type { Context, ErrorBody } from "./context";
 import type { EncryptionChoice } from "./encryption";
 
 export type ShareResponse = components["schemas"]["ShareResponse"];
-export type ErrorBody = components["schemas"]["ErrorBody"];
 type PatchShareRequest = components["schemas"]["PatchShareRequest"];
 
 export interface UploadResultData {
@@ -25,7 +26,7 @@ export interface UploadResultData {
    * that key's token, so it cannot be changed or removed.
    */
   passwordIsKey?: boolean;
-  /** Sealed in this browser before it was sent. */
+  /** Sealed before it was sent. */
   encrypted?: boolean;
 }
 
@@ -40,20 +41,8 @@ export interface ShareSettings {
 export interface UploadOptions {
   onProgress?: (percent: number) => void;
   signal?: AbortSignal;
-  /** Seal the share before it leaves this browser. Not for a link share. */
+  /** Seal the share before it leaves this device. Not for a link share. */
   encryption?: EncryptionChoice;
-}
-
-/**
- * The `Error` thrown on failure. `message` is the server's English (or the
- * status code when there is no body); `code` and `details` are attached so the
- * screen can translate it with `apiErrorMessage`.
- */
-export function apiError(body: ErrorBody | null, fallback: string): Error {
-  const error = new Error(body?.message ?? fallback);
-  return body
-    ? Object.assign(error, { code: body.code, details: body.details })
-    : error;
 }
 
 export interface ShareQuery {
@@ -74,7 +63,10 @@ export interface ShareQuery {
   sealed_details?: string;
 }
 
-export function toResult(share: ShareResponse): UploadResultData {
+export function toResult(
+  context: Context,
+  share: ShareResponse
+): UploadResultData {
   return {
     code: share.code,
     expiresInMinutes: minutesUntil(share.expires_at),
@@ -87,7 +79,7 @@ export function toResult(share: ShareResponse): UploadResultData {
         : share.use_count + share.uses_remaining,
     scanState: share.scan_state ?? null,
     scanning: share.scanning,
-    shortUrl: new URL(share.path, window.location.origin).toString(),
+    shortUrl: new URL(share.path, context.baseUrl).toString(),
   };
 }
 
@@ -102,34 +94,31 @@ export function minutesUntil(
 }
 
 /**
- * `DELETE /api/v1/shares/{code}` needs a signed-in session or the
+ * `DELETE /api/v1/shares/{code}` needs a signed-in caller or the
  * `management_token` from an anonymous upload (sent in the
  * `X-Share-Management-Token` header).
  */
 export async function deleteShare(
+  context: Context,
   code: string,
   managementToken?: string
 ): Promise<void> {
-  const headers: HeadersInit = {};
+  const headers: Record<string, string> = {};
   if (managementToken) {
     headers["X-Share-Management-Token"] = managementToken;
   }
-  const response = await fetch(`/api/v1/shares/${encodeURIComponent(code)}`, {
-    credentials: "include",
-    headers,
-    method: "DELETE",
-  });
-  if (!response.ok) {
-    const errorBody = (await response
-      .json()
-      .catch(() => null)) as ErrorBody | null;
-    throw apiError(errorBody, `Delete failed: ${response.status}`);
-  }
+  await accepted(
+    await request(context, `/api/v1/shares/${encodeURIComponent(code)}`, {
+      headers,
+      method: "DELETE",
+    }),
+    "Delete failed"
+  );
 }
 
 /**
  * `PATCH /api/v1/shares/{code}` is authorised like DELETE: a signed-in
- * session, or the `management_token` from an anonymous upload.
+ * caller, or the `management_token` from an anonymous upload.
  *
  * Every field means "leave unchanged" when omitted, unlike "clear it" when
  * sent as null, so only the fields the caller actually set go into the body.
@@ -140,6 +129,7 @@ export async function deleteShare(
  * together, so this sends one or the other.
  */
 export async function updateShare(
+  context: Context,
   code: string,
   settings: ShareSettings,
   managementToken?: string
@@ -156,7 +146,9 @@ export async function updateShare(
     body.max_uses = settings.maxUses ?? null;
   }
 
-  const headers: HeadersInit = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (managementToken) {
     headers["X-Share-Management-Token"] = managementToken;
   }
@@ -168,21 +160,17 @@ export async function updateShare(
     }
   }
 
-  const response = await fetch(`/api/v1/shares/${encodeURIComponent(code)}`, {
-    body: JSON.stringify(body),
-    credentials: "include",
-    headers,
-    method: "PATCH",
-  });
-  if (!response.ok) {
-    const errorBody = (await response
-      .json()
-      .catch(() => null)) as ErrorBody | null;
-    throw apiError(errorBody, `Update failed: ${response.status}`);
-  }
+  await accepted(
+    await request(context, `/api/v1/shares/${encodeURIComponent(code)}`, {
+      body: JSON.stringify(body),
+      headers,
+      method: "PATCH",
+    }),
+    "Update failed"
+  );
 }
 
-function buildShareUrl(query: ShareQuery, basePath = "/api/v1/shares"): string {
+function buildSharePath(query: ShareQuery, basePath: string): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
     if (value !== undefined) {
@@ -193,68 +181,34 @@ function buildShareUrl(query: ShareQuery, basePath = "/api/v1/shares"): string {
   return `${basePath}${search ? `?${search}` : ""}`;
 }
 
-/**
- * `fetch` has no upload progress events, so this uses `XMLHttpRequest`, whose
- * progress arrives only through callbacks; hence the `Promise` wrapper.
- */
-export function createShare(
+/** `POST /shares` (or `/shares/{code}/files`) in one request, with progress. */
+export async function createShare(
+  context: Context,
   body: Blob | string,
   query: ShareQuery,
   options: UploadOptions,
   basePath = "/api/v1/shares",
   managementToken?: string
 ): Promise<ShareResponse> {
-  // oxlint-disable-next-line promise/avoid-new -- XHR progress is only available through callbacks
-  return new Promise((resolve, reject) => {
-    if (options.signal?.aborted) {
-      reject(
-        options.signal.reason ?? new DOMException("Aborted", "AbortError")
-      );
-      return;
-    }
-
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", buildShareUrl(query, basePath));
-    xhr.responseType = "json";
-    xhr.withCredentials = true;
-    xhr.setRequestHeader("Content-Type", "application/octet-stream");
-    if (managementToken) {
-      xhr.setRequestHeader("X-Share-Management-Token", managementToken);
-    }
-
-    const handleAbort = () => xhr.abort();
-    options.signal?.addEventListener("abort", handleAbort);
-    const cleanup = () =>
-      options.signal?.removeEventListener("abort", handleAbort);
-
-    xhr.upload.addEventListener("progress", (event) => {
-      if (event.lengthComputable) {
-        options.onProgress?.((event.loaded / event.total) * 100);
-      }
-    });
-
-    xhr.addEventListener("abort", () => {
-      cleanup();
-      reject(new DOMException("Upload cancelled", "AbortError"));
-    });
-    xhr.addEventListener("error", () => {
-      cleanup();
-      reject(new Error("Network error during upload"));
-    });
-    xhr.addEventListener("load", () => {
-      cleanup();
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(xhr.response as ShareResponse);
-        return;
-      }
-      reject(
-        apiError(
-          xhr.response as ErrorBody | null,
-          `Upload failed: ${xhr.status}`
-        )
-      );
-    });
-
-    xhr.send(body);
+  const headers: Record<string, string> = {
+    "Content-Type": "application/octet-stream",
+  };
+  if (managementToken) {
+    headers["X-Share-Management-Token"] = managementToken;
+  }
+  const response = await send(context, {
+    body,
+    headers,
+    method: "POST",
+    onProgress: options.onProgress,
+    path: buildSharePath(query, basePath),
+    signal: options.signal,
   });
+  if (response.status >= 200 && response.status < 300) {
+    return response.body as ShareResponse;
+  }
+  throw apiError(
+    response.body as ErrorBody | null,
+    `Upload failed: ${response.status}`
+  );
 }

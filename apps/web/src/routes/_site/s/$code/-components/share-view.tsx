@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@tessera/ui/components/card";
 import { Skeleton } from "@tessera/ui/components/skeleton";
+import { languageLabel } from "@tessera/upload/languages";
 import {
   FileIcon,
   FileText,
@@ -22,7 +23,6 @@ import { useState } from "react";
 
 import { usePasswordKey } from "@/hooks/use-password-key";
 import { useShare } from "@/hooks/use-share";
-import { languageLabel } from "@/lib/language-labels";
 import * as m from "@/paraglide/messages";
 
 import { EncryptedShare } from "./encrypted-share";

@@ -1,14 +1,12 @@
-// Guesses the language of pasted code. Adding a language means an entry in
-// LANGUAGES plus two other places: the select in
-// routes/_site/-components/code-upload-form.tsx, and bundledLanguages in
-// lib/shiki.ts (highlighting on the share page). `\s` matches newlines; use
-// `[ \t]` for spaces only.
+// Guesses the language of pasted code. Adding a language touches other
+// places too; `index.ts` lists them. `\s` matches newlines; use `[ \t]` for
+// spaces only.
 
 const MIN_CHARS_TO_GUESS = 12;
 const DEFAULT_MIN_HINTS = 2;
 
 interface LanguageRules {
-  /** Must match the option value in code-upload-form.tsx's select. */
+  /** Must be a key of `LANGUAGE_LABELS`. */
   id: string;
   /** Syntax valid only in this language; one match settles it. */
   unique?: readonly RegExp[];

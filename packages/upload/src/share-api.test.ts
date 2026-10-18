@@ -7,7 +7,9 @@ import {
   vi,
 } from "vite-plus/test";
 
-import { updateShare } from "./share-api";
+import { createUploader } from "./index";
+
+const { updateShare } = createUploader({ baseUrl: "http://tessera.test" });
 
 /**
  * `PATCH /shares/{code}` tells "field not mentioned" from "explicitly null":
@@ -45,7 +47,7 @@ describe("updateShare", () => {
     await updateShare("abc", { maxUses: 1 });
     const { body, method, url } = lastRequest();
     expect(method).toBe("PATCH");
-    expect(url).toBe("/api/v1/shares/abc");
+    expect(url).toBe("http://tessera.test/api/v1/shares/abc");
     expect(body).toEqual({ max_uses: 1 });
   });
 

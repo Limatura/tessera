@@ -9,6 +9,7 @@ import {
   ResponsiveDialogTitle,
 } from "@tessera/ui/components/responsive-dialog";
 import { toast } from "@tessera/ui/components/toast";
+import type { UploadResultData } from "@tessera/upload";
 import {
   Check,
   Copy,
@@ -24,8 +25,7 @@ import { AnimatedQRCode } from "@/components/animated-qr-code";
 import { ScanStatus } from "@/components/scan/scan-status";
 import { useManagedShare } from "@/hooks/use-managed-share";
 import { apiErrorMessage } from "@/lib/api-error";
-import { deleteShare } from "@/lib/upload/share-api";
-import type { UploadResultData } from "@/lib/upload/share-api";
+import { uploader } from "@/lib/uploader";
 import * as m from "@/paraglide/messages";
 import { useRecentSharesStore } from "@/stores/recent-shares";
 import { useShareStore } from "@/stores/share";
@@ -144,7 +144,7 @@ export function UploadResult({
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await deleteShare(result.code, result.managementToken);
+      await uploader.deleteShare(result.code, result.managementToken);
       forgetRecent(result.code);
       onReset();
     } catch (error) {

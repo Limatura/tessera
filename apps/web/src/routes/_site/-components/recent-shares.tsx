@@ -1,11 +1,11 @@
 import { IconExternalLink } from "@tabler/icons-react";
 import { Button } from "@tessera/ui/components/button";
+import { minutesUntil } from "@tessera/upload";
 import { Settings2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
 import { expiryLabel } from "@/lib/expiry-label";
-import { minutesUntil } from "@/lib/upload/share-api";
 import * as m from "@/paraglide/messages";
 import { useRecentSharesStore } from "@/stores/recent-shares";
 import type { RecentShare } from "@/stores/recent-shares";

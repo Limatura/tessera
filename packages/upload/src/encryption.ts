@@ -40,7 +40,11 @@ export interface Sealing {
 }
 
 /**
- * Makes the key. Deriving one from a password takes a fraction of a second
+ * Makes the key. `ready()` is awaited first; a caller whose bundle cannot find
+ * the `.wasm` beside `@tessera/crypto` (an extension's service worker) calls
+ * `ready(url)` itself beforehand, and this then reuses that load.
+ *
+ * Deriving one from a password takes a fraction of a second
  * on a desktop and more on a phone, and blocks while it runs, so this yields a
  * frame first: whatever busy state the caller just set gets painted.
  */
@@ -93,9 +97,17 @@ export function sealedText(key: ShareKey, text: string): Blob {
   return new Blob([sealBytes(key, new TextEncoder().encode(text)) as BlobPart]);
 }
 
+/**
+ * A page gets a painted frame; a worker, which paints nothing, only a turn of
+ * the event loop so whatever it posted before this goes out first.
+ */
 function nextFrame() {
   // oxlint-disable-next-line promise/avoid-new -- requestAnimationFrame only takes a callback
   return new Promise<void>((resolve) => {
+    if (typeof requestAnimationFrame === "undefined") {
+      setTimeout(resolve, 0);
+      return;
+    }
     requestAnimationFrame(() => setTimeout(resolve, 0));
   });
 }

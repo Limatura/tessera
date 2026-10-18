@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { detectLanguage } from "./detect-language";
+import { detectLanguage } from "./detect";
 
 /**
  * The point is not to cover every language but to catch a new rule breaking an

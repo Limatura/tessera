@@ -1,6 +1,7 @@
 /**
- * Language value to display name. Shared by the upload form's select and the
- * share page's default name when there is no title, so the two cannot drift.
+ * Language value to display name. Shared by the site's select, its share
+ * page's default name when there is no title, and the extension's select, so
+ * none of them can drift.
  */
 export const LANGUAGE_LABELS = {
   cpp: "C++",

@@ -1,5 +1,7 @@
 import { sealedSize } from "@tessera/crypto";
 
+import { request } from "./context";
+import type { Context } from "./context";
 import type { Sealing } from "./encryption";
 import {
   prepareSealing,
@@ -49,18 +51,19 @@ export type UploadPayload =
   | LinkUploadPayload;
 
 export function upload(
+  context: Context,
   payload: UploadPayload,
   options: UploadOptions = {}
 ): Promise<UploadResultData> {
   switch (payload.type) {
     case "file": {
-      return uploadFile(payload, options);
+      return uploadFile(context, payload, options);
     }
     case "paste": {
-      return uploadPaste(payload, options);
+      return uploadPaste(context, payload, options);
     }
     case "link": {
-      return uploadLink(payload, options);
+      return uploadLink(context, payload, options);
     }
     default: {
       const exhaustiveCheck: never = payload;
@@ -70,6 +73,7 @@ export function upload(
 }
 
 async function uploadFile(
+  context: Context,
   payload: FileUploadPayload,
   options: UploadOptions
 ): Promise<UploadResultData> {
@@ -95,6 +99,7 @@ async function uploadFile(
     ? await prepareSealing(options.encryption)
     : undefined;
   let share = await uploadOneFile(
+    context,
     first.file,
     sealing
       ? {
@@ -126,6 +131,7 @@ async function uploadFile(
       // completion order, so they cannot be sent in parallel.
       // oxlint-disable-next-line no-await-in-loop -- see the line above
       share = await addFileToShare(
+        context,
         share.code,
         entry.file,
         entry.path || entry.file.name,
@@ -138,16 +144,16 @@ async function uploadFile(
       );
       reportProgress(done + 1, 0);
     }
-    await presentAccessToken(share.code, sealing, managementToken);
+    await presentAccessToken(context, share.code, sealing, managementToken);
   } catch (error) {
-    await deleteShare(share.code, managementToken).catch(() => {
+    await deleteShare(context, share.code, managementToken).catch(() => {
       // The original error is already being reported; a failed delete must not replace it
     });
     throw error;
   }
 
   const result = sealedResult(
-    toResult({ ...share, management_token: managementToken ?? null }),
+    toResult(context, { ...share, management_token: managementToken ?? null }),
     sealing
   );
   return {
@@ -164,12 +170,18 @@ async function uploadFile(
  * key, and a failure here deletes the share.
  */
 async function presentAccessToken(
+  context: Context,
   code: string,
   sealing: Sealing | undefined,
   managementToken: string | undefined
 ) {
   if (sealing?.accessToken) {
-    await updateShare(code, { password: sealing.accessToken }, managementToken);
+    await updateShare(
+      context,
+      code,
+      { password: sealing.accessToken },
+      managementToken
+    );
   }
 }
 
@@ -202,6 +214,7 @@ function deriveFolderName(files: FileEntry[]): string | undefined {
 }
 
 function addFileToShare(
+  context: Context,
   code: string,
   file: File,
   filename: string,
@@ -211,6 +224,7 @@ function addFileToShare(
 ): Promise<ShareResponse> {
   // An added file is sealed the way its share is; `encryption` is not repeated
   return uploadOneFile(
+    context,
     file,
     sealing
       ? { sealed_name: sealedNameFor(sealing.key, file, filename) }
@@ -237,6 +251,7 @@ function addFileToShare(
  * single-`POST` path.
  */
 async function uploadOneFile(
+  context: Context,
   file: File,
   query: ShareQuery,
   options: UploadOptions,
@@ -245,16 +260,24 @@ async function uploadOneFile(
   existingCode?: string,
   managementToken?: string
 ): Promise<ShareResponse> {
-  const maxUploadBytes = await fetchMaxUploadBytes(options.signal);
+  const maxUploadBytes = await fetchMaxUploadBytes(context, options.signal);
   // Sealed, a file is slightly larger, and that is what the limit counts
   const size = sealing ? sealedSize(file.size) : file.size;
   if (maxUploadBytes === undefined || size <= maxUploadBytes) {
     const body = sealing ? await sealedBlob(sealing.key, file) : file;
-    return createShare(body, query, options, basePath, managementToken);
+    return createShare(
+      context,
+      body,
+      query,
+      options,
+      basePath,
+      managementToken
+    );
   }
   // `/uploads` takes no title, so a sealed one would be lost there
   const { sealed_details: _, ...sessionQuery } = query;
   return uploadResumable(
+    context,
     sealing ? sealedSource(sealing.key, file) : file,
     sessionQuery,
     options,
@@ -264,20 +287,23 @@ async function uploadOneFile(
 }
 
 /**
- * The limit, cached for the life of the page so a folder of hundreds of files
- * does not ask `/capabilities` for each. `undefined` means the lookup failed
+ * The limit, cached per instance for the life of the page so a folder of
+ * hundreds of files does not ask `/capabilities` for each. `undefined` means the lookup failed
  * (offline, or the instance has capabilities off); callers then use a single
  * `POST` as before. The server still refuses oversized requests by
  * `max_body_bytes`; only the routing to resumable before upload is lost.
  */
-let cachedMaxUploadBytes: Promise<number | undefined> | undefined;
+const cachedMaxUploadBytes = new WeakMap<
+  Context,
+  Promise<number | undefined>
+>();
 
 async function requestMaxUploadBytes(
+  context: Context,
   signal: AbortSignal | undefined
 ): Promise<number | undefined> {
   try {
-    const response = await fetch("/api/v1/capabilities", {
-      credentials: "include",
+    const response = await request(context, "/api/v1/capabilities", {
       signal,
     });
     if (!response.ok) {
@@ -291,20 +317,27 @@ async function requestMaxUploadBytes(
 }
 
 function fetchMaxUploadBytes(
+  context: Context,
   signal: AbortSignal | undefined
 ): Promise<number | undefined> {
-  cachedMaxUploadBytes ??= requestMaxUploadBytes(signal);
-  return cachedMaxUploadBytes;
+  let cached = cachedMaxUploadBytes.get(context);
+  if (!cached) {
+    cached = requestMaxUploadBytes(context, signal);
+    cachedMaxUploadBytes.set(context, cached);
+  }
+  return cached;
 }
 
 function uploadPaste(
+  context: Context,
   payload: PasteUploadPayload,
   options: UploadOptions
 ): Promise<UploadResultData> {
   if (options.encryption) {
-    return uploadSealedPaste(payload, options);
+    return uploadSealedPaste(context, payload, options);
   }
   return createShare(
+    context,
     payload.content,
     {
       language: payload.language,
@@ -313,7 +346,7 @@ function uploadPaste(
         : undefined,
     },
     options
-  ).then(toResult);
+  ).then((share) => toResult(context, share));
 }
 
 /**
@@ -321,6 +354,7 @@ function uploadPaste(
  * page cannot even say which language it is until it has the key.
  */
 async function uploadSealedPaste(
+  context: Context,
   payload: PasteUploadPayload,
   options: UploadOptions
 ): Promise<UploadResultData> {
@@ -331,6 +365,7 @@ async function uploadSealedPaste(
     ? truncateChars(payload.title, MAX_TITLE_CHARS)
     : undefined;
   const share = await createShare(
+    context,
     sealedText(sealing.key, payload.content),
     {
       ...sealing.query,
@@ -346,27 +381,30 @@ async function uploadSealedPaste(
   );
   const managementToken = share.management_token ?? undefined;
   try {
-    await presentAccessToken(share.code, sealing, managementToken);
+    await presentAccessToken(context, share.code, sealing, managementToken);
   } catch (error) {
-    await deleteShare(share.code, managementToken).catch(() => {
+    await deleteShare(context, share.code, managementToken).catch(() => {
       // The original error is already being reported
     });
     throw error;
   }
-  const result = sealedResult(toResult(share), sealing);
+  const result = sealedResult(toResult(context, share), sealing);
   return title ? { ...result, fileName: title } : result;
 }
 
 function uploadLink(
+  context: Context,
   payload: LinkUploadPayload,
   options: UploadOptions
 ): Promise<UploadResultData> {
   // No title: titles are capped at 191 characters and a URL can be up to 2048,
   // so a long one would be refused. The result screen already has the URL.
-  return createShare(payload.url, { kind: "link" }, options).then((share) => ({
-    ...toResult(share),
-    fileName: payload.url,
-  }));
+  return createShare(context, payload.url, { kind: "link" }, options).then(
+    (share) => ({
+      ...toResult(context, share),
+      fileName: payload.url,
+    })
+  );
 }
 
 /**
