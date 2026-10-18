@@ -218,6 +218,15 @@ The endpoints are `GET /api/v1/speed/download?bytes=N` and `POST /api/v1/speed/u
 
 **This is a tap**, so all three limits are in place: off by default, signed-in only by default, a cap per test, plus the per-source count in `auth.throttle.speed`. `speed_test` in `/capabilities` tells the front end whether this caller can run one.
 
+## `logs.*` (the copy of the log the panel reads)
+
+- `retention_days: u16`: how many days of files to keep, today's included. Default `3`, 1 to 90
+- `min_level: "trace" | "debug" | "info" | "warn" | "error"`: the least severe line written to the files. Default `trace`
+
+Besides stdout, every line goes to `server.data_dir/logs/YYYY-MM-DD.jsonl` (UTC days, one JSON object per line, readable by the server's user only). Admins with `logs:read` read, stream and download them under `/api/v1/admin/logs`. `min_level` can only narrow `telemetry.filter`: a line that filter drops never reaches the file. The maintenance sweep deletes days past `retention_days`.
+
+**The file never holds up the server.** Lines wait in a bounded queue and are dropped when it is full; a write that fails is reported once on stdout. A field named like a credential (`password`, `token`, `cookie`, …) is written as `"[redacted]"`, and a request is recorded by the route it matched (`/s/{code}`), not the path it asked for, so retrieval codes stay out.
+
 ## `security.*`
 
 - `secret_key: string` (SECRET + FIXED): seals every setting that is stored in the database and has to be read back. 64 hex characters. Empty (the default) = use the key generated on first start and stored at `server.data_dir/secret.key` (mode 0600). Set it yourself (`openssl rand -hex 32`) to keep the key out of the data directory's backups
@@ -332,5 +341,5 @@ Once set, it replaces the card for **every share**. What each share may reveal i
 ## `telemetry.*` (all FIXED)
 
 - `format: "pretty" | "json"`: `pretty` is human-readable and multi-line, for local development; `json` is one object per line, for log shippers
-- `filter: string`
+- `filter: string`: what reaches stdout and, through `logs.min_level`, the log files
 - `ansi: bool`

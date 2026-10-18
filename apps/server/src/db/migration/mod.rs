@@ -73,6 +73,7 @@ mod m20261006_000001_auth_flow_return;
 mod m20261013_000001_mfa;
 mod m20261013_000002_passkeys;
 mod m20261018_000001_device_authorizations;
+mod m20261019_000001_logs_permission;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -136,6 +137,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261013_000001_mfa::Migration),
             Box::new(m20261013_000002_passkeys::Migration),
             Box::new(m20261018_000001_device_authorizations::Migration),
+            Box::new(m20261019_000001_logs_permission::Migration),
         ]
     }
 }
@@ -241,6 +243,7 @@ mod tests {
                 [
                     m20260818_000005_owner_role::SQLITE,
                     m20260823_000002_settings_permissions::SQLITE,
+                    m20261019_000001_logs_permission::SQLITE,
                 ],
             ),
             (
@@ -248,6 +251,7 @@ mod tests {
                 [
                     m20260818_000005_owner_role::POSTGRES,
                     m20260823_000002_settings_permissions::POSTGRES,
+                    m20261019_000001_logs_permission::POSTGRES,
                 ],
             ),
             (
@@ -255,6 +259,7 @@ mod tests {
                 [
                     m20260818_000005_owner_role::MYSQL,
                     m20260823_000002_settings_permissions::MYSQL,
+                    m20261019_000001_logs_permission::MYSQL,
                 ],
             ),
         ];

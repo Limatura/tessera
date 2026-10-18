@@ -113,7 +113,7 @@ tokio = { version = "1.53", features = [
   # The malware scanner's clamd protocol is spoken over a raw socket.
   "io-util",
 ] }
-tokio-util = { version = "0.7", features = ["rt"] }
+tokio-util = { version = "0.7", features = ["io", "rt"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.7", features = [
   "trace",

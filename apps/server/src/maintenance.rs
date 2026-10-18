@@ -316,6 +316,17 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
         "shares past their retention",
         sweep_dead_shares(state, now, state.config().share.retention()).await,
     );
+    // Read each pass, so a shorter retention set in the panel takes effect on
+    // the next one. Today counts as one of the days kept.
+    let kept = i64::from(state.config().logs.retention_days.max(1)) - 1;
+    report(
+        "log files past their retention",
+        state
+            .logs
+            .remove_before(now.date().saturating_sub(time::Duration::days(kept)))
+            .await
+            .map(|removed| u64::try_from(removed).unwrap_or(u64::MAX)),
+    );
     // Last, so the day's row counts what the passes above left behind.
     record_the_day(state, now).await;
 }

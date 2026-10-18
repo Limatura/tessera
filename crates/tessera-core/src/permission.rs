@@ -69,6 +69,12 @@ pub enum Permission {
     SettingsRead,
     /// Change how the instance is configured.
     SettingsWrite,
+    /// Read the server's own log.
+    ///
+    /// Its own permission, not part of reading settings: the log names the
+    /// addresses, accounts and shares behind every request, which says far more
+    /// about other people than the list of knobs does.
+    LogsRead,
 }
 
 impl Permission {
@@ -77,7 +83,7 @@ impl Permission {
     /// Used to seed the administrator role and to answer "what could a role
     /// possibly contain", so it has to stay exhaustive. A variant added without
     /// being added here is a permission that can never be granted.
-    pub const ALL: [Self; 17] = [
+    pub const ALL: [Self; 18] = [
         Self::SharesCreate,
         Self::SharesRead,
         Self::SharesDelete,
@@ -95,6 +101,7 @@ impl Permission {
         Self::StatsRead,
         Self::SettingsRead,
         Self::SettingsWrite,
+        Self::LogsRead,
     ];
 
     /// The spelling stored in a row and sent in a response.
@@ -118,6 +125,7 @@ impl Permission {
             Self::StatsRead => "stats:read",
             Self::SettingsRead => "settings:read",
             Self::SettingsWrite => "settings:write",
+            Self::LogsRead => "logs:read",
         }
     }
 

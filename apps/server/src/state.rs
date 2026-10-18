@@ -119,6 +119,8 @@ pub struct AppState {
     pub scan_changes: crate::topic::Topic<crate::scan::Change>,
     /// Whether the scanner is answering, as the worker last saw.
     pub scanner_health: crate::scan::health::ScannerHealth,
+    /// The log files under `server.data_dir`, and the lines being written.
+    pub logs: crate::log_files::Logs,
     /// The relay, when this instance has one.
     ///
     /// `None` is the ordinary case and not a fault: an instance with no `mail`
@@ -220,6 +222,13 @@ impl AppState {
     #[must_use]
     pub fn config(&self) -> arc_swap::Guard<Arc<Config>> {
         self.config.load()
+    }
+
+    /// The configuration as it is swapped, for something outside a request that
+    /// has to follow it, such as the log writer reading `logs.min_level`.
+    #[must_use]
+    pub fn config_handle(&self) -> Arc<ArcSwap<Config>> {
+        Arc::clone(&self.config)
     }
 
     /// The relay, when this instance has one.
@@ -388,6 +397,7 @@ impl AppState {
             scan_wake: Arc::new(tokio::sync::Notify::new()),
             scan_changes: crate::topic::Topic::new(),
             scanner_health: crate::scan::health::ScannerHealth::default(),
+            logs: crate::log_files::Logs::in_data_dir(&config.server.data_dir),
             mailer: Arc::new(ArcSwap::from_pointee(mailer)),
             sessions: SessionRepository::new(db.clone()),
             tokens: ApiTokenRepository::new(db.clone()),

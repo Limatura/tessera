@@ -42,6 +42,7 @@ pub mod extract;
 pub mod gate;
 pub mod health;
 pub mod llms;
+pub mod logs;
 pub mod meter;
 pub mod mfa;
 pub mod oidc;
@@ -406,6 +407,15 @@ fn settings_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(scanner::status))
 }
 
+/// The server's own log. A separate group so [`admin_routes`] stays one page.
+fn log_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(logs::read))
+        .routes(routes!(logs::list_files))
+        .routes(routes!(logs::download))
+        .routes(routes!(logs::stream))
+}
+
 /// Everything under `/admin`.
 ///
 /// Its own function because it is its own surface: an operator can switch it
@@ -429,6 +439,7 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::share_access_log))
         .merge(backend_routes())
         .merge(settings_routes())
+        .merge(log_routes())
         .routes(routes!(admin::remove_user_shares))
         .routes(routes!(admin::reset_user_mfa))
 }
@@ -678,16 +689,29 @@ impl MakeRequestId for UlidRequestId {
     }
 }
 
+/// The span every line logged while answering a request sits in.
+///
+/// `path` is the route that matched (`/api/v1/shares/{code}`), not the path
+/// asked for. A path can carry a retrieval code, and the log is read by people
+/// who were not given the share. A request no route matched is recorded as
+/// asked, except a share page, whose code is replaced the same way.
 fn make_span<B>(request: &Request<B>) -> tracing::Span {
     let request_id = request
         .headers()
         .get(REQUEST_ID_HEADER)
         .and_then(|value| value.to_str().ok())
         .unwrap_or("-");
+    let path = request
+        .extensions()
+        .get::<axum::extract::MatchedPath>()
+        .map_or_else(
+            || assets::loggable_path(request.uri().path()),
+            |matched| std::borrow::Cow::Borrowed(matched.as_str()),
+        );
     tracing::info_span!(
         "http",
         method = %request.method(),
-        path = %request.uri().path(),
+        path = %path,
         request_id = %request_id,
     )
 }

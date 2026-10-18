@@ -146,6 +146,7 @@ async fn main() -> anyhow::Result<()> {
         Storage { pool, sealer },
         assets,
     );
+    telemetry::attach(&state);
     let app = api::build(state.clone());
 
     state.set_status(ServiceStatus::Ready);
