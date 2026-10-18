@@ -16,6 +16,7 @@ pub mod names;
 pub mod output;
 pub mod send;
 pub mod shares;
+pub mod style;
 
 /// Everything that can stop a command.
 #[derive(Debug, thiserror::Error)]
@@ -28,7 +29,7 @@ pub enum Error {
     #[error("this share needs a password")]
     PasswordRequired,
     /// The server refused, and said why.
-    #[error("{message} ({status})")]
+    #[error("{message}")]
     Server {
         /// The HTTP status.
         status: u16,

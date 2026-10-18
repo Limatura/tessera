@@ -5006,6 +5006,8 @@ dependencies = [
 name = "tessera-cli"
 version = "0.1.0-rc.1"
 dependencies = [
+ "anstream",
+ "anstyle",
  "axum",
  "base64ct",
  "clap",
