@@ -47,6 +47,14 @@ flowchart TD
     S --> T
 ```
 
+## From curl
+
+`curl -T report.pdf https://share.example.com/` sends `PUT /report.pdf`, since curl adds the file's name to a URL ending in `/`. `api/curl.rs` answers `PUT /` and `PUT /{name}` by building the same parameters `POST /api/v1/shares` takes and calling the same `create_share`, so the limits, quotas and permissions are the ones every upload meets. `PUT /-`, which is what `curl -T -` sends, and `PUT /` make a note.
+
+- **Options are headers**, not a query string: `X-Share-Expires` (`30m`, `12h`, `1d`, `2w`), `X-Share-Max-Downloads`, `X-Share-Password`. The URL stays the one people type, and a password stays out of access logs.
+- **The answer is the link on one line**, absolute, built from `server.public_url` or the request like link previews are. The code and an anonymous upload's management token are in `X-Share-Code` and `X-Share-Management-Token`. `Accept: application/json` gets the `ShareResponse` instead. Errors are `error: <message>` on one line with the usual status.
+- **Only `PUT` is taken.** Every other method on those paths falls through to the bundle, or `GET /favicon.ico` would answer 405. These requests are exempt from the request timeout like the other uploads (`api/timeout.rs`).
+
 ## Three ceilings
 
 `Tier` in `error.rs` names them. All three are checked, and the tightest wins:

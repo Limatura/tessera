@@ -36,6 +36,7 @@ pub mod archive;
 pub mod auth;
 pub mod backends;
 pub mod capabilities;
+pub mod curl;
 pub mod device;
 pub mod extract;
 pub mod gate;
@@ -495,6 +496,17 @@ pub fn build(state: AppState) -> Router {
         .route(
             crate::manifest::SHARE_TARGET_PATH,
             axum::routing::post(crate::manifest::share_target),
+        )
+        // `curl -T file https://host/` sends `PUT /file`. Only `PUT` is taken
+        // here: every other method on these paths falls through to the bundle,
+        // or `/favicon.ico` would answer 405.
+        .route(
+            "/",
+            axum::routing::put(curl::upload_unnamed).fallback(assets::handler),
+        )
+        .route(
+            "/{name}",
+            axum::routing::put(curl::upload_named).fallback(assets::handler),
         )
         // Attached before the state is applied because the fallback needs it:
         // `/s/{code}` is served from the bundle like any client-side route, but

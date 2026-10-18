@@ -141,6 +141,15 @@ tess rm P8D72PSF
 
 `--encrypt` を付けると、内容はマシンを離れる前に暗号化されます。鍵はリンクの `#` 以降の部分で、サーバーが目にすることはありません。
 
+CLI がなくても `curl` で送れます。リンクがそのまま表示されます：
+
+```bash
+curl -T report.pdf https://share.example.com/
+echo "hello" | curl -T - https://share.example.com/
+```
+
+オプションはヘッダーで指定します：`-H 'X-Share-Expires: 1d'`、`-H 'X-Share-Max-Downloads: 3'`、`-H 'X-Share-Password: …'`。
+
 ## ドキュメント
 
 - [利用・運用ガイド](https://github.com/Limatura/tessera-docs)

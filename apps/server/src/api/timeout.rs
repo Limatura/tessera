@@ -57,6 +57,12 @@ pub async fn enforce(State(state): State<AppState>, request: Request, next: Next
 /// reads the entire body, so the budget would cap the *size* a slow line can
 /// test instead of how long a stalled request may hold a slot.
 fn carries_an_upload(method: &Method, path: &str) -> bool {
+    // `curl -T` to the site root: `PUT /` or `PUT /{name}`, one segment.
+    if method == Method::PUT {
+        return path
+            .strip_prefix('/')
+            .is_some_and(|rest| !rest.contains('/'));
+    }
     if method != Method::POST {
         return false;
     }
@@ -86,6 +92,9 @@ mod tests {
         // budget it would stop at whatever fits in thirty seconds.
         assert!(carries_an_upload(&Method::POST, "/api/v1/speed/upload"));
         assert!(!carries_an_upload(&Method::GET, "/api/v1/speed/upload"));
+        assert!(carries_an_upload(&Method::PUT, "/report.pdf"));
+        assert!(carries_an_upload(&Method::PUT, "/"));
+        assert!(!carries_an_upload(&Method::PUT, "/api/v1/admin/settings"));
     }
 
     /// These share the prefix and are ordinary requests. Exempting them would
@@ -105,7 +114,7 @@ mod tests {
     /// Listing shares is not uploading one, whatever the path says.
     #[test]
     fn only_post_is_an_upload() {
-        for method in [Method::GET, Method::DELETE, Method::PUT, Method::HEAD] {
+        for method in [Method::GET, Method::DELETE, Method::PATCH, Method::HEAD] {
             assert!(!carries_an_upload(&method, "/api/v1/shares"), "{method}");
         }
     }

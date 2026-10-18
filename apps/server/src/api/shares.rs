@@ -364,10 +364,27 @@ fn format_timestamp(value: OffsetDateTime) -> String {
 pub async fn create(
     State(state): State<AppState>,
     MaybeUser(current): MaybeUser,
-    ApiQuery(mut params): ApiQuery<CreateShareParams>,
+    ApiQuery(params): ApiQuery<CreateShareParams>,
     headers: HeaderMap,
     body: Body,
 ) -> Result<Response> {
+    let response = create_share(&state, current, params, &headers, body).await?;
+    Ok((StatusCode::CREATED, Json(response)).into_response())
+}
+
+/// Makes a share from one request's body: what `POST /shares` does, and what
+/// a `curl -T` upload to the site root does with the same rules.
+///
+/// # Errors
+///
+/// As `POST /shares` documents.
+pub(crate) async fn create_share(
+    state: &AppState,
+    current: Option<CurrentUser>,
+    mut params: CreateShareParams,
+    headers: &HeaderMap,
+    body: Body,
+) -> Result<ShareResponse> {
     if current.is_none() && !state.config().features.anonymous_upload {
         return Err(Error::Unauthorized);
     }
@@ -394,11 +411,11 @@ pub async fn create(
         encryption,
         sealed_name,
         sealed_details,
-    } = described(&state, &mut params)?;
+    } = described(state, &mut params)?;
 
     let now = OffsetDateTime::now_utc();
-    let expires_at = resolve_expiry(&state, Lifetime::of(&params)?, now)?;
-    let password_hash = match share_password(&headers)? {
+    let expires_at = resolve_expiry(state, Lifetime::of(&params)?, now)?;
+    let password_hash = match share_password(headers)? {
         Some(password) => Some(password::hash(password, state.config().auth.hashing).await?),
         None => None,
     };
@@ -418,7 +435,7 @@ pub async fn create(
         },
         _arriving,
     ) = ingest(
-        &state,
+        state,
         Ingest {
             id,
             kind,
@@ -467,7 +484,7 @@ pub async fn create(
         updated_at: now,
     };
 
-    let scan = crate::scan::initial(&state, encryption.is_some());
+    let scan = crate::scan::initial(state, encryption.is_some());
     let content = match kind {
         ShareKind::File => NewContent::File(NewFile {
             segments,
@@ -475,7 +492,7 @@ pub async fn create(
             // What the uploader claimed. Recorded but never echoed; serving an
             // attacker-chosen media type back turns a `text/html` upload into
             // stored XSS on our own origin.
-            content_type: recorded_type(encryption.is_some(), &headers),
+            content_type: recorded_type(encryption.is_some(), headers),
             sealed_name,
             scan,
             size_bytes,
@@ -483,14 +500,13 @@ pub async fn create(
         }),
         ShareKind::Text | ShareKind::Link => written(kind, language, inline, scan)?,
     };
-    let share = insert_with_fresh_code(&state, share, &content).await?;
+    let share = insert_with_fresh_code(state, share, &content).await?;
     let content = state.shares.content_of(&share).await?;
-    let response = ShareResponse::from_share(
+    Ok(ShareResponse::from_share(
         &share,
         &content,
         management_secret.map(|secret| secret.expose().to_owned()),
-    );
-    Ok((StatusCode::CREATED, Json(response)).into_response())
+    ))
 }
 
 /// The row a note or a link is kept in.
