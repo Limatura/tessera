@@ -80,14 +80,23 @@ pub fn load(path: &Path) -> Result<Config> {
 ///
 /// When the directory or the file cannot be written.
 pub fn save(path: &Path, config: &Config) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
     let text = toml::to_string(config).map_err(|error| Error::Config {
         path: path.to_owned(),
         message: error.to_string(),
     })?;
+    write_private(path, text.as_bytes())
+}
 
+/// Writes `bytes` to `path`, creating its directory, readable by its owner
+/// only: for files that hold a credential.
+///
+/// # Errors
+///
+/// When the directory or the file cannot be written.
+pub(crate) fn write_private(path: &Path, bytes: &[u8]) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
     let mut options = std::fs::OpenOptions::new();
     options.write(true).create(true).truncate(true);
     #[cfg(unix)]
@@ -103,7 +112,7 @@ pub fn save(path: &Path, config: &Config) -> Result<()> {
         }
     }
     let mut file = options.open(path)?;
-    std::io::Write::write_all(&mut file, text.as_bytes())?;
+    std::io::Write::write_all(&mut file, bytes)?;
     Ok(())
 }
 

@@ -14,6 +14,7 @@ pub mod link;
 pub mod login;
 pub mod names;
 pub mod output;
+pub mod resume;
 pub mod send;
 pub mod shares;
 pub mod style;
