@@ -581,3 +581,60 @@ async fn an_interrupted_encrypted_send_picks_up_where_it_stopped() {
     let file = fetched.files.first().expect("a file");
     assert_eq!(std::fs::read(file).expect("read back"), bytes);
 }
+
+#[tokio::test]
+async fn a_directory_goes_into_one_share_and_comes_back_as_it_was() {
+    let server = server().await;
+    let client = Client::new(server.url.clone(), None).expect("a client");
+    for encrypt in [false, true] {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join("photos");
+        std::fs::create_dir_all(root.join("2024/summer")).expect("dirs");
+        write(&root, "cover.jpg", &content(3000, 1));
+        write(&root.join("2024"), "a.jpg", &content(5000, 2));
+        write(&root.join("2024/summer"), "b.jpg", &content(7000, 3));
+        write(&root, ".keep", b"");
+
+        let sent = send::send(
+            &client,
+            Content::Files(vec![root.clone()]),
+            Options {
+                encrypt,
+                ..Options::default()
+            },
+            &mut |_, _, _| {},
+        )
+        .await
+        .expect("sent");
+        // Only a sealed empty file has bytes to store.
+        assert_eq!(sent.skipped_empty, usize::from(!encrypt));
+
+        let out = tempfile::tempdir().expect("output dir");
+        let fetched = fetch(&sent.link, None, out.path()).await.expect("fetched");
+        let mut got: Vec<String> = fetched
+            .files
+            .iter()
+            .map(|path| {
+                path.strip_prefix(out.path())
+                    .expect("inside the output")
+                    .to_string_lossy()
+                    .replace('\\', "/")
+            })
+            .collect();
+        got.sort();
+        let mut want = vec![
+            "photos/2024/a.jpg",
+            "photos/2024/summer/b.jpg",
+            "photos/cover.jpg",
+        ];
+        if encrypt {
+            want.push("photos/.keep");
+        }
+        want.sort_unstable();
+        assert_eq!(got, want, "encrypt: {encrypt}");
+        assert_eq!(
+            std::fs::read(out.path().join("photos/2024/summer/b.jpg")).expect("read"),
+            content(7000, 3)
+        );
+    }
+}
