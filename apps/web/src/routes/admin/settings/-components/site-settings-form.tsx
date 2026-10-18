@@ -45,6 +45,7 @@ const KEYS = {
 const LANGUAGE_OPTIONS = [
   { label: "English", value: "en" },
   { label: "繁體中文", value: "zh-TW" },
+  { label: "简体中文", value: "zh-CN" },
   { label: "日本語", value: "ja" },
 ] as const;
 
@@ -141,8 +142,8 @@ function SiteSettingsFields({
       </SettingsCard>
 
       <SettingsCard
-        description={m.settings_site_preview_description()}
-        title={m.settings_site_preview_title()}
+        description={m.settings_site_language_description()}
+        title={m.settings_site_language_title()}
       >
         <FieldGroup>
           <Controller

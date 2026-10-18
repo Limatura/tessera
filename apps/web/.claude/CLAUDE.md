@@ -107,7 +107,7 @@ pnpm check-types          # Type check + build (catches routing issues)
 
 - Messages are defined in `project.inlang` (JSON-like format)
 - Generates TypeScript in `src/paraglide/` — auto-included in the build
-- Locale is **not** in the URL path (strategy: `["cookie", "preferredLanguage", "baseLocale"]`)
+- Locale is **not** in the URL path (strategy: `["cookie", "preferredLanguage", "custom-instance", "baseLocale"]`). `custom-instance` (defined in `lib/locale.ts`) reads `data-default-locale` from `<html>`, which the server writes from the admin's `site.language`; `baseLocale` (`zh-TW`) is only what the dev server falls back to
 - Subscribe to locale changes with `subscribeToLocale()` / `getLocale()` (see `__root.tsx`)
 - When locale changes, the root remounts (`key={locale}`) so all message calls use the new strings
 

@@ -199,7 +199,9 @@ Off by default on purpose. `view_count` is a number and says nothing about where
 
 - `title: string`: the tab title, and the site name in link previews. Default `Tessera`. Not blank, at most 100 characters
 - `description: string`: the text a preview shows for a link to the site itself. Default empty (empty = the meta tag is left out). At most 300 characters
-- `language: "en" | "zh-TW" | "ja"`: the language of share link previews (meta tags and the `og.png` card). Default `en`. The site's language rather than the request's, because crawlers such as Discord's send no language preference
+- `language: "en" | "zh-TW" | "zh-CN" | "ja"`: the instance's default language. Default `en`
+  - Share link previews (meta tags and the `og.png` card) are written in it. The site's language rather than the request's, because crawlers such as Discord's send no language preference
+  - The web app opens in it for a visitor with no saved choice (cookie) **and** whose browser asks for none of the four languages. The order is cookie → browser language → `site.language`, so a visitor whose browser says `ja` still gets Japanese on an `en` instance. Written into `index.html` as `data-default-locale` on `<html>`; the dev server has no such attribute and falls back to the compiled-in `zh-TW`
 
 `title` and `description` are written into `index.html` before it is sent, as `appearance.*` is, so the first paint is right without waiting for a script. A share page uses the share's own description; this does not override it.
 

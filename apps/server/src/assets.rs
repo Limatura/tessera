@@ -226,7 +226,13 @@ fn serve_index(state: &crate::state::AppState) -> Response {
         return respond(&state.assets, INDEX, asset);
     };
     let config = state.config();
-    let page = named(&with_appearance(html, config.appearance), &config.site);
+    let page = named(
+        &with_default_locale(
+            &with_appearance(html, config.appearance),
+            config.site.language,
+        ),
+        &config.site,
+    );
     html_page(page)
 }
 
@@ -339,6 +345,29 @@ fn with_appearance(html: &str, appearance: crate::config::AppearanceConfig) -> S
     out
 }
 
+/// Writes the instance's default language onto the `<html>` element as
+/// `data-default-locale`.
+///
+/// The frontend reads it as the last resort for a visitor with no saved choice
+/// and no browser language it ships (see `lib/locale.ts`), so the operator's
+/// `site.language` replaces a value that used to be compiled in. A signed-out
+/// first paint is already in the right language; no request to find out.
+///
+/// The value is one of [`crate::config::Language::as_str`]'s fixed tags, so
+/// there is nothing to escape.
+fn with_default_locale(html: &str, language: crate::config::Language) -> String {
+    let Some(tag) = html_tag(html) else {
+        return html.to_owned();
+    };
+    let attribute = format!(r#" data-default-locale="{}""#, language.as_str());
+
+    let mut out = String::with_capacity(html.len() + attribute.len());
+    out.push_str(html.get(..tag.end).unwrap_or_default());
+    out.push_str(&attribute);
+    out.push_str(html.get(tag.end..).unwrap_or_default());
+    out
+}
+
 /// Where the opening `<html …>` tag ends, in bytes.
 ///
 /// `end` is the offset of its `>`, so an attribute inserted there lands inside
@@ -437,7 +466,10 @@ async fn serve_share_page(
     // instance's colours like every other page. It gets the instance's name
     // but not its description: the share's own is spliced in below.
     let html = retitled(
-        &with_appearance(html, config.appearance),
+        &with_default_locale(
+            &with_appearance(html, config.appearance),
+            config.site.language,
+        ),
         &config.site.title,
     );
     let origin = crate::api::preview::origin(&config, headers);
@@ -660,6 +692,24 @@ mod tests {
     /// The attributes land inside the opening tag, after any existing ones.
     /// Anywhere else gives a page that loads but has the wrong colours, which
     /// is the failure worth testing.
+    #[test]
+    fn the_default_language_lands_inside_the_html_tag() {
+        let page = with_default_locale(
+            "<!doctype html>\n<html lang=\"zh-Hant\">\n  <head></head>\n</html>",
+            crate::config::Language::ZhCn,
+        );
+        assert!(
+            page.contains(r#"<html lang="zh-Hant" data-default-locale="zh-CN">"#),
+            "{page}"
+        );
+    }
+
+    #[test]
+    fn a_document_without_an_html_tag_keeps_no_default_language() {
+        let html = "<head></head>";
+        assert_eq!(with_default_locale(html, crate::config::Language::Ja), html);
+    }
+
     #[test]
     fn the_appearance_lands_inside_the_html_tag() {
         let page = with_appearance(

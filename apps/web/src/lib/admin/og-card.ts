@@ -17,7 +17,7 @@ export const CARD_STATES = ["open", "locked", "sealed", "gone"] as const;
 export type CardState = (typeof CARD_STATES)[number];
 
 /** Values of `site.language`. Card text uses the site's language, not the viewer's. */
-export type SiteLanguage = "en" | "zh-TW" | "ja";
+export type SiteLanguage = "en" | "zh-TW" | "zh-CN" | "ja";
 
 export const PLACEHOLDERS = [
   "title",
@@ -86,6 +86,20 @@ const WORDS: Record<SiteLanguage, Words> = {
     sealedTitle: "エンドツーエンド暗号化された共有",
     sharedFile: "共有ファイル",
   },
+  "zh-CN": {
+    expiresInDays: (days) => `${days} 天后到期`,
+    goneFooter: "已过期，或已达到可提取的次数上限",
+    goneTitle: "此分享已失效",
+    labelFile: "分享的文件",
+    labelGone: "已失效",
+    labelLocked: "受密码保护",
+    labelSealed: "端到端加密",
+    left: (count) => `剩余 ${count} 次提取`,
+    lockedFooter: "输入密码即可查看内容",
+    lockedTitle: "受密码保护的分享",
+    sealedTitle: "端到端加密的分享",
+    sharedFile: "分享的文件",
+  },
   "zh-TW": {
     expiresInDays: (days) => `${days} 天後到期`,
     goneFooter: "已過期，或已達到可提取的次數上限",
@@ -103,7 +117,9 @@ const WORDS: Record<SiteLanguage, Words> = {
 };
 
 export function asSiteLanguage(value: unknown): SiteLanguage {
-  return value === "zh-TW" || value === "ja" ? value : "en";
+  return value === "zh-TW" || value === "zh-CN" || value === "ja"
+    ? value
+    : "en";
 }
 
 /**

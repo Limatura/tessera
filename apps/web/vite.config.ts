@@ -22,7 +22,10 @@ export const paraglideOptions = {
   //
   // `cookie` remembers a returning visitor's choice; `preferredLanguage`
   // (Accept-Language / navigator.languages) picks a sensible first default.
-  strategy: ["cookie", "preferredLanguage", "baseLocale"],
+  // `custom-instance` is the operator's `site.language`, which the server
+  // writes into index.html (see lib/locale.ts); `baseLocale` only answers
+  // where there is no server, such as the dev server.
+  strategy: ["cookie", "preferredLanguage", "custom-instance", "baseLocale"],
 } satisfies Parameters<typeof paraglideVitePlugin>[0];
 
 export default defineConfig({
