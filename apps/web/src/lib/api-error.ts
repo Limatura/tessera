@@ -326,6 +326,7 @@ const translations: Record<
   upload_direct_unavailable: () => m.api_error_upload_interrupted(),
   upload_abandoned: () => m.api_error_upload_abandoned(),
   resumable_unsupported: () => m.api_error_resumable_unsupported(),
+  anonymous_upload_disabled: () => m.api_error_anonymous_upload_disabled(),
 
   setting_unknown: (details) => {
     const key = stringOf(details, "key");
@@ -374,6 +375,39 @@ const translations: Record<
   invalid_configuration: () => null,
 };
 
+const HTTP_PAYLOAD_TOO_LARGE = 413;
+const HTTP_BAD_GATEWAY = 502;
+const HTTP_GATEWAY_TIMEOUT = 504;
+
+/**
+ * An error with no `code`, so the server did not write it. Two kinds still say
+ * something useful: an upload the uploader marked `network` (no answer at all:
+ * offline, or a file the browser could not read), and a refusal from something
+ * in front of the server, such as a proxy's 413 or 502, whose body is not ours.
+ * A bare `TypeError` from `fetch` stays with the caller's fallback, which knows
+ * what was being attempted.
+ */
+function codelessErrorMessage(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null) {
+    return undefined;
+  }
+  const { network, status } = error as { network?: unknown; status?: unknown };
+  if (network === true) {
+    return m.api_error_network();
+  }
+  if (status === HTTP_PAYLOAD_TOO_LARGE) {
+    return m.api_error_payload_too_large();
+  }
+  if (
+    typeof status === "number" &&
+    status >= HTTP_BAD_GATEWAY &&
+    status <= HTTP_GATEWAY_TIMEOUT
+  ) {
+    return m.api_error_unavailable();
+  }
+  return undefined;
+}
+
 /**
  * Translate a server error into one sentence in the current locale, with
  * numbers and field names taken from `details`.
@@ -392,7 +426,7 @@ export function apiErrorMessage(error: unknown, fallback?: string): string {
   const fallbackMessage = fallback ?? m.api_error_unknown();
   const code = apiErrorCode(error);
   if (code === undefined) {
-    return fallbackMessage;
+    return codelessErrorMessage(error) ?? fallbackMessage;
   }
   const body = error as ErrorLike;
   const message =

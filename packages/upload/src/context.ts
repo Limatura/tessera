@@ -63,13 +63,31 @@ export function request(
 /**
  * The `Error` thrown on failure. `message` is the server's English (or the
  * status code when there is no body); `code` and `details` are attached so the
- * screen can translate it.
+ * screen can translate it. `status` is kept for a refusal with no body, such
+ * as a reverse proxy's own 413 or 502, which carries no `code` to translate.
  */
-export function apiError(body: ErrorBody | null, fallback: string): Error {
-  const error = new Error(body?.message ?? fallback);
+export function apiError(
+  body: ErrorBody | null,
+  fallback: string,
+  status?: number
+): Error {
+  const error = Object.assign(new Error(body?.message ?? fallback), {
+    status,
+  });
   return body
     ? Object.assign(error, { code: body.code, details: body.details })
     : error;
+}
+
+/**
+ * The `Error` for a request that never got an answer: offline, dropped, or a
+ * file the browser could not read (a mobile picker handing over a file that is
+ * still in the cloud). The server saw nothing, so there is no `code`.
+ */
+export function networkError(): Error {
+  return Object.assign(new Error("Network error during upload"), {
+    network: true,
+  });
 }
 
 /** Throws the refusal a response carries, or returns it when it succeeded. */
@@ -81,7 +99,7 @@ export async function accepted(
     return response;
   }
   const body = (await response.json().catch(() => null)) as ErrorBody | null;
-  throw apiError(body, `${fallback}: ${response.status}`);
+  throw apiError(body, `${fallback}: ${response.status}`, response.status);
 }
 
 /** One request whose upload progress matters. */
@@ -173,7 +191,7 @@ function sendWithXhr(
     });
     xhr.addEventListener("error", () => {
       cleanup();
-      reject(new Error("Network error during upload"));
+      reject(networkError());
     });
     xhr.addEventListener("load", () => {
       cleanup();

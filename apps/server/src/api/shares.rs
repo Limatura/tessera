@@ -386,7 +386,7 @@ pub(crate) async fn create_share(
     body: Body,
 ) -> Result<ShareResponse> {
     if current.is_none() && !state.config().features.anonymous_upload {
-        return Err(Error::Unauthorized);
+        return Err(Error::new(ErrorCode::AnonymousUploadDisabled));
     }
     // An anonymous caller has no permissions to check, so the setting above
     // decides. For a signed-in one, this keeps a token minted for a screenshot

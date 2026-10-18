@@ -1504,6 +1504,7 @@
           "upload_direct_unavailable",
           "upload_abandoned",
           "resumable_unsupported",
+          "anonymous_upload_disabled",
           "setting_unknown",
           "setting_secret",
           "setting_fixed_at_boot",

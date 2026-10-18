@@ -1417,6 +1417,8 @@
   "api_error_upload_interrupted": "アップロード中に問題が発生しました。もう一度アップロードしてください。",
   "api_error_upload_abandoned": "このアップロードは中止されました。もう一度アップロードしてください。",
   "api_error_resumable_unsupported": "このサーバーのストレージは再開可能なアップロードに対応していません。",
+  "api_error_anonymous_upload_disabled": "このサーバーは匿名でのアップロードを受け付けていません。ログインしてからアップロードしてください。",
+  "api_error_network": "サーバーに接続できないか、選択したファイルを読み込めませんでした。接続を確認し、ファイルが端末に完全に保存されていることを確認してから、もう一度お試しください。",
   "api_error_setting_unknown": "「{key}」はこのバージョンにない設定です。",
   "api_error_setting_secret": "「{key}」は認証情報を含むため、環境変数でのみ設定できます。",
   "api_error_setting_fixed_at_boot": "「{key}」はサーバーの実行中に変更できません。環境変数で設定してください。",
