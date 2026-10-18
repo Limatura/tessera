@@ -689,9 +689,6 @@ mod tests {
         assert_eq!(strip_locale_prefix("s/ABC123"), "s/ABC123");
     }
 
-    /// The attributes land inside the opening tag, after any existing ones.
-    /// Anywhere else gives a page that loads but has the wrong colours, which
-    /// is the failure worth testing.
     #[test]
     fn the_default_language_lands_inside_the_html_tag() {
         let page = with_default_locale(
@@ -710,6 +707,9 @@ mod tests {
         assert_eq!(with_default_locale(html, crate::config::Language::Ja), html);
     }
 
+    /// The attributes land inside the opening tag, after any existing ones.
+    /// Anywhere else gives a page that loads but has the wrong colours, which
+    /// is the failure worth testing.
     #[test]
     fn the_appearance_lands_inside_the_html_tag() {
         let page = with_appearance(
