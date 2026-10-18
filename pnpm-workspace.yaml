@@ -9,32 +9,32 @@ allowBuilds:
   sharp: true
 catalog:
   dotenv: ^17.4.2
-  "@base-ui/react": ^1.7.0
-  "@tabler/icons-react": ^3.20.0
-  input-otp: ^1.4.2
+  "@base-ui/react": ^1.9.0
+  "@tabler/icons-react": ^3.49.0
+  input-otp: ^1.5.0
   # web already pinned 3.8.0; kept as is.
-  recharts: 3.8.0
-  zod: ^4.4.3
+  recharts: 3.10.1
+  zod: ^4.6.7
   typescript: ^6.0.3
   "@types/node": ^22.20.1
-  lucide-react: ^1.27.0
+  lucide-react: ^1.57.0
   next-themes: ^0.4.6
   react: ^19.2.8
-  react-dom: ^19.2.8
+  react-dom: ^19.3.1
   tailwindcss: ^4.3.3
-  "@libsql/client": 0.17.4
+  "@libsql/client": 0.18.0
   libsql: 0.5.29
   "@orpc/server": ^1.14.12
   "@orpc/client": ^1.14.12
   "@orpc/openapi": ^1.14.12
   "@orpc/zod": ^1.14.12
-  better-auth: 1.6.25
-  "@types/react": ^19.2.17
-  "@types/react-dom": ^19.2.3
+  better-auth: 1.7.9
+  "@types/react": ^19.3.0
+  "@types/react-dom": ^19.3.0
   vite: npm:@voidzero-dev/vite-plus-core@1.0.0
-  vitest: 5.0.1
-  vite-plus: 1.0.0
-  "@vitest/coverage-v8": 5.0.1
+  vitest: 5.0.4
+  vite-plus: 1.2.0
+  "@vitest/coverage-v8": 5.0.4
 minimumReleaseAgeExclude:
   - lucide-react@1.55.0
 overrides:
