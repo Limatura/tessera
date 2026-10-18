@@ -16,6 +16,8 @@ Unlike `apps/web`'s suite, nothing has to be running first. `global-setup.ts` st
 
 Set `TESSERA_SERVER_BIN` to test another binary (a release build, say).
 
+CI runs it as the `extension e2e` job in `.github/workflows/web.yml`, whenever `--affected` says the extension or anything it depends on changed. That job builds web before the server, so the server has the real site to serve rather than its placeholder page.
+
 ## What is only in the e2e build
 
 No browser API can click a native context menu, so `--mode e2e` exposes the click handler as `globalThis.tesseraMenuClick`, and `extension.menuClick()` calls it with what Chrome would report. Everything after the click is real: fetching the media, reading the selection from the page, uploading. The condition is a build-time constant, so other builds do not carry the line.
