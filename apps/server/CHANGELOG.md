@@ -1,5 +1,11 @@
 # tessera-server
 
+## 0.1.0-rc.2
+
+### Minor Changes
+
+- [#73](https://github.com/Limatura/tessera/pull/73) [`4aa8f7c`](https://github.com/Limatura/tessera/commit/4aa8f7c4e9284f6ecef69578cea7b3520bdc77d6) Thanks [@timo9378](https://github.com/timo9378)! - Adds `tess`, a command-line client: `tess send` (files or a directory, optional end-to-end encryption, resumes an interrupted upload), `tess get`, `tess ls`, `tess rm`, and `tess login`, which signs in through the new `/device` page in the browser. Releases now carry `tess` and server binaries for Linux, macOS and Windows, with an install script. The server also accepts uploads from plain `curl -T` and serves `/llms.txt`.
+
 ## 0.1.0-rc.1
 
 ### Patch Changes
