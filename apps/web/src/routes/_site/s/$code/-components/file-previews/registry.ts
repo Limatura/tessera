@@ -1,6 +1,7 @@
 import { ImagePreview } from "@/routes/_site/s/$code/-components/file-previews/image-preview";
 import { SvgPreview } from "@/routes/_site/s/$code/-components/file-previews/svg-preview";
 import type { FilePreviewComponent } from "@/routes/_site/s/$code/-components/file-previews/types";
+import { VideoPreview } from "@/routes/_site/s/$code/-components/file-previews/video-preview";
 
 interface FilePreviewRegistryEntry {
   Component: FilePreviewComponent;
@@ -9,7 +10,7 @@ interface FilePreviewRegistryEntry {
 
 /**
  * One entry per previewable file type, keyed by extension. To support a new
- * kind of file (PDF, video, ...), add a component next to `image-preview.tsx`
+ * kind of file (PDF, audio, ...), add a component next to `image-preview.tsx`
  * and register it here; nothing else on the share page needs to change.
  *
  * The download endpoint always serves `Content-Disposition: attachment`,
@@ -28,6 +29,13 @@ const REGISTRY: readonly FilePreviewRegistryEntry[] = [
   {
     Component: SvgPreview,
     extensions: ["svg"],
+  },
+  // Listed by container, not by what will decode: an MKV or MOV can carry
+  // codecs a browser cannot play. The player tries, and falls back to a
+  // "download it" panel when no picture comes out.
+  {
+    Component: VideoPreview,
+    extensions: ["mp4", "m4v", "webm", "mov", "mkv", "ogv"],
   },
 ];
 
