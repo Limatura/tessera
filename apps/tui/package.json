@@ -1,6 +1,6 @@
 {
   "name": "tui",
-  "version": "0.1.0-rc.2",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "module": "src/index.tsx",
