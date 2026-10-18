@@ -153,6 +153,10 @@ jobs:
             echo
             echo "Or download \`tess\` for your platform below. The server is also attached, for running without Docker."
             echo
+            echo "## Browser extension"
+            echo
+            echo "Download \`tessera-extension-chrome.zip\` (Chrome, Edge, Brave) or \`tessera-extension-firefox.zip\` below, unzip it, and load it as an unpacked extension."
+            echo
             echo "## What's changed"
             echo "$section"
             # Plain `@name`: GitHub builds the Contributors row from those, and
