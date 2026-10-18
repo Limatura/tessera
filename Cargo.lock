@@ -5004,7 +5004,7 @@ dependencies = [
 
 [[package]]
 name = "tessera-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anstream",
  "anstyle",
@@ -5033,7 +5033,7 @@ dependencies = [
 
 [[package]]
 name = "tessera-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "rstest",
@@ -5061,7 +5061,7 @@ dependencies = [
 
 [[package]]
 name = "tessera-dev"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -5074,7 +5074,7 @@ dependencies = [
 
 [[package]]
 name = "tessera-server"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arc-swap",

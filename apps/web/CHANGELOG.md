@@ -1,5 +1,15 @@
 # web
 
+## 0.2.0
+
+### Minor Changes
+
+- [#84](https://github.com/Limatura/tessera/pull/84) [`1684139`](https://github.com/Limatura/tessera/commit/1684139a3705caee7694050c0e6e5a17a80a5d4e) Thanks [@sao-coding](https://github.com/sao-coding)! - A shared video now plays on the share page. The player keeps the picture covered until you press play, sizes itself to the video, and has its own controls: seeking, volume, speed, picture in picture, casting where the browser offers it, fullscreen, keyboard shortcuts and double tap to skip on phones. A file the browser can't decode shows a note to download it instead.
+
+### Patch Changes
+
+- [#81](https://github.com/Limatura/tessera/pull/81) [`1d70d03`](https://github.com/Limatura/tessera/commit/1d70d03f51838b10137445d94837b7907db3d280) Thanks [@sao-coding](https://github.com/sao-coding)! - An instance that doesn't allow anonymous uploads now says so when you try to upload without signing in, instead of asking you to sign in again. A failed upload also says why when the request never got an answer, or when a proxy in front of the server refused it, instead of a generic "try again".
+
 ## 0.1.0
 
 ### Minor Changes
