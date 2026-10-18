@@ -1,5 +1,11 @@
 # tessera-server
 
+## 0.2.0
+
+### Patch Changes
+
+- [#81](https://github.com/Limatura/tessera/pull/81) [`1d70d03`](https://github.com/Limatura/tessera/commit/1d70d03f51838b10137445d94837b7907db3d280) Thanks [@sao-coding](https://github.com/sao-coding)! - An instance that doesn't allow anonymous uploads now says so when you try to upload without signing in, instead of asking you to sign in again. A failed upload also says why when the request never got an answer, or when a proxy in front of the server refused it, instead of a generic "try again".
+
 ## 0.1.0
 
 ### Minor Changes
