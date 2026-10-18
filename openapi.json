@@ -3493,7 +3493,7 @@
   "info": {
     "description": "Anonymous file courier. Upload a file or a note, hand out a retrieval code, and the payload destroys itself once it expires or runs out of retrievals.",
     "title": "Tessera API",
-    "version": "0.1.0-rc.1"
+    "version": "0.1.0-rc.2"
   },
   "openapi": "3.1.0",
   "paths": {
