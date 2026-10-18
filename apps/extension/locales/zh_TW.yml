@@ -1,0 +1,148 @@
+extName: Tessera
+extDescription: 在任何網頁上按右鍵,把圖片、連結或選取的文字上傳到你的 Tessera。
+
+common:
+  copied: 已複製連結
+  copyLink: 複製連結
+  open: 開啟
+  loading: 載入中…
+
+menu:
+  root: 上傳到 Tessera
+  uploadImage: 上傳這張圖片
+  uploadVideo: 上傳這部影片
+  uploadAudio: 上傳這段音訊
+  uploadSelection: 將選取的文字上傳為筆記
+  uploadLinkedFile: 上傳連結指向的檔案
+  shareLink: 分享這個連結
+  sharePage: 分享這個頁面的網址
+
+jobs:
+  empty: 目前沒有上傳中的項目
+  preparing: 準備中…
+  cancel: 取消上傳
+  cancelled: 已取消
+  clear: 清除已完成
+  note: 筆記
+
+notify:
+  doneTitle: 上傳完成
+  done: $1 已上傳。點這裡開啟。
+  doneCopied: $1 已上傳,連結已複製。點這裡開啟。
+  failedTitle: 無法上傳 $1
+
+signIn:
+  action: 登入
+  doneTitle: 已登入
+  done: 已登入為 $1
+  failedTitle: 登入失敗
+  noUploadPermission: 這個帳號沒有上傳權限,請聯絡主機管理員。
+  noTokenPermission: 這個帳號不能建立 API 金鑰,所以擴充無法自動登入。請管理員開放「管理 API 金鑰」權限,或改用手動貼上的金鑰。
+  badToken: 主機不接受這把金鑰,請確認是否完整複製、尚未撤銷。
+  tokenName: 瀏覽器擴充 · $1 · $2
+
+signOut:
+  action: 登出
+  done: 已登出
+  revokeOnSite: 擴充用的 API 金鑰仍然有效,請到網站的「API 金鑰」頁面撤銷它。
+
+errors:
+  noServerTitle: 尚未設定主機
+  noServer: 請先在擴充設定中填入你的 Tessera 主機網址。
+  signInRequired: 這台主機不接受匿名上傳,請先登入。
+  network: 連不上主機,請檢查網址與網路連線。
+  mediaBlocked: 無法從這個網站取得檔案。可以在擴充設定中開啟「從任何網站擷取媒體」後再試一次。
+  mediaTooLarge: 檔案太大,無法從頁面中直接擷取。請在擴充設定中開啟「從任何網站擷取媒體」。
+  mediaStream: 這是串流播放的媒體,沒有可以下載的完整檔案。
+  mediaHttp: 網站拒絕提供這個檔案(HTTP $1)。
+  interrupted: 上傳被瀏覽器中斷了,請重新上傳。
+  unknownTitle: 發生錯誤
+  unknown: 發生了未預期的錯誤。
+
+expiry:
+  instance: 主機預設
+  instanceIs: 主機預設($1)
+  never: 永久保存
+  hours:
+    1: 1 小時
+    n: $1 小時
+  days:
+    1: 1 天
+    n: $1 天
+
+uses:
+  unlimited: 不限次數
+  count:
+    1: 1 次(閱後即焚)
+    n: $1 次
+
+popup:
+  noServer: 還沒有設定主機
+  noServerHint: 填入你的 Tessera 主機網址後,就能從右鍵選單上傳。
+  openSettings: 開啟設定
+  openSite: 開啟網站
+  openAdmin: 開啟後台管理
+  anonymous: 匿名上傳
+  signInLapsed: 登入已失效
+  unreachable: 無法連線到主機:$1
+  uploadFiles: 上傳檔案
+  uploadText: 上傳文字
+  notePlaceholder: 貼上或輸入要分享的文字…
+  noteSubmit: 上傳筆記
+  tabJobs: 上傳進度
+  tabJobsActive: 上傳進度($1)
+  tabShares: 我的分享
+  encryptingDefault: 預設以端對端加密上傳
+  defaults: 預設:$1
+
+shares:
+  empty: 還沒有分享
+  sealed: 已加密的分享
+  encrypted: 端對端加密
+  password: 有密碼保護
+  keyMissing: 金鑰只在上傳它的瀏覽器裡,這裡無法產生完整連結
+  expires: $1 · 到期 $2
+  delete: 刪除分享
+  confirmDelete: 確定刪除?
+  deleted: 已刪除分享
+  deleteFailed: 無法刪除分享
+
+options:
+  title: Tessera 擴充設定
+  subtitle: 設定要上傳到哪台主機,以及右鍵上傳時的預設行為。
+  serverTitle: 主機
+  serverDescription: 你的 Tessera 網址。儲存時瀏覽器會詢問是否允許擴充連線到這個網址。
+  serverSave: 儲存並連線
+  serverInvalid: 這不是有效的網址
+  serverConnected: 已連線到 Tessera $1
+  serverFailed: 無法連線到主機
+  serverPermissionDenied: 沒有取得連線到這個網址的權限。
+  serverNoPermission: 擴充目前沒有連線到這台主機的權限。
+  serverRegrant: 重新授權
+  serverStatus: 版本 $1 · $2 · $3
+  encryptionOn: 可使用端對端加密
+  encryptionOff: 未開放端對端加密
+  anonymousOn: 接受匿名上傳
+  anonymousOff: 需要登入才能上傳
+  accountTitle: 帳號
+  accountDescription: 登入後,上傳會算在你的帳號底下,也能在「我的分享」管理它們。
+  signedInAs: 已登入為 $1
+  signInHint: 會在新分頁開啟網站的登入頁,登入後擴充會自動完成設定。
+  tokenInstead: 改用 API 金鑰
+  tokenLabel: API 金鑰
+  tokenUse: 使用
+  tokenHint: 在網站上建立一把有上傳權限的金鑰,再貼到這裡。
+  tokenPage: 前往 API 金鑰頁面
+  defaultsTitle: 上傳預設值
+  defaultsDescription: 從右鍵選單上傳、或在 popup 上傳文字時使用。在網站上傳時,以網站上的設定為準。
+  encryptLabel: 端對端加密
+  encryptDescription: "檔案在瀏覽器裡加密後才送出,金鑰放在連結的 # 後面,主機看不到內容。"
+  expiryLabel: 保存期限
+  expiryDescription: 超過期限後分享會自動刪除。
+  usesLabel: 下載次數上限
+  usesDescription: 被取用這麼多次之後就失效。
+  copyLabel: 上傳完成後自動複製連結
+  notifyLabel: 上傳完成或失敗時顯示通知
+  mediaTitle: 媒體擷取
+  mediaDescription: 有些網站的圖片或影片放在其他網域,擴充需要額外權限才能下載它們。關閉這項權限時,可能也需要重新授權主機。
+  mediaLabel: 從任何網站擷取媒體

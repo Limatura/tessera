@@ -1,0 +1,148 @@
+extName: Tessera
+extDescription: Right-click any page to upload an image, a link or the text you selected to your Tessera.
+
+common:
+  copied: Link copied
+  copyLink: Copy link
+  open: Open
+  loading: Loading…
+
+menu:
+  root: Upload to Tessera
+  uploadImage: Upload this image
+  uploadVideo: Upload this video
+  uploadAudio: Upload this audio
+  uploadSelection: Upload selected text as a note
+  uploadLinkedFile: Upload the linked file
+  shareLink: Share this link
+  sharePage: Share this page's address
+
+jobs:
+  empty: Nothing is uploading
+  preparing: Preparing…
+  cancel: Cancel upload
+  cancelled: Cancelled
+  clear: Clear finished
+  note: Note
+
+notify:
+  doneTitle: Upload finished
+  done: $1 is uploaded. Click to open it.
+  doneCopied: $1 is uploaded and its link copied. Click to open it.
+  failedTitle: Could not upload $1
+
+signIn:
+  action: Sign in
+  doneTitle: Signed in
+  done: Signed in as $1
+  failedTitle: Sign-in failed
+  noUploadPermission: This account may not upload. Ask the instance's administrator.
+  noTokenPermission: This account may not create API keys, so the extension cannot sign itself in. Ask the administrator for the "manage API keys" permission, or paste a key instead.
+  badToken: The instance did not accept that key. Check it was copied whole and has not been revoked.
+  tokenName: Browser extension · $1 · $2
+
+signOut:
+  action: Sign out
+  done: Signed out
+  revokeOnSite: The extension's API key still works. Revoke it on the site's API keys page.
+
+errors:
+  noServerTitle: No instance set up
+  noServer: Enter your Tessera's address in the extension settings first.
+  signInRequired: This instance does not take anonymous uploads. Sign in first.
+  network: Cannot reach the instance. Check its address and your connection.
+  mediaBlocked: Could not get the file from this site. Turn on "Fetch media from any site" in the extension settings and try again.
+  mediaTooLarge: The file is too large to copy out of the page. Turn on "Fetch media from any site" in the extension settings.
+  mediaStream: This media is streamed; there is no whole file to download.
+  mediaHttp: The site refused the file (HTTP $1).
+  interrupted: The browser interrupted the upload. Upload it again.
+  unknownTitle: Something went wrong
+  unknown: Something unexpected went wrong.
+
+expiry:
+  instance: Instance default
+  instanceIs: Instance default ($1)
+  never: Keep forever
+  hours:
+    1: 1 hour
+    n: $1 hours
+  days:
+    1: 1 day
+    n: $1 days
+
+uses:
+  unlimited: No limit
+  count:
+    1: Once (burn after reading)
+    n: $1 times
+
+popup:
+  noServer: No instance set up yet
+  noServerHint: Enter your Tessera's address to upload from the right-click menu.
+  openSettings: Open settings
+  openSite: Open the site
+  openAdmin: Open the admin panel
+  anonymous: Anonymous
+  signInLapsed: Signed out on the instance
+  unreachable: "Cannot reach the instance: $1"
+  uploadFiles: Upload files
+  uploadText: Upload text
+  notePlaceholder: Paste or type the text to share…
+  noteSubmit: Upload note
+  tabJobs: Uploads
+  tabJobsActive: Uploads ($1)
+  tabShares: My shares
+  encryptingDefault: Uploads are end-to-end encrypted by default
+  defaults: "Defaults: $1"
+
+shares:
+  empty: No shares yet
+  sealed: Encrypted share
+  encrypted: End-to-end encrypted
+  password: Password protected
+  keyMissing: Its key is only in the browser that uploaded it, so no full link can be made here
+  expires: $1 · expires $2
+  delete: Delete share
+  confirmDelete: Delete?
+  deleted: Share deleted
+  deleteFailed: Could not delete the share
+
+options:
+  title: Tessera extension settings
+  subtitle: Where uploads go, and what a right-click upload does by default.
+  serverTitle: Instance
+  serverDescription: Your Tessera's address. Saving asks the browser to let the extension connect to it.
+  serverSave: Save and connect
+  serverInvalid: That is not a valid address
+  serverConnected: Connected to Tessera $1
+  serverFailed: Could not connect to the instance
+  serverPermissionDenied: Permission to connect to that address was not granted.
+  serverNoPermission: The extension does not have permission to connect to this instance.
+  serverRegrant: Grant again
+  serverStatus: Version $1 · $2 · $3
+  encryptionOn: End-to-end encryption available
+  encryptionOff: End-to-end encryption not offered
+  anonymousOn: Anonymous uploads accepted
+  anonymousOff: Sign-in required to upload
+  accountTitle: Account
+  accountDescription: Signed in, uploads count against your account and can be managed under My shares.
+  signedInAs: Signed in as $1
+  signInHint: Opens the site's sign-in in a new tab; the extension finishes setting itself up once you are in.
+  tokenInstead: Use an API key instead
+  tokenLabel: API key
+  tokenUse: Use
+  tokenHint: Create a key that may upload on the site, then paste it here.
+  tokenPage: Go to API keys
+  defaultsTitle: Upload defaults
+  defaultsDescription: "Used for uploads from the right-click menu and text from the popup. Uploading on the site uses the site's own choices."
+  encryptLabel: End-to-end encryption
+  encryptDescription: "Files are encrypted in the browser before they leave. The key goes after # in the link, so the instance never sees the content."
+  expiryLabel: Keep for
+  expiryDescription: The share is deleted once this runs out.
+  usesLabel: Download limit
+  usesDescription: Stops working after this many retrievals.
+  copyLabel: Copy the link when an upload finishes
+  notifyLabel: Notify when an upload finishes or fails
+  mediaTitle: Fetching media
+  mediaDescription: Some sites serve their images and videos from other domains, which the extension needs an extra permission to download. Turning it off may also ask you to grant the instance again.
+  mediaLabel: Fetch media from any site

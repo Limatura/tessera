@@ -22,6 +22,7 @@
         "CI",
         "E2E_ADMIN_*",
         "TESSERA_API_ORIGIN",
+        "TESSERA_SERVER_BIN",
         "PLAYWRIGHT_*"
       ]
     },
