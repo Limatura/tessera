@@ -10,6 +10,7 @@ import { Loader } from "@tessera/ui/components/loader";
 import ReactDOM from "react-dom/client";
 
 import { apiErrorCode } from "@/lib/api-error";
+import "@/lib/locale";
 // Imported for its listener: `beforeinstallprompt` can fire before React mounts
 import "@/lib/pwa/install-prompt";
 import { registerServiceWorkerWhenIdle } from "@/lib/pwa/service-worker";

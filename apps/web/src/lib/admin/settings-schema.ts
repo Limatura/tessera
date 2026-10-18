@@ -66,11 +66,12 @@ function codePoints(value: string): number {
 }
 
 /**
- * `site.language`: the language of the text in share link previews (meta tags,
- * the `og.png` card). Crawlers send no language preference, so the site's is
- * used. It does not affect the web UI's own language.
+ * `site.language`: the site's default language. Share link previews (meta
+ * tags, the `og.png` card) are written in it, since crawlers send no language
+ * preference, and the web UI opens in it for a visitor with no saved choice
+ * whose browser asks for none of the languages the app ships.
  */
-export const SITE_LANGUAGES = ["en", "zh-TW", "ja"] as const;
+export const SITE_LANGUAGES = ["en", "zh-TW", "zh-CN", "ja"] as const;
 
 export const siteSettingsSchema = z.object({
   // site.description: empty means this meta tag is not emitted

@@ -70,6 +70,7 @@ pub const fn words(language: Language) -> &'static Words {
     match language {
         Language::En => &EN,
         Language::ZhTw => &ZH_TW,
+        Language::ZhCn => &ZH_CN,
         Language::Ja => &JA,
     }
 }
@@ -136,6 +137,35 @@ static ZH_TW: Words = Words {
     expires_in_days: |days| format!("{days} 天後到期"),
     left: |left| format!("剩餘 {left} 次提取"),
     and_more: "…還有更多",
+};
+
+static ZH_CN: Words = Words {
+    gone_title: "此分享已失效",
+    gone_description: "它已过期，或已达到可提取的次数上限。",
+    locked_title: "受密码保护的分享",
+    locked_description: "打开链接并输入密码，即可查看内容。",
+    sealed_title: "端到端加密的分享",
+    shared_file: "分享的文件",
+    shared_files: |count| format!("{count} 个分享的文件"),
+    shared_note: "分享的文本",
+    shared_link: "分享的链接",
+    label_folder: "分享的文件夹",
+    label_file: "分享的文件",
+    label_note: "分享的文本",
+    label_link: "分享的链接",
+    label_sealed: "端到端加密",
+    label_locked: "受密码保护",
+    label_gone: "已失效",
+    locked_footer: "输入密码即可查看内容",
+    gone_footer: "已过期，或已达到可提取的次数上限",
+    files: |count| format!("{count} 个文件"),
+    text_of: |size| format!("{size} 文本"),
+    expires_within_hour: "一小时内到期",
+    expires_in_hours: |hours| format!("{hours} 小时后到期"),
+    expires_tomorrow: "明天到期",
+    expires_in_days: |days| format!("{days} 天后到期"),
+    left: |left| format!("剩余 {left} 次提取"),
+    and_more: "…还有更多",
 };
 
 static JA: Words = Words {

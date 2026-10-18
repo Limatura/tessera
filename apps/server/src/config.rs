@@ -224,7 +224,11 @@ impl Default for SiteConfig {
     }
 }
 
-/// A language the server can write in. The same three the web app ships.
+/// A language the server can write in. The same four the web app ships.
+///
+/// The instance's default language: previews and cards are written in it, and
+/// the web app opens in it for a visitor whose browser asks for none of the
+/// languages it ships.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Language {
     /// English.
@@ -234,9 +238,25 @@ pub enum Language {
     /// Traditional Chinese, as written in Taiwan.
     #[serde(rename = "zh-TW")]
     ZhTw,
+    /// Simplified Chinese.
+    #[serde(rename = "zh-CN")]
+    ZhCn,
     /// Japanese.
     #[serde(rename = "ja")]
     Ja,
+}
+
+impl Language {
+    /// The tag the web app knows this language by.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::En => "en",
+            Self::ZhTw => "zh-TW",
+            Self::ZhCn => "zh-CN",
+            Self::Ja => "ja",
+        }
+    }
 }
 
 impl SiteConfig {

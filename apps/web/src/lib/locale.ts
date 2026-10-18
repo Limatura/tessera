@@ -1,5 +1,7 @@
 import {
+  defineCustomClientStrategy,
   getTextDirection,
+  isLocale,
   setLocale as paraglideSetLocale,
 } from "@/paraglide/runtime.js";
 import type { Locale } from "@/paraglide/runtime.js";
@@ -36,6 +38,25 @@ const HTML_LANG: Record<Locale, string> = {
   "zh-CN": "zh-CN",
   "zh-TW": "zh-TW",
 };
+
+/*
+ * The operator's `site.language`, as the server wrote it onto <html> when it
+ * served the page. It answers only after the visitor's cookie and browser
+ * language have had their say, so it is the language for someone who has
+ * expressed no preference. Without the server (the dev server) the attribute
+ * is missing and Paraglide moves on to its compiled-in `baseLocale`.
+ *
+ * Read-only: choosing a language writes the cookie, never the instance's.
+ */
+defineCustomClientStrategy("custom-instance", {
+  getLocale: () => {
+    const tag = document.documentElement.dataset.defaultLocale;
+    return tag !== undefined && isLocale(tag) ? tag : undefined;
+  },
+  setLocale: () => {
+    // The instance default is not the visitor's to change.
+  },
+});
 
 const listeners = new Set<() => void>();
 
