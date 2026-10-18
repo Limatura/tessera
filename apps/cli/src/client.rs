@@ -1,7 +1,7 @@
 //! The HTTP API, as much of it as the commands use.
 
 use reqwest::{RequestBuilder, Response, StatusCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::{Error, Result};
@@ -15,7 +15,7 @@ pub struct Client {
 }
 
 /// A share as its uploader sees it. Only the fields the commands read.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Share {
     /// The retrieval code.
     pub code: String,
@@ -53,7 +53,7 @@ pub struct DescribedFile {
 }
 
 /// A session for sending one file.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Upload {
     /// Where to continue it.
     pub id: String,

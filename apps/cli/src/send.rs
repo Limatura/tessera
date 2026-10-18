@@ -2,7 +2,7 @@
 
 use std::{
     path::{Path, PathBuf},
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 use tessera_crypto::{CHUNK_LEN, HEADER_LEN, NONCE_LEN, Salt, Sealer, ShareKey};
@@ -13,6 +13,7 @@ use crate::{
     client::{Client, Share, Upload},
     link,
     names::{self, SealedName},
+    resume::{Current, Fingerprint, Job, State, StoredSealing},
 };
 
 /// How many times one part is retried before the upload gives up.
@@ -38,6 +39,9 @@ pub struct Options {
     pub expires_in_hours: Option<u64>,
     /// How many times it may be retrieved.
     pub max_uses: Option<u32>,
+    /// Where to record how far a send of files has got, so running it again
+    /// after an interruption carries on. `None` keeps nothing.
+    pub resume: Option<PathBuf>,
 }
 
 /// What a finished send gives back.
@@ -60,6 +64,25 @@ enum Sealing {
 }
 
 impl Sealing {
+    fn stored(&self) -> StoredSealing {
+        match self {
+            Self::Plain => StoredSealing::Plain,
+            Self::Link(key) => StoredSealing::link(key),
+            Self::Password { key, salt } => StoredSealing::password(key, salt),
+        }
+    }
+
+    fn restore(stored: &StoredSealing) -> Result<Self> {
+        Ok(match stored {
+            StoredSealing::Plain => Self::Plain,
+            StoredSealing::Link { key } => Self::Link(ShareKey::parse(key)?),
+            StoredSealing::Password { key, salt } => Self::Password {
+                key: ShareKey::parse(key)?,
+                salt: salt.clone(),
+            },
+        })
+    }
+
     const fn key(&self) -> Option<&ShareKey> {
         match self {
             Self::Plain => None,
@@ -92,10 +115,12 @@ pub async fn send(
     options: Options,
     progress: Progress<'_>,
 ) -> Result<Sent> {
-    let sealing = sealing(&options).await?;
-    let share = match content {
-        Content::Note(body) => send_note(client, &sealing, body).await?,
-        Content::Files(paths) => send_files(client, &sealing, &paths, progress).await?,
+    let (share, sealing, job) = match content {
+        Content::Note(body) => {
+            let sealing = sealing(&options).await?;
+            (send_note(client, &sealing, body).await?, sealing, None)
+        }
+        Content::Files(paths) => send_files(client, &options, &paths, progress).await?,
     };
 
     // The password a server checks: the one typed, or for a key that came from
@@ -122,6 +147,9 @@ pub async fn send(
             .await?;
     }
 
+    if let Some(job) = job {
+        job.remove();
+    }
     let key = match &sealing {
         Sealing::Link(key) => Some(key),
         Sealing::Password { .. } | Sealing::Plain => None,
@@ -165,42 +193,149 @@ async fn send_note(client: &Client, sealing: &Sealing, body: Vec<u8>) -> Result<
     client.create_note(&sealing.query(), body).await
 }
 
-async fn send_files(
-    client: &Client,
-    sealing: &Sealing,
-    paths: &[PathBuf],
-    progress: Progress<'_>,
-) -> Result<Share> {
-    let (first, rest) = paths
-        .split_first()
-        .ok_or_else(|| Error::Usage("nothing to send".to_owned()))?;
-    let share = upload_file(client, sealing, first, None, progress).await?;
-    for path in rest {
-        upload_file(client, sealing, path, Some(&share), progress).await?;
-    }
-    Ok(share)
+/// Whether sending `paths` now would carry on an earlier, interrupted send
+/// rather than start a new one.
+#[must_use]
+pub fn will_resume(client: &Client, paths: &[PathBuf], options: &Options) -> bool {
+    let Some(dir) = options.resume.as_deref() else {
+        return false;
+    };
+    let Ok(fingerprints) = fingerprints(paths) else {
+        return false;
+    };
+    Job::for_send(
+        dir,
+        client.server(),
+        paths,
+        options.encrypt,
+        options.password.is_some(),
+    )
+    .ok()
+    .and_then(|job| job.load())
+    .is_some_and(|state| state.fingerprints == fingerprints)
 }
 
-/// Sends one file: into a new share, or into `into`.
+/// Each file as it is now, refusing anything that cannot be sent.
+fn fingerprints(paths: &[PathBuf]) -> Result<Vec<Fingerprint>> {
+    paths
+        .iter()
+        .map(|path| {
+            let metadata = std::fs::metadata(path)?;
+            if !metadata.is_file() {
+                return Err(Error::Usage(format!(
+                    "`{}` is not a file; send the files inside it, or an archive of it",
+                    path.display()
+                )));
+            }
+            Ok(Fingerprint::of(&metadata))
+        })
+        .collect()
+}
+
+/// Refuses to carry on an encrypted send under a different password than the
+/// one it started with: the part already sent is sealed with the first, and
+/// the link would open with neither.
+async fn same_password(sealing: &Sealing, options: &Options) -> Result<()> {
+    let (Sealing::Password { key, salt }, Some(password)) = (sealing, options.password.clone())
+    else {
+        return Ok(());
+    };
+    let salt = Salt::parse(salt)?;
+    let again = tokio::task::spawn_blocking(move || ShareKey::from_password(&password, &salt))
+        .await
+        .map_err(|error| Error::Io(std::io::Error::other(error)))??;
+    if again.encode() == key.encode() {
+        Ok(())
+    } else {
+        Err(Error::Usage(
+            "that is not the password the interrupted send of these files started with".to_owned(),
+        ))
+    }
+}
+
+async fn send_files(
+    client: &Client,
+    options: &Options,
+    paths: &[PathBuf],
+    progress: Progress<'_>,
+) -> Result<(Share, Sealing, Option<Job>)> {
+    if paths.is_empty() {
+        return Err(Error::Usage("nothing to send".to_owned()));
+    }
+    let fingerprints = fingerprints(paths)?;
+    let job = options
+        .resume
+        .as_deref()
+        .map(|dir| {
+            Job::for_send(
+                dir,
+                client.server(),
+                paths,
+                options.encrypt,
+                options.password.is_some(),
+            )
+        })
+        .transpose()?;
+    let earlier = job
+        .as_ref()
+        .and_then(Job::load)
+        .filter(|state| state.fingerprints == fingerprints);
+    let (sealing, mut state) = if let Some(state) = earlier {
+        let sealing = Sealing::restore(&state.sealing)?;
+        same_password(&sealing, options).await?;
+        (sealing, state)
+    } else {
+        let sealing = sealing(options).await?;
+        let state = State::new(fingerprints.clone(), sealing.stored());
+        (sealing, state)
+    };
+
+    for (index, (path, fingerprint)) in paths.iter().zip(&fingerprints).enumerate() {
+        if index < state.done {
+            continue;
+        }
+        let share = upload_file(
+            client,
+            &sealing,
+            path,
+            fingerprint,
+            &mut state,
+            job.as_ref(),
+            progress,
+        )
+        .await?;
+        state.share.get_or_insert(share);
+        state.done = index + 1;
+        state.current = None;
+        if let Some(job) = &job {
+            job.save(&state)?;
+        }
+    }
+    let share = state
+        .share
+        .ok_or_else(|| Error::Protocol("every file was sent and no share came of it".to_owned()))?;
+    Ok((share, sealing, job))
+}
+
+/// Sends one file: into a new share, or into the one `state` already has.
+/// Carries on the upload `state` records as in flight, when there is one.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one file's worth of context, each piece used once"
+)]
 async fn upload_file(
     client: &Client,
     sealing: &Sealing,
     path: &Path,
-    into: Option<&Share>,
+    fingerprint: &Fingerprint,
+    state: &mut State,
+    job: Option<&Job>,
     progress: Progress<'_>,
 ) -> Result<Share> {
-    let metadata = tokio::fs::metadata(path).await?;
-    if !metadata.is_file() {
-        return Err(Error::Usage(format!(
-            "`{}` is not a file; send the files inside it, or an archive of it",
-            path.display()
-        )));
-    }
     let name = path.file_name().map_or_else(
         || "file".to_owned(),
         |name| name.to_string_lossy().into_owned(),
     );
-    let fingerprint = Fingerprint::of(&metadata);
     let declared = match sealing.key() {
         Some(_) => tessera_crypto::sealed_len(fingerprint.len)
             .ok_or_else(|| Error::Usage(format!("`{name}` is too large to seal")))?,
@@ -211,6 +346,31 @@ async fn upload_file(
         }
         None => fingerprint.len,
     };
+
+    // An upload the server still has picks up at what it holds. One it has
+    // dropped, past its time to live, is started again.
+    if let Some(current) = state.current.clone() {
+        match client.upload_offset(&current.upload).await {
+            Ok(offset) => {
+                return send_parts(
+                    client,
+                    sealing,
+                    path,
+                    fingerprint,
+                    &name,
+                    declared,
+                    &current,
+                    offset,
+                    progress,
+                )
+                .await;
+            }
+            Err(Error::Server {
+                status: 404 | 410, ..
+            }) => state.current = None,
+            Err(error) => return Err(error),
+        }
+    }
 
     let mut query = match sealing.key() {
         Some(key) => vec![(
@@ -225,6 +385,7 @@ async fn upload_file(
         )],
         None => vec![("filename", name.clone())],
     };
+    let into = state.share.as_ref();
     match into {
         None => query.extend(sealing.query()),
         Some(share) => query.push(("code", share.code.clone())),
@@ -233,32 +394,72 @@ async fn upload_file(
     // Signed in, the account already says whose share it is.
     let management = management.filter(|_| !client.signed_in());
     let upload = client.open_upload(&query, declared, management).await?;
+    let current = Current {
+        upload,
+        nonce: names::random()?,
+    };
+    state.current = Some(current.clone());
+    if let Some(job) = job {
+        job.save(state)?;
+    }
+    send_parts(
+        client,
+        sealing,
+        path,
+        fingerprint,
+        &name,
+        declared,
+        &current,
+        0,
+        progress,
+    )
+    .await
+}
 
-    let nonce = names::random()?;
+/// Sends the parts of an upload from `offset` on, retrying what the network
+/// drops, until the server says the file is whole.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one upload's worth of context, each piece used once"
+)]
+async fn send_parts(
+    client: &Client,
+    sealing: &Sealing,
+    path: &Path,
+    fingerprint: &Fingerprint,
+    name: &str,
+    declared: u64,
+    current: &Current,
+    mut offset: u64,
+    progress: Progress<'_>,
+) -> Result<Share> {
+    let Current { upload, nonce } = current;
+    let nonce = *nonce;
     let part = usize::try_from(upload.part_size).unwrap_or(usize::MAX);
-    let mut outgoing = Outgoing::open(path, sealing.key(), nonce, &fingerprint).await?;
-    let mut offset = 0;
+    let mut outgoing = Outgoing::open(path, sealing.key(), nonce, fingerprint).await?;
+    outgoing.skip(offset).await?;
+    progress(name, offset, declared);
     let mut attempt = 0;
     loop {
         let bytes = outgoing.take(part).await?;
         let sent = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
-        match client.send_part(&upload, offset, bytes).await {
+        match client.send_part(upload, offset, bytes).await {
             Ok(Some(share)) => {
-                progress(&name, declared, declared);
+                progress(name, declared, declared);
                 return Ok(share);
             }
             Ok(None) => {
                 offset += sent;
                 attempt = 0;
-                progress(&name, offset, declared);
+                progress(name, offset, declared);
             }
             Err(error) if attempt + 1 < ATTEMPTS && worth_retrying(&error) => {
                 attempt += 1;
                 tokio::time::sleep(Duration::from_secs(u64::from(attempt))).await;
-                offset = resume_at(client, &upload).await?;
+                offset = resume_at(client, upload).await?;
                 // Sealed again from the start: the same key, nonce and content
                 // give the same bytes, so what the server already has lines up.
-                outgoing = Outgoing::open(path, sealing.key(), nonce, &fingerprint).await?;
+                outgoing = Outgoing::open(path, sealing.key(), nonce, fingerprint).await?;
                 outgoing.skip(offset).await?;
             }
             Err(error) => return Err(error),
@@ -276,27 +477,6 @@ const fn worth_retrying(error: &Error) -> bool {
         // 409 is an offset that no longer matches, which asking again settles.
         Error::Server { status, .. } => *status >= 500 || *status == 409,
         _ => false,
-    }
-}
-
-/// What a file looked like when its upload started.
-///
-/// Resending part of a sealed file means sealing it again under the same
-/// nonce. If the file changed in between, two different contents would share
-/// one nonce, which a stream cipher cannot survive, so a changed file stops
-/// the upload instead.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Fingerprint {
-    len: u64,
-    modified: Option<SystemTime>,
-}
-
-impl Fingerprint {
-    fn of(metadata: &std::fs::Metadata) -> Self {
-        Self {
-            len: metadata.len(),
-            modified: metadata.modified().ok(),
-        }
     }
 }
 

@@ -162,18 +162,21 @@ async fn run(cli: Cli) -> Result<()> {
                 None
             };
             let client = sending_client(server, token)?;
-            let sent = send::send(
-                &client,
-                content,
-                Options {
-                    encrypt,
-                    password,
-                    expires_in_hours: expires,
-                    max_uses,
-                },
-                &mut progress,
-            )
-            .await?;
+            let options = Options {
+                encrypt,
+                password,
+                expires_in_hours: expires,
+                max_uses,
+                resume: Some(tessera_cli::resume::default_dir()?),
+            };
+            if let Content::Files(paths) = &content
+                && send::will_resume(&client, paths, &options)
+            {
+                anstream::eprintln!(
+                    "{DIM}Picking up where the last send of these files stopped.{DIM:#}"
+                );
+            }
+            let sent = send::send(&client, content, options, &mut progress).await?;
             clear_progress();
             writeln!(std::io::stdout(), "{}", sent.link)?;
             hand_on(&sent.link, qr, copy)?;

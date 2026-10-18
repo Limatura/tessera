@@ -509,3 +509,75 @@ async fn ls_lists_your_shares_and_rm_removes_one() {
     assert_eq!(left.len(), 1);
     assert!(left.iter().all(|share| &share.code != gone));
 }
+
+#[tokio::test]
+async fn an_interrupted_encrypted_send_picks_up_where_it_stopped() {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    let server = server().await;
+    let dir = tempfile::tempdir().expect("temp dir");
+    let state = tempfile::tempdir().expect("state dir");
+    // Three parts at the server's default part size, so there is a middle to
+    // stop in.
+    let bytes = content(20 * 1024 * 1024, 9);
+    let path = write(dir.path(), "big.bin", &bytes);
+    let client = Client::new(server.url.clone(), None).expect("a client");
+    let options = || Options {
+        encrypt: true,
+        resume: Some(state.path().to_owned()),
+        ..Options::default()
+    };
+
+    // The first run, dropped once some of the file is on the server: what a
+    // Ctrl-C or a dead connection leaves.
+    let reached = AtomicU64::new(0);
+    let mut report = |_: &str, done: u64, _: u64| reached.store(done, Ordering::SeqCst);
+    let first = send::send(
+        &client,
+        Content::Files(vec![path.clone()]),
+        options(),
+        &mut report,
+    );
+    let watch = async {
+        while reached.load(Ordering::SeqCst) == 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+    };
+    tokio::select! {
+        finished = first => panic!("the first run should have been cut off: {finished:?}"),
+        () = watch => {}
+    }
+    assert!(send::will_resume(
+        &client,
+        std::slice::from_ref(&path),
+        &options()
+    ));
+
+    // The second run starts past the beginning, and finishes.
+    let mut started_at = None;
+    let sent = send::send(
+        &client,
+        Content::Files(vec![path.clone()]),
+        options(),
+        &mut |_, done, _| {
+            started_at.get_or_insert(done);
+        },
+    )
+    .await
+    .expect("the second run finishes");
+    assert!(
+        started_at.is_some_and(|offset| offset > 0),
+        "it should have carried on, not started over: {started_at:?}"
+    );
+    assert_eq!(
+        std::fs::read_dir(state.path()).expect("state dir").count(),
+        0,
+        "a finished send leaves no state behind"
+    );
+
+    // Sealed with the same key and nonce both times, so it opens whole.
+    let out = tempfile::tempdir().expect("output dir");
+    let fetched = fetch(&sent.link, None, out.path()).await.expect("fetched");
+    let file = fetched.files.first().expect("a file");
+    assert_eq!(std::fs::read(file).expect("read back"), bytes);
+}
