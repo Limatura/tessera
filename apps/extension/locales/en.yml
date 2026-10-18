@@ -107,13 +107,16 @@ options:
   serverTitle: Instance
   serverDescription: Your Tessera's address. Saving asks the browser to let the extension connect to it.
   serverSave: Save and connect
+  serverConnectedTo: Connected to $1
+  serverConnecting: Connecting to $1…
+  serverConnectingButton: Connecting…
+  serverFailedAt: "Could not connect to $1: $2"
+  serverNotTessera: "That address does not answer as Tessera. Check it is the instance's home page."
+  serverDetails: Tessera $1 · $2 · $3
   serverInvalid: That is not a valid address
-  serverConnected: Connected to Tessera $1
-  serverFailed: Could not connect to the instance
   serverPermissionDenied: Permission to connect to that address was not granted.
   serverNoPermission: The extension does not have permission to connect to this instance.
   serverRegrant: Grant again
-  serverStatus: Version $1 · $2 · $3
   encryptionOn: End-to-end encryption available
   encryptionOff: End-to-end encryption not offered
   anonymousOn: Anonymous uploads accepted

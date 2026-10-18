@@ -107,13 +107,16 @@ options:
   serverTitle: サーバー
   serverDescription: Tessera の URL です。保存時に、拡張機能がこの URL に接続することを許可するかブラウザが確認します。
   serverSave: 保存して接続
+  serverConnectedTo: "$1 に接続済み"
+  serverConnecting: "$1 に接続中…"
+  serverConnectingButton: 接続中…
+  serverFailedAt: "$1 に接続できません:$2"
+  serverNotTessera: この URL は Tessera として応答しません。サーバーのトップページの URL か確認してください。
+  serverDetails: Tessera $1 · $2 · $3
   serverInvalid: 有効な URL ではありません
-  serverConnected: Tessera $1 に接続しました
-  serverFailed: サーバーに接続できませんでした
   serverPermissionDenied: この URL に接続する権限が許可されませんでした。
   serverNoPermission: 拡張機能にこのサーバーへ接続する権限がありません。
   serverRegrant: 再度許可
-  serverStatus: バージョン $1 · $2 · $3
   encryptionOn: エンドツーエンド暗号化を利用可能
   encryptionOff: エンドツーエンド暗号化は無効
   anonymousOn: 匿名アップロード可

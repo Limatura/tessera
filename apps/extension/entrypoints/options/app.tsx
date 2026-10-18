@@ -15,6 +15,7 @@ import {
   CircleAlert,
   CircleCheck,
   KeyRound,
+  Loader2,
   LogIn,
   LogOut,
 } from "lucide-react";
@@ -116,10 +117,16 @@ function Row({
   );
 }
 
+/** A save in flight or just refused, shown where the saved state usually is. */
+type Attempt =
+  | { state: "connecting"; server: string }
+  | { state: "failed"; server: string; reason: string };
+
 function ServerCard({ connection }: { connection: Connection }) {
   const queryClient = useQueryClient();
   const capabilities = useCapabilities(connection);
   const { server } = connection;
+  const [attempt, setAttempt] = useState<Attempt>();
   const permitted = useQuery({
     enabled: Boolean(server),
     queryFn: () => hasServerPermission(server as string),
@@ -141,38 +148,118 @@ function ServerCard({ connection }: { connection: Connection }) {
       title={i18n.t("options.serverTitle")}
     >
       {/* Keyed, so a saved address becomes the field's starting value. */}
-      <ServerForm initial={server ?? ""} key={server ?? ""} />
-      {server && permitted.data === false && (
-        <Status tone="error">
-          {i18n.t("options.serverNoPermission")}{" "}
-          <Button onClick={handleRegrant} size="xs" variant="outline">
-            {i18n.t("options.serverRegrant")}
-          </Button>
-        </Status>
-      )}
-      {server && permitted.data && capabilities.isError && (
-        <Status tone="error">
-          {i18n.t("popup.unreachable", [capabilities.error.message])}
-        </Status>
-      )}
-      {capabilities.data && (
-        <Status tone="ok">
-          {i18n.t("options.serverStatus", [
-            capabilities.data.version,
-            capabilities.data.encryption
-              ? i18n.t("options.encryptionOn")
-              : i18n.t("options.encryptionOff"),
-            capabilities.data.anonymous_upload
-              ? i18n.t("options.anonymousOn")
-              : i18n.t("options.anonymousOff"),
-          ])}
-        </Status>
-      )}
+      <ServerForm
+        initial={server ?? ""}
+        key={server ?? ""}
+        onAttempt={setAttempt}
+      />
+      <ServerStatus
+        attempt={attempt}
+        capabilities={capabilities}
+        onRegrant={handleRegrant}
+        permitted={permitted.data}
+        server={server ?? null}
+      />
     </Section>
   );
 }
 
-function ServerForm({ initial }: { initial: string }) {
+/**
+ * Where the answer to "is it connected?" lives: under the field it was asked
+ * from, until something changes it. A toast in a corner is gone before
+ * anyone looks for it.
+ */
+function ServerStatus({
+  attempt,
+  capabilities,
+  onRegrant,
+  permitted,
+  server,
+}: {
+  attempt: Attempt | undefined;
+  capabilities: ReturnType<typeof useCapabilities>;
+  onRegrant: () => void;
+  permitted: boolean | undefined;
+  server: string | null;
+}) {
+  if (attempt?.state === "connecting") {
+    return (
+      <Status tone="pending">
+        {i18n.t("options.serverConnecting", [hostOf(attempt.server)])}
+      </Status>
+    );
+  }
+  if (attempt?.state === "failed") {
+    return (
+      <Status tone="error">
+        {i18n.t("options.serverFailedAt", [
+          hostOf(attempt.server),
+          attempt.reason,
+        ])}
+      </Status>
+    );
+  }
+  if (!server) {
+    return null;
+  }
+  if (permitted === false) {
+    return (
+      <Status tone="error">
+        {i18n.t("options.serverNoPermission")}{" "}
+        <Button onClick={onRegrant} size="xs" variant="outline">
+          {i18n.t("options.serverRegrant")}
+        </Button>
+      </Status>
+    );
+  }
+  if (capabilities.isError) {
+    return (
+      <Status tone="error">
+        {i18n.t("options.serverFailedAt", [
+          hostOf(server),
+          capabilities.error.message,
+        ])}
+      </Status>
+    );
+  }
+  if (!capabilities.data) {
+    return (
+      <Status tone="pending">
+        {i18n.t("options.serverConnecting", [hostOf(server)])}
+      </Status>
+    );
+  }
+  const { data } = capabilities;
+  return (
+    <Status
+      detail={i18n.t("options.serverDetails", [
+        data.version,
+        data.encryption
+          ? i18n.t("options.encryptionOn")
+          : i18n.t("options.encryptionOff"),
+        data.anonymous_upload
+          ? i18n.t("options.anonymousOn")
+          : i18n.t("options.anonymousOff"),
+      ])}
+      tone="ok"
+    >
+      {i18n.t("options.serverConnectedTo", [hostOf(server)])}
+    </Status>
+  );
+}
+
+function hostOf(server: string): string {
+  return new URL(server).host;
+}
+
+function ServerForm({
+  initial,
+  onAttempt,
+}: {
+  initial: string;
+  /** No argument once the attempt is over and the saved state speaks. */
+  onAttempt: (attempt?: Attempt) => void;
+}) {
   const queryClient = useQueryClient();
   const inputId = useId();
   const [input, setInput] = useState(initial);
@@ -189,15 +276,18 @@ function ServerForm({ initial }: { initial: string }) {
     // prompt while the click that asked for it is still being handled.
     const granted = requestServerPermission(next);
     setBusy(true);
+    onAttempt({ server: next, state: "connecting" });
     try {
-      const version = await connect(next, granted);
+      await connect(next, granted);
       await queryClient.invalidateQueries();
-      toast.add({
-        title: i18n.t("options.serverConnected", [version]),
-        type: "success",
-      });
+      // The saved address's own status takes over, green once it answers.
+      onAttempt();
     } catch (error) {
-      toastError(i18n.t("options.serverFailed"), error);
+      onAttempt({
+        reason: failureReason(error),
+        server: next,
+        state: "failed",
+      });
     } finally {
       setBusy(false);
     }
@@ -217,31 +307,43 @@ function ServerForm({ initial }: { initial: string }) {
         value={input}
       />
       <Button disabled={busy || !input.trim()} type="submit">
-        {i18n.t("options.serverSave")}
+        {busy && <Loader2 className="animate-spin" data-icon="inline-start" />}
+        {busy
+          ? i18n.t("options.serverConnectingButton")
+          : i18n.t("options.serverSave")}
       </Button>
     </form>
   );
 }
 
+/** Why a save failed, in the user's words rather than the parser's. */
+function failureReason(error: unknown): string {
+  if (error instanceof TypeError) {
+    // `fetch` says only "Failed to fetch": nothing answered.
+    return i18n.t("errors.network");
+  }
+  if (error instanceof SyntaxError) {
+    // Something answered, with a page rather than Tessera's JSON.
+    return i18n.t("options.serverNotTessera");
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Saves `server` once the permission is granted and it answers as a Tessera
  * instance. A different instance signs the old account out: its token means
- * nothing to the new one. Resolves to the instance's version.
+ * nothing to the new one.
  */
-async function connect(
-  server: string,
-  granted: Promise<boolean>
-): Promise<string> {
+async function connect(server: string, granted: Promise<boolean>) {
   if (!(await granted)) {
     throw new Error(i18n.t("options.serverPermissionDenied"));
   }
-  const capabilities = await fetchCapabilities(server, null);
+  await fetchCapabilities(server, null);
   const previous = await serverItem.getValue();
   if (previous !== server && (await credentialItem.getValue())) {
     await signOut();
   }
   await serverItem.setValue(server);
-  return capabilities.version;
 }
 
 async function signIn() {
@@ -265,25 +367,39 @@ async function signOutAndSay() {
   );
 }
 
+const HEADLINE = {
+  error: "text-destructive",
+  ok: "font-medium",
+  pending: "text-muted-foreground",
+} as const;
+
 function Status({
   tone,
+  detail,
   children,
 }: {
-  tone: "ok" | "error";
+  tone: "ok" | "pending" | "error";
+  /** A quieter second line, under the headline. */
+  detail?: string;
   children: ReactNode;
 }) {
-  const Icon = tone === "ok" ? CircleCheck : CircleAlert;
+  const icon = {
+    error: <CircleAlert className="mt-px size-4 shrink-0 text-destructive" />,
+    ok: <CircleCheck className="mt-px size-4 shrink-0 text-green-500" />,
+    pending: (
+      <Loader2 className="mt-px size-4 shrink-0 animate-spin text-muted-foreground" />
+    ),
+  }[tone];
   return (
-    <p
-      className={
-        tone === "ok"
-          ? "flex items-center gap-1.5 text-xs text-muted-foreground"
-          : "flex items-center gap-1.5 text-xs text-destructive"
-      }
-    >
-      <Icon className="size-3.5 shrink-0" />
-      <span>{children}</span>
-    </p>
+    <output className="flex items-start gap-2 text-sm">
+      {icon}
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className={HEADLINE[tone]}>{children}</span>
+        {detail && (
+          <span className="text-xs text-muted-foreground">{detail}</span>
+        )}
+      </div>
+    </output>
   );
 }
 

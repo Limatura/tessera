@@ -107,13 +107,16 @@ options:
   serverTitle: 主機
   serverDescription: 你的 Tessera 網址。儲存時瀏覽器會詢問是否允許擴充連線到這個網址。
   serverSave: 儲存並連線
+  serverConnectedTo: 已連線到 $1
+  serverConnecting: 正在連線到 $1…
+  serverConnectingButton: 連線中…
+  serverFailedAt: 無法連線到 $1:$2
+  serverNotTessera: 這個網址沒有回應 Tessera 的 API,請確認填的是主機首頁的網址。
+  serverDetails: Tessera $1 · $2 · $3
   serverInvalid: 這不是有效的網址
-  serverConnected: 已連線到 Tessera $1
-  serverFailed: 無法連線到主機
   serverPermissionDenied: 沒有取得連線到這個網址的權限。
   serverNoPermission: 擴充目前沒有連線到這台主機的權限。
   serverRegrant: 重新授權
-  serverStatus: 版本 $1 · $2 · $3
   encryptionOn: 可使用端對端加密
   encryptionOff: 未開放端對端加密
   anonymousOn: 接受匿名上傳

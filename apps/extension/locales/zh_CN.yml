@@ -107,13 +107,16 @@ options:
   serverTitle: 实例
   serverDescription: 你的 Tessera 地址。保存时浏览器会询问是否允许扩展连接到这个地址。
   serverSave: 保存并连接
+  serverConnectedTo: 已连接到 $1
+  serverConnecting: 正在连接到 $1…
+  serverConnectingButton: 连接中…
+  serverFailedAt: 无法连接到 $1:$2
+  serverNotTessera: 这个地址没有响应 Tessera 的 API,请确认填写的是实例首页的地址。
+  serverDetails: Tessera $1 · $2 · $3
   serverInvalid: 这不是有效的地址
-  serverConnected: 已连接到 Tessera $1
-  serverFailed: 无法连接到实例
   serverPermissionDenied: 没有获得连接到这个地址的权限。
   serverNoPermission: 扩展当前没有连接到这个实例的权限。
   serverRegrant: 重新授权
-  serverStatus: 版本 $1 · $2 · $3
   encryptionOn: 可使用端到端加密
   encryptionOff: 未开放端到端加密
   anonymousOn: 接受匿名上传

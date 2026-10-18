@@ -12,10 +12,12 @@ test.describe("settings", () => {
       .fill(env().server);
     await options.getByRole("button", { name: "Save and connect" }).click();
 
-    await expect(options.getByText(/Connected to Tessera/u)).toBeVisible();
-    await expect(
-      options.getByText(/End-to-end encryption not offered/u)
-    ).toBeVisible();
+    // The answer stays under the field, not in a toast that goes away.
+    const status = options.getByRole("status");
+    await expect(status).toContainText(
+      `Connected to ${new URL(env().server).host}`
+    );
+    await expect(status).toContainText("End-to-end encryption not offered");
     await expect(
       options.getByRole("switch", { name: "End-to-end encryption" })
     ).toHaveCount(0);
@@ -41,7 +43,22 @@ test.describe("settings", () => {
       .getByPlaceholder("https://files.example.com")
       .fill(`${env().server}/s/ABCDEFGH#key`);
     await options.getByRole("button", { name: "Save and connect" }).click();
-    await expect(options.getByText(/Connected to Tessera/u)).toBeVisible();
+    await expect(options.getByRole("status")).toContainText("Connected to");
     expect(await extension.stored("local", "server")).toBe(env().server);
+  });
+
+  test("an address that is not Tessera says so where it was typed, and is not saved", async ({
+    extension,
+  }) => {
+    const options = await extension.open("options");
+    // The test site: reachable and permitted, but it answers with a page.
+    await options
+      .getByPlaceholder("https://files.example.com")
+      .fill(env().site);
+    await options.getByRole("button", { name: "Save and connect" }).click();
+    await expect(options.getByRole("status")).toContainText(
+      "does not answer as Tessera"
+    );
+    expect(await extension.stored("local", "server")).toBeUndefined();
   });
 });
