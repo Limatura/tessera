@@ -41,6 +41,7 @@ pub mod device;
 pub mod extract;
 pub mod gate;
 pub mod health;
+pub mod llms;
 pub mod meter;
 pub mod mfa;
 pub mod oidc;
@@ -497,6 +498,8 @@ pub fn build(state: AppState) -> Router {
             crate::manifest::SHARE_TARGET_PATH,
             axum::routing::post(crate::manifest::share_target),
         )
+        // Before the `PUT /{name}` route, which would otherwise take it.
+        .route("/llms.txt", axum::routing::get(llms::llms_txt))
         // `curl -T file https://host/` sends `PUT /file`. Only `PUT` is taken
         // here: every other method on these paths falls through to the bundle,
         // or `/favicon.ico` would answer 405.
