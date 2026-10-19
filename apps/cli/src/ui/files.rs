@@ -1,7 +1,7 @@
 //! One folder at a time: what is in it, what is marked, where the cursor is.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
     time::SystemTime,
 };
@@ -56,6 +56,8 @@ pub(crate) struct Browser {
     show_hidden: bool,
     sort: Sort,
     marked: BTreeMap<PathBuf, Marked>,
+    /// Paths inside a marked folder that were unmarked on their own.
+    left_out: BTreeSet<PathBuf>,
     /// Folders gone back from and forward to, as a browser keeps them: each
     /// with the name the cursor was on, to put it there again.
     back: Vec<(PathBuf, Option<String>)>,
@@ -76,6 +78,7 @@ impl Browser {
             show_hidden,
             sort,
             marked: BTreeMap::new(),
+            left_out: BTreeSet::new(),
             back: Vec::new(),
             forward: Vec::new(),
             error: None,
@@ -260,23 +263,27 @@ impl Browser {
         self.cursor = row.min(self.rows.len().saturating_sub(1));
     }
 
+    /// Whether `path` goes: marked itself, or inside a marked folder and not
+    /// unmarked since. The nearest of its own marks and its folders' decides.
     pub(crate) fn is_marked(&self, path: &Path) -> bool {
-        self.marked.contains_key(path)
+        path.ancestors()
+            .find_map(|at| {
+                if self.marked.contains_key(at) {
+                    Some(true)
+                } else if self.left_out.contains(at) {
+                    Some(false)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(false)
     }
 
     /// Marks the row, or unmarks it.
     pub(crate) fn toggle_mark(&mut self, row: Row) {
-        let Some(entry) = self.entry(row) else {
-            return;
-        };
-        let path = entry.path.clone();
-        let kind = if entry.is_dir {
-            Marked::Folder
-        } else {
-            Marked::File(entry.size.unwrap_or(0))
-        };
-        if self.marked.remove(&path).is_none() {
-            self.marked.insert(path, kind);
+        if let Some(entry) = self.entry(row) {
+            let (path, is_dir) = (entry.path.clone(), entry.is_dir);
+            self.toggle_path(&path, is_dir);
         }
     }
 
@@ -290,21 +297,43 @@ impl Browser {
             .collect();
         let all = listed.iter().all(|row| {
             self.entry(*row)
-                .is_some_and(|entry| self.marked.contains_key(&entry.path))
+                .is_some_and(|entry| self.is_marked(&entry.path))
         });
         for row in listed {
             let marked = self
                 .entry(row)
-                .is_some_and(|entry| self.marked.contains_key(&entry.path));
+                .is_some_and(|entry| self.is_marked(&entry.path));
             if marked == all {
                 self.toggle_mark(row);
             }
         }
     }
 
-    /// Marks a path found elsewhere, by search.
+    /// Marks a path, or unmarks it. Inside a marked folder, unmarking leaves
+    /// it out of the folder rather than unmarking the folder, and marking it
+    /// again takes it back.
     pub(crate) fn toggle_path(&mut self, path: &Path, is_dir: bool) {
-        if self.marked.remove(path).is_none() {
+        let marked = self.is_marked(path);
+        // Whatever was said of what is inside is said again by this.
+        self.marked
+            .retain(|other, _| other == path || !other.starts_with(path));
+        self.left_out
+            .retain(|other| other == path || !other.starts_with(path));
+        if self.marked.remove(path).is_some() || self.left_out.remove(path) {
+            if self.is_marked(path) == marked {
+                // Its own mark went, and a folder above still says the same.
+                self.flip(path, is_dir, marked);
+            }
+            return;
+        }
+        self.flip(path, is_dir, marked);
+    }
+
+    /// Says the opposite of `marked` about `path`, in its own entry.
+    fn flip(&mut self, path: &Path, is_dir: bool, marked: bool) {
+        if marked {
+            self.left_out.insert(path.to_path_buf());
+        } else {
             let kind = if is_dir {
                 Marked::Folder
             } else {
@@ -314,13 +343,20 @@ impl Browser {
         }
     }
 
-    /// Unmarks `path`, if it is marked.
+    /// Unmarks `path`, if it is marked, and forgets what was left out of it.
     pub(crate) fn unmark(&mut self, path: &Path) {
         self.marked.remove(path);
+        self.left_out.retain(|other| !other.starts_with(path));
     }
 
     pub(crate) fn clear_marks(&mut self) {
         self.marked.clear();
+        self.left_out.clear();
+    }
+
+    /// What is inside a marked folder but unmarked, to leave out of it.
+    pub(crate) fn left_out(&self) -> impl Iterator<Item = &PathBuf> {
+        self.left_out.iter()
     }
 
     /// Everything marked, in path order.
@@ -521,6 +557,45 @@ mod tests {
         );
         browser.toggle_all();
         assert_eq!(browser.marked_count(), 1);
+    }
+
+    #[test]
+    fn what_is_inside_a_marked_folder_is_marked() {
+        let dir = tree();
+        let src = dir.path().join("src");
+        let main = src.join("main.rs");
+        let mut browser = Browser::new(dir.path().to_path_buf(), false, Sort::Name);
+        browser.toggle_path(&src, true);
+        assert!(browser.is_marked(&main));
+
+        // Unmarking it inside leaves it out, and the folder stays marked.
+        browser.toggle_path(&main, false);
+        assert!(!browser.is_marked(&main));
+        assert!(browser.is_marked(&src));
+        assert_eq!(browser.left_out().collect::<Vec<_>>(), [&main]);
+
+        // Marking it again takes it back, with nothing left to say of it.
+        browser.toggle_path(&main, false);
+        assert!(browser.is_marked(&main));
+        assert_eq!(browser.left_out().count(), 0);
+        assert_eq!(browser.marked_count(), 1);
+
+        // Unmarking the folder forgets what was said inside it.
+        browser.toggle_path(&main, false);
+        browser.toggle_path(&src, true);
+        assert!(!browser.is_marked(&main));
+        assert_eq!(browser.left_out().count(), 0);
+    }
+
+    #[test]
+    fn marking_a_folder_takes_in_the_marks_inside_it() {
+        let dir = tree();
+        let src = dir.path().join("src");
+        let mut browser = Browser::new(dir.path().to_path_buf(), false, Sort::Name);
+        browser.toggle_path(&src.join("main.rs"), false);
+        browser.toggle_path(&src, true);
+        let marked: Vec<_> = browser.marked().collect();
+        assert_eq!(marked, [(&src, Marked::Folder)]);
     }
 
     #[test]

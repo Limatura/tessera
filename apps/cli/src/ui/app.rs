@@ -18,7 +18,6 @@ use ratatui::{
 };
 
 use super::{
-    Defaults,
     files::{Browser, Row},
     find::Finder,
     input::Input,
@@ -246,7 +245,11 @@ pub(crate) struct Form {
 /// What a share is made of, as the site's three kinds.
 #[derive(Debug, Clone)]
 pub(crate) enum Payload {
-    Files(Vec<PathBuf>),
+    /// Files and folders, and paths inside those folders to leave out.
+    Files {
+        paths: Vec<PathBuf>,
+        leave_out: Vec<PathBuf>,
+    },
     Text {
         body: String,
         title: Option<String>,
@@ -512,7 +515,6 @@ pub(crate) struct App {
     pub(crate) choice: usize,
     pub(crate) shares: SharesView,
     pub(crate) client: Option<Client>,
-    defaults: Defaults,
     /// Sends and downloads under way, oldest first.
     pub(crate) transfers: Vec<Transfer>,
     next_transfer: u64,
@@ -575,7 +577,6 @@ impl App {
         mouse: bool,
         browser: Browser,
         client: Option<Client>,
-        defaults: Defaults,
         accent: Option<ratatui::style::Color>,
     ) -> Self {
         let mut app = Self {
@@ -593,7 +594,6 @@ impl App {
                 ..SharesView::default()
             },
             client,
-            defaults,
             transfers: Vec::new(),
             next_transfer: 0,
             waiting: std::collections::VecDeque::new(),
@@ -1095,7 +1095,13 @@ impl App {
             Command::Send(row) => {
                 if let Some(entry) = self.browser.entry(row) {
                     let path = entry.path.clone();
-                    self.open_form(Payload::Files(vec![path]), false);
+                    self.open_form(
+                        Payload::Files {
+                            paths: vec![path],
+                            leave_out: Vec::new(),
+                        },
+                        false,
+                    );
                 }
             }
             Command::Mark(row) => self.browser.toggle_mark(row),
@@ -1109,7 +1115,8 @@ impl App {
                     let mark = self.keymap.hint(Action::Mark).unwrap_or_default();
                     self.say(format!("Nothing marked; {mark} marks a file"), Tone::Info);
                 } else {
-                    self.open_form(Payload::Files(paths), true);
+                    let leave_out = self.browser.left_out().cloned().collect();
+                    self.open_form(Payload::Files { paths, leave_out }, true);
                 }
             }
             Command::CopyText(text) => self.copy(&text),
@@ -1185,7 +1192,7 @@ impl App {
                 ))
             }
             Payload::Link(target) => Some((format!("Link to {target}"), 0)),
-            Payload::Files(paths) => match send::expand(paths, !self.defaults.encrypt) {
+            Payload::Files { paths, leave_out } => match send::expand(paths, leave_out, true) {
                 Ok((entries, _)) => {
                     let total = entries
                         .iter()
@@ -1253,37 +1260,17 @@ impl App {
                 .filter(|hours| longest.is_none_or(|longest| *hours <= longest))
                 .map(|hours| (Some(hours), lasting(hours))),
         );
-        let expiry = match self.defaults.expires_in_hours {
-            None => 0,
-            Some(hours) => expiries
-                .iter()
-                .position(|(choice, _)| *choice == Some(hours))
-                .unwrap_or_else(|| {
-                    expiries.push((Some(hours), lasting(hours)));
-                    expiries.len() - 1
-                }),
-        };
-        let mut password = Input::masked();
-        if let Some(given) = &self.defaults.password {
-            password.paste(given);
-        }
         self.modal = Some(Modal::Send(Form {
             payload,
             from_marks,
             summary,
             total,
-            encrypt: self.defaults.encrypt && encryption,
+            encrypt: false,
             encryption,
-            password,
+            password: Input::masked(),
             expiries,
-            expiry,
-            uses: Input::new(
-                &self
-                    .defaults
-                    .max_uses
-                    .map(|uses| uses.to_string())
-                    .unwrap_or_default(),
-            ),
+            expiry: 0,
+            uses: Input::new(""),
             focus: Field::Send,
             error: None,
         }));
@@ -1358,8 +1345,25 @@ impl App {
                 }
             }
         };
+        if form.encrypt
+            && !form.password.text().is_empty()
+            && form.password.text().chars().count() < tessera_crypto::MIN_PASSWORD_CHARS
+        {
+            let mut form = form;
+            form.error = Some(format!(
+                "A password the key comes from needs {} characters at least",
+                tessera_crypto::MIN_PASSWORD_CHARS
+            ));
+            form.focus = Field::Password;
+            self.modal = Some(Modal::Send(form));
+            return;
+        }
         let Some(client) = self.client.clone() else {
             return;
+        };
+        let leave_out = match &form.payload {
+            Payload::Files { leave_out, .. } => leave_out.clone(),
+            _ => Vec::new(),
         };
         let options = Options {
             encrypt: form.encrypt,
@@ -1367,6 +1371,7 @@ impl App {
             expires_in_hours: form.expiries.get(form.expiry).and_then(|(hours, _)| *hours),
             max_uses,
             resume: resume::default_dir().ok(),
+            leave_out,
         };
         let progress = Rc::new(RefCell::new(Progress {
             all: Some(form.total),
@@ -1374,11 +1379,11 @@ impl App {
         }));
         let report = Rc::clone(&progress);
         let sent = match &form.payload {
-            Payload::Files(paths) if form.from_marks => paths.clone(),
+            Payload::Files { paths, .. } if form.from_marks => paths.clone(),
             _ => Vec::new(),
         };
         let content = match form.payload {
-            Payload::Files(paths) => Content::Files(paths),
+            Payload::Files { paths, .. } => Content::Files(paths),
             Payload::Text {
                 body,
                 title,

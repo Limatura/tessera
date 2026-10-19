@@ -562,7 +562,7 @@ impl Client {
     }
 }
 
-/// What an instance allows and how it looks, as much as `tess ui` reads.
+/// What an instance allows and how it looks, as much as the full-screen view reads.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Capabilities {
     /// Whether shares may be sealed end to end here.

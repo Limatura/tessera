@@ -34,7 +34,6 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Command {
     /// Upload files, or a note from standard input, and print the link.
-    /// Without any, on a terminal, pick them in the full-screen view.
     Send {
         /// The files to put in one share; a directory sends every file under
         /// it, keeping their paths. `-` reads a note from standard input.
@@ -96,19 +95,6 @@ enum Command {
         share: String,
         /// The instance, when only a code is given. Defaults to the one
         /// `tess login` saved.
-        #[arg(long, env = "TESSERA_SERVER", value_parser = link::instance)]
-        server: Option<Url>,
-        /// An API token. Defaults to the one `tess login` saved.
-        #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
-        token: Option<String>,
-    },
-    /// The full-screen view that `tess` on its own opens, here starting in
-    /// another folder.
-    Ui {
-        /// The folder to start in.
-        #[arg(default_value = ".")]
-        dir: PathBuf,
-        /// The instance. Defaults to the one `tess login` saved.
         #[arg(long, env = "TESSERA_SERVER", value_parser = link::instance)]
         server: Option<Url>,
         /// An API token. Defaults to the one `tess login` saved.
@@ -184,13 +170,11 @@ async fn run(command: Command) -> Result<()> {
             copy,
         } => {
             if paths.is_empty() {
-                let defaults = ui::Defaults {
-                    encrypt,
-                    password: None,
-                    expires_in_hours: expires,
-                    max_uses,
-                };
-                return pick_and_send(server, token, defaults, password).await;
+                return Err(Error::Usage(
+                    "nothing to send; give files, or `-` for standard input. Run tess on its \
+                     own to pick them"
+                        .to_owned(),
+                ));
             }
             let content = if paths.iter().any(|path| path.as_os_str() == "-") {
                 if paths.len() > 1 {
@@ -217,6 +201,7 @@ async fn run(command: Command) -> Result<()> {
                 expires_in_hours: expires,
                 max_uses,
                 resume: Some(tessera_cli::resume::default_dir()?),
+                leave_out: Vec::new(),
             };
             if let Content::Files(paths) = &content
                 && send::will_resume(&client, paths, &options)
@@ -243,9 +228,6 @@ async fn run(command: Command) -> Result<()> {
             output,
         } => fetch(&link, server, &output).await,
         Command::Ls { server, token } => list(server, token).await,
-        Command::Ui { dir, server, token } => {
-            browse(dir, server, token, ui::Defaults::default()).await
-        }
         Command::Rm {
             share,
             server,
@@ -269,11 +251,11 @@ async fn run(command: Command) -> Result<()> {
     }
 }
 
-/// `tess` alone: on a terminal, `tess ui`, as a full-screen tool opens on its
-/// name; anywhere else, the help.
+/// `tess` alone: on a terminal, the full-screen view, as a full-screen tool
+/// opens on its name; anywhere else, the help.
 async fn by_itself() -> Result<()> {
     if std::io::stdin().is_terminal() && std::io::stdout().is_terminal() {
-        return browse(PathBuf::from("."), None, None, ui::Defaults::default()).await;
+        return browse().await;
     }
     let help = <Cli as clap::CommandFactory>::command().render_help();
     write!(std::io::stdout(), "{help}")?;
@@ -291,46 +273,20 @@ fn sending_client(server: Option<Url>, token: Option<String>) -> Result<Client> 
     Client::new(server, token)
 }
 
-/// `tess send` with nothing named: picking it in `tess ui`, on a terminal.
-async fn pick_and_send(
-    server: Option<Url>,
-    token: Option<String>,
-    mut defaults: ui::Defaults,
-    password: bool,
-) -> Result<()> {
-    if !(std::io::stdin().is_terminal() && std::io::stdout().is_terminal()) {
-        return Err(Error::Usage(
-            "nothing to send; give files, or `-` for standard input".to_owned(),
-        ));
-    }
-    if password {
-        defaults.password = Some(new_password()?);
-    }
-    browse(PathBuf::from("."), server, token, defaults).await
-}
-
-/// Opens `tess ui` in `dir`. Without an instance it still browses, and says
-/// where to sign in when asked to send.
-async fn browse(
-    dir: PathBuf,
-    server: Option<Url>,
-    token: Option<String>,
-    defaults: ui::Defaults,
-) -> Result<()> {
+/// Opens the full-screen view in the current folder. Without an instance it
+/// still browses, and says where to sign in when asked to send.
+async fn browse() -> Result<()> {
     let saved = config::load(&config::default_path()?)?;
-    let client = match server.or_else(|| saved.server.clone()) {
+    let client = match saved.server.clone() {
         Some(server) => {
-            let token = token.or_else(|| saved.token_for(&server).map(str::to_owned));
+            let token = saved.token_for(&server).map(str::to_owned);
             Some(Client::new(server, token)?)
         }
         None => None,
     };
-    let dir = std::fs::canonicalize(&dir)
-        .map_err(|error| Error::Usage(format!("cannot open `{}`: {error}", dir.display())))?;
     ui::run(ui::Launch {
-        dir,
+        dir: std::env::current_dir()?,
         client,
-        defaults,
         settings: saved.ui,
         local_offset: LOCAL_OFFSET.get().copied().unwrap_or(time::UtcOffset::UTC),
     })
@@ -482,13 +438,15 @@ async fn sign_in_with_browser(client: &Client, no_browser: bool) -> Result<Strin
         started.user_code
     );
     let stderr = std::io::stderr();
-    if !no_browser && open_browser(&url) {
-        anstream::eprintln!("{DIM}Opened it in your browser.{DIM:#}\n");
-    } else if stderr.is_terminal() {
-        // No browser here, so the approving is done on another device, and a
-        // phone would rather scan than be typed into.
+    let opened = !no_browser && open_browser(&url);
+    if stderr.is_terminal() {
+        // A browser opening says nothing of whether the person is in front of
+        // it, and a phone would rather scan than be typed into.
         anstream::eprintln!("{DIM}Or scan it with your phone:{DIM:#}\n");
         writeln!(&stderr, "{}", output::qr(url.as_str())?)?;
+    }
+    if opened {
+        anstream::eprintln!("{DIM}Opened it in your browser.{DIM:#}\n");
     }
     spin(
         "Waiting for approval",

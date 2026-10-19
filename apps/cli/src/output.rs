@@ -6,7 +6,7 @@ use std::{
 };
 
 use base64ct::{Base64, Encoding as _};
-use qrcode::{QrCode, render::unicode::Dense1x2};
+use qrcode::QrCode;
 
 use crate::{Error, Result};
 
@@ -19,7 +19,7 @@ const BLACK_ON_WHITE: &str = "\x1b[30;47m";
 const RESET: &str = "\x1b[0m";
 
 /// `text` as a QR code drawn with block characters, two rows of modules to a
-/// line, with its quiet zone, in black on white whatever the terminal's theme,
+/// line, with a margin, in black on white whatever the terminal's theme,
 /// set in from the left edge like the rest of the output.
 ///
 /// # Errors
@@ -38,9 +38,13 @@ pub fn qr(text: &str) -> Result<String> {
     Ok(out)
 }
 
+/// How many light modules frame the code. The standard asks for four, but
+/// phones read two, and four make a white slab larger than the code itself.
+const MARGIN: usize = 2;
+
 /// `text` as a QR code in block characters, two rows of modules to a line,
-/// with its quiet zone and no colour: blocks are the dark modules, so it scans
-/// only when drawn dark on light.
+/// with a margin and no colour: blocks are the dark modules, so it scans only
+/// when drawn dark on light.
 ///
 /// # Errors
 ///
@@ -48,7 +52,29 @@ pub fn qr(text: &str) -> Result<String> {
 pub fn qr_blocks(text: &str) -> Result<String> {
     let code = QrCode::new(text.as_bytes())
         .map_err(|error| Error::Usage(format!("cannot draw that as a QR code: {error}")))?;
-    Ok(code.render::<Dense1x2>().quiet_zone(true).build())
+    let width = code.width();
+    let colors = code.to_colors();
+    let side = width + 2 * MARGIN;
+    let dark = |x: usize, y: usize| {
+        x.checked_sub(MARGIN)
+            .zip(y.checked_sub(MARGIN))
+            .filter(|(x, _)| *x < width)
+            .and_then(|(x, y)| colors.get(y * width + x))
+            .is_some_and(|color| *color == qrcode::Color::Dark)
+    };
+    let mut out = String::new();
+    for y in (0..side).step_by(2) {
+        for x in 0..side {
+            out.push(match (dark(x, y), dark(x, y + 1)) {
+                (true, true) => '\u{2588}',
+                (true, false) => '\u{2580}',
+                (false, true) => '\u{2584}',
+                (false, false) => ' ',
+            });
+        }
+        out.push('\n');
+    }
+    Ok(out)
 }
 
 /// How [`copy`] got the text onto a clipboard.
