@@ -13,8 +13,8 @@ use unicode_width::UnicodeWidthChar as _;
 
 use super::{
     app::{
-        App, Ask, Button, Confirm, Field, Form, Hit, Menu, Modal, Prompt, SETTINGS, SignIn, Tab,
-        Tone, Transfer, tilde,
+        App, Ask, Button, Compose, ComposeField, Confirm, Field, Form, Hit, LANGUAGES, Menu, Modal,
+        Prompt, SETTINGS, Setting, SignIn, Tab, Tone, Transfer, tilde,
     },
     files::{Marked, Row},
     keys::Action,
@@ -279,6 +279,15 @@ fn draw_header(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     frame.render_widget(Line::from(spans), area);
 
     let instance = match &app.client {
+        Some(client) if app.unreachable.is_some() => {
+            let host = client.server().host_str().unwrap_or("instance");
+            let line = Line::styled(
+                format!("{host} · can't be reached, F5 tries again "),
+                Style::new().fg(PROBLEM),
+            );
+            frame.render_widget(line.right_aligned(), area);
+            return;
+        }
         Some(client) => {
             let host = client.server().host_str().unwrap_or("instance").to_owned();
             if client.signed_in() {
@@ -350,6 +359,19 @@ fn draw_crumbs(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         }
     }
     frame.render_widget(Line::from(spans), area);
+    // How the folder is ordered, as a switch: clicking steps to the next way.
+    let order = match app.browser.sort() {
+        crate::config::Sort::Name => "by name",
+        crate::config::Sort::Modified => "newest first",
+        crate::config::Sort::Size => "largest first",
+    };
+    let label = format!(" {order} ");
+    let width = cells(width_of(&label));
+    hits.push((
+        Rect::new(area.right().saturating_sub(width), area.y, width, 1),
+        Hit::Button(Button::Footer(Action::Sort)),
+    ));
+    frame.render_widget(Line::styled(label, dim()).right_aligned(), area);
 }
 
 fn draw_files(app: &mut App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
@@ -667,6 +689,7 @@ fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         Tab::Files if app.finder.is_some() => &[("Send", Action::Send), ("Keys", Action::Help)],
         Tab::Files => &[
             ("Send", Action::Send),
+            ("New", Action::New),
             ("Find", Action::Find),
             ("Download", Action::Get),
             ("Settings", Action::Settings),
@@ -839,6 +862,8 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     };
     match modal {
         Modal::Send(form) => draw_form(form, frame, area, hits),
+        Modal::Compose(compose) => draw_compose(compose, frame, area, hits),
+        Modal::Share { share, qr } => draw_share(app, share, *qr, frame, area, hits),
         Modal::Transfers(row) => draw_transfers(app, *row, frame, area, hits),
         Modal::Sent {
             link,
@@ -1041,6 +1066,10 @@ fn draw_prompt(app: &App, prompt: &Prompt, frame: &mut Frame<'_>, area: Rect, hi
             ),
         ),
         Ask::Password { .. } => ("Password", "This share has a password".to_owned()),
+        Ask::Target => (
+            "Link",
+            "A web address; the share sends its visitors there".to_owned(),
+        ),
         Ask::Instance => (
             "Sign in",
             "The instance's address, like share.example.com".to_owned(),
@@ -1174,8 +1203,8 @@ fn draw_menu(menu: &Menu, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
 /// The `[ui]` table, a row to a setting, changed with the arrows.
 fn draw_settings(app: &App, row: usize, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     let ui = &app.ui;
-    let rows = [
-        (
+    let rows = Setting::ALL.map(|setting| match setting {
+        Setting::Keys => (
             "Keys",
             match ui.keys {
                 crate::config::Preset::Standard => "standard",
@@ -1184,17 +1213,27 @@ fn draw_settings(app: &App, row: usize, frame: &mut Frame<'_>, area: Rect, hits:
             .to_owned(),
             "hjkl and letters, or arrows and Ctrl",
         ),
-        (
+        Setting::Mouse => (
             "Mouse",
             if ui.mouse { "on" } else { "off" }.to_owned(),
             "off: the terminal selects text itself",
         ),
-        (
+        Setting::Dotfiles => (
             "Dotfiles",
             if ui.show_hidden { "shown" } else { "hidden" }.to_owned(),
             "files whose names start with a dot",
         ),
-        (
+        Setting::Order => (
+            "Order",
+            ui.sort.as_str().to_owned(),
+            "folders first, then by this",
+        ),
+        Setting::Colour => (
+            "Colour",
+            ui.accent.clone().unwrap_or_else(|| "the site's".to_owned()),
+            "picking one overrides the site's",
+        ),
+        Setting::Account => (
             "Account",
             match &app.client {
                 Some(client) if client.signed_in() => "signed in".to_owned(),
@@ -1202,12 +1241,7 @@ fn draw_settings(app: &App, row: usize, frame: &mut Frame<'_>, area: Rect, hits:
             },
             "approve this machine in a browser",
         ),
-        (
-            "Colour",
-            ui.accent.clone().unwrap_or_else(|| "the site's".to_owned()),
-            "picking one overrides the site's",
-        ),
-    ];
+    });
     let config = crate::config::default_path()
         .map(|path| tilde(&path))
         .unwrap_or_default();
@@ -1234,6 +1268,250 @@ fn draw_settings(app: &App, row: usize, frame: &mut Frame<'_>, area: Rect, hits:
         Rect::new(inner.x, inner.y + cells(SETTINGS + 1), inner.width, 1),
     );
     buttons(frame, inner, &[("Close", Button::Close, true)], hits);
+}
+
+/// What is known of `share`, a line a fact, and its link.
+fn share_lines(app: &App, share: &crate::client::OwnShare) -> (Vec<Line<'static>>, String) {
+    let row = |label: &'static str, value: String| {
+        Line::from(vec![
+            Span::styled(format!("{label:<10}"), dim()),
+            Span::raw(value),
+        ])
+    };
+    let now = time::OffsetDateTime::now_utc();
+    let mut lines = vec![row("Name", crate::shares::name(share))];
+    let kind = match (share.kind.as_deref(), share.language.as_deref()) {
+        (Some("link"), _) => "a link, sending visitors on".to_owned(),
+        (Some("text"), Some(language)) => format!("text, {language}"),
+        (Some("text"), None) => "text".to_owned(),
+        _ => match share.files.len() {
+            1 => "a file".to_owned(),
+            count => format!("{count} files"),
+        },
+    };
+    let size = share.size_bytes.map(bytes).unwrap_or_default();
+    lines.push(row(
+        "Kind",
+        if size.is_empty() {
+            kind
+        } else {
+            format!("{kind} · {size}")
+        },
+    ));
+    let names: Vec<&str> = share
+        .files
+        .iter()
+        .filter_map(|file| file.filename.as_deref())
+        .collect();
+    for (index, name) in names.iter().take(6).enumerate() {
+        lines.push(row(
+            if index == 0 { "Files" } else { "" },
+            (*name).to_owned(),
+        ));
+    }
+    if names.len() > 6 {
+        lines.push(row("", format!("and {} more", names.len() - 6)));
+    }
+    let expires = match share.expires_at.as_deref() {
+        Some(at) => format!(
+            "{}  ({})",
+            when(Some(at), app.local_offset),
+            crate::shares::expires(Some(at), now)
+        ),
+        None => "never".to_owned(),
+    };
+    if let Some(made) = share.created_at.as_deref() {
+        lines.push(row("Made", when(Some(made), app.local_offset)));
+    }
+    lines.push(row("Expires", expires));
+    let left = share
+        .uses_remaining
+        .map_or_else(|| "no limit".to_owned(), |left| format!("{left} left"));
+    let used = share.use_count.unwrap_or(0);
+    lines.push(row("Downloads", format!("{used} so far · {left}")));
+    if share.has_password {
+        lines.push(row("Password", "asked before download".to_owned()));
+    }
+    let sealed = share.encryption.is_some();
+    lines.push(row(
+        "Sealed",
+        match share.encryption.as_deref() {
+            Some("password") => "yes, with a password".to_owned(),
+            Some(_) => "yes, with the key in its link".to_owned(),
+            None => "no".to_owned(),
+        },
+    ));
+    let link = app
+        .client
+        .as_ref()
+        .map(|client| crate::link::to_share(client.server(), &share.code, None))
+        .unwrap_or_default();
+    lines.push(Line::default());
+    lines.push(Line::styled(
+        link.clone(),
+        bold().fg(accent()).add_modifier(Modifier::UNDERLINED),
+    ));
+    if sealed {
+        lines.push(Line::styled(
+            "Without its key: the share opens only with the link it was sent with.",
+            dim(),
+        ));
+    }
+    (lines, link)
+}
+
+/// One of the account's shares, in full, with its link.
+fn draw_share(
+    app: &App,
+    share: &crate::client::OwnShare,
+    qr: bool,
+    frame: &mut Frame<'_>,
+    area: Rect,
+    hits: &mut Hits,
+) {
+    let (lines, link) = share_lines(app, share);
+    let drawn = if qr {
+        crate::output::qr_blocks(&link).ok()
+    } else {
+        None
+    };
+    let qr_rows = drawn.as_deref().map_or(0, |qr| cells(qr.lines().count()));
+    let height = cells(lines.len() + 4) + qr_rows;
+    let inner = dialog(
+        frame,
+        area,
+        72,
+        height,
+        &format!("Share {}", share.code),
+        hits,
+    );
+    let text_rows = cells(lines.len());
+    frame.render_widget(Paragraph::new(lines), inner);
+    if let Some(drawn) = drawn {
+        let qr_width = cells(drawn.lines().map(width_of).max().unwrap_or(0));
+        let y = inner.y + text_rows;
+        frame.render_widget(
+            Paragraph::new(drawn).style(Style::new().fg(Color::Black).bg(Color::White)),
+            Rect::new(
+                inner.x + inner.width.saturating_sub(qr_width) / 2,
+                y,
+                qr_width.min(inner.width),
+                qr_rows.min(inner.bottom().saturating_sub(y + 1)),
+            ),
+        );
+    }
+    buttons(
+        frame,
+        inner,
+        &[
+            ("Copy link", Button::CopyLink, app.choice == 0),
+            (
+                if qr { "Hide QR" } else { "QR code" },
+                Button::ToggleQr,
+                app.choice == 1,
+            ),
+            ("Delete", Button::DeleteShare, app.choice == 2),
+            ("Close", Button::Close, app.choice == 3),
+        ],
+        hits,
+    );
+}
+
+/// A note being written: its title, its language, and what it says.
+fn draw_compose(compose: &Compose, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let height = area.height.saturating_sub(4).clamp(10, 30);
+    let inner = dialog(frame, area, 80, height, "Text", hits);
+    let label = |field: ComposeField, text: &'static str| {
+        if compose.focus == field {
+            Span::styled(format!("› {text:<10}"), bold().fg(accent()))
+        } else {
+            Span::styled(format!("  {text:<10}"), dim())
+        }
+    };
+    let title_row = Rect { height: 1, ..inner };
+    frame.render_widget(
+        Line::from(vec![
+            label(ComposeField::Title, "Title"),
+            Span::raw(compose.title.text().to_owned()),
+            Span::styled(
+                if compose.title.text().is_empty() {
+                    "optional, like notes.md"
+                } else {
+                    ""
+                },
+                dim(),
+            ),
+        ]),
+        title_row,
+    );
+    if compose.focus == ComposeField::Title {
+        let before: String = compose
+            .title
+            .text()
+            .chars()
+            .take(compose.title.caret())
+            .collect();
+        frame.set_cursor_position(Position::new(
+            title_row.x + LABEL + cells(width_of(&before)),
+            title_row.y,
+        ));
+    }
+    let picked = LANGUAGES.get(compose.language).copied().unwrap_or_default();
+    let language = match (compose.language, compose.language()) {
+        (0, Some(found)) => format!("from the title: {found}"),
+        (0, None) => "none".to_owned(),
+        _ => picked.to_owned(),
+    };
+    frame.render_widget(
+        Line::from(vec![
+            label(ComposeField::Language, "Language"),
+            Span::styled("‹ ", Style::new().fg(accent())),
+            Span::raw(language),
+            Span::styled(" ›", Style::new().fg(accent())),
+        ]),
+        Rect {
+            y: inner.y + 1,
+            height: 1,
+            ..inner
+        },
+    );
+    let body = Rect {
+        y: inner.y + 3,
+        height: inner.height.saturating_sub(5),
+        ..inner
+    };
+    // A body ending in a line break has the caret on the empty line after it.
+    let wrapped = rows_for(&compose.body, body.width) + u16::from(compose.body.ends_with('\n'));
+    let scroll = wrapped.saturating_sub(body.height);
+    let text = if compose.body.is_empty() && compose.focus != ComposeField::Body {
+        Paragraph::new(Line::styled("Write or paste here", dim()))
+    } else {
+        Paragraph::new(compose.body.clone())
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0))
+    };
+    frame.render_widget(text, body);
+    if compose.focus == ComposeField::Body {
+        let last = compose.body.rsplit('\n').next().unwrap_or_default();
+        let width = usize::from(body.width.max(1));
+        let column = width_of(last) % width;
+        let row = wrapped.saturating_sub(scroll).saturating_sub(1);
+        frame.set_cursor_position(Position::new(
+            body.x + cells(column),
+            body.y + row.min(body.height.saturating_sub(1)),
+        ));
+    }
+    frame.render_widget(
+        Line::styled(
+            "Tab moves · Ctrl-S goes on to sending · Esc throws it away",
+            dim(),
+        ),
+        Rect {
+            y: inner.bottom().saturating_sub(1),
+            height: 1,
+            ..inner
+        },
+    );
 }
 
 /// What opens first when there is no instance to send to: the ticket, and

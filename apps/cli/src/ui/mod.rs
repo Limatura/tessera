@@ -69,7 +69,11 @@ pub async fn run(launch: Launch) -> Result<()> {
         }
         None => None,
     };
-    let browser = files::Browser::new(launch.dir, launch.settings.show_hidden);
+    let browser = files::Browser::new(
+        launch.dir,
+        launch.settings.show_hidden,
+        launch.settings.sort,
+    );
     let mut app = app::App::new(
         keymap,
         launch.settings.mouse,

@@ -35,6 +35,9 @@ pub async fn all_mine(client: &Client) -> Result<Vec<OwnShare>> {
 /// What a share is called in the list: its title, else its first file, with
 /// how many more there are.
 pub(crate) fn name(share: &OwnShare) -> String {
+    if share.kind.as_deref() == Some("link") {
+        return "(link)".to_owned();
+    }
     if share.encryption.is_some() {
         // The name is sealed with a key the server never had, and neither does
         // this list: it lives in the link.
@@ -152,11 +155,7 @@ mod tests {
     fn share(code: &str) -> OwnShare {
         OwnShare {
             code: code.to_owned(),
-            title: None,
-            files: Vec::new(),
-            encryption: None,
-            expires_at: None,
-            uses_remaining: None,
+            ..OwnShare::default()
         }
     }
 

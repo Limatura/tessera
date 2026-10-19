@@ -26,6 +26,19 @@ pub enum Content {
     Files(Vec<PathBuf>),
     /// A note.
     Note(Vec<u8>),
+    /// A note with what the share page shows for it: a title, and a
+    /// language for its highlighting, both kept only when it is not sealed.
+    Text {
+        /// What it says.
+        body: Vec<u8>,
+        /// Its name on the share page.
+        title: Option<String>,
+        /// A language as the site names them: `rust`, `python`...
+        language: Option<String>,
+    },
+    /// A link that the share sends its visitors on to. Never sealed: the
+    /// instance has to read it to redirect.
+    Link(String),
 }
 
 /// How the share should be made.
@@ -197,7 +210,44 @@ pub async fn send(
     let (share, sealing, job) = match content {
         Content::Note(body) => {
             let sealing = sealing(&options).await?;
-            (send_note(client, &sealing, body).await?, sealing, None)
+            (
+                send_note(client, &sealing, body, Vec::new()).await?,
+                sealing,
+                None,
+            )
+        }
+        Content::Text {
+            body,
+            title,
+            language,
+        } => {
+            let sealing = sealing(&options).await?;
+            // Sealed, the title and language would need sealing as well;
+            // until that is done here, a sealed note goes without them.
+            let shown = if sealing.key().is_none() {
+                [("title", title), ("language", language)]
+                    .into_iter()
+                    .filter_map(|(name, value)| value.map(|value| (name, value)))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            (
+                send_note(client, &sealing, body, shown).await?,
+                sealing,
+                None,
+            )
+        }
+        Content::Link(target) => {
+            if options.encrypt {
+                return Err(Error::Usage(
+                    "a link cannot be encrypted: the instance has to read it to send visitors on"
+                        .to_owned(),
+                ));
+            }
+            let query = [("kind", "link".to_owned())];
+            let share = client.create_note(&query, target.into_bytes()).await?;
+            (share, Sealing::Plain, None)
         }
         Content::Files(paths) => {
             let (entries, skipped) = expand(&paths, !options.encrypt)?;
@@ -269,12 +319,19 @@ async fn sealing(options: &Options) -> Result<Sealing> {
     })
 }
 
-async fn send_note(client: &Client, sealing: &Sealing, body: Vec<u8>) -> Result<Share> {
+async fn send_note(
+    client: &Client,
+    sealing: &Sealing,
+    body: Vec<u8>,
+    shown: Vec<(&'static str, String)>,
+) -> Result<Share> {
     let body = match sealing.key() {
         Some(key) => tessera_crypto::seal(key, names::random()?, &body),
         None => body,
     };
-    client.create_note(&sealing.query(), body).await
+    let mut query = sealing.query();
+    query.extend(shown);
+    client.create_note(&query, body).await
 }
 
 /// Whether sending `paths` now would carry on an earlier, interrupted send
