@@ -76,6 +76,7 @@ pub async fn run(launch: Launch) -> Result<()> {
         launch.defaults,
         accent,
     );
+    app.ui = launch.settings;
 
     let (mut terminal, _screen) = Screen::enter(app.mouse)?;
     let mut events = EventStream::new();

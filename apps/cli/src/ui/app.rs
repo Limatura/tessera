@@ -39,6 +39,9 @@ pub(crate) type Job<T> = Pin<Box<dyn Future<Output = T>>>;
 
 /// Two clicks on the same thing this close together are a double click.
 const DOUBLE_CLICK: Duration = Duration::from_millis(400);
+/// How long a drag holds still before what it covers is copied, for a drag
+/// let go of outside the window, which the view never hears about.
+const DRAG_PAUSE: Duration = Duration::from_millis(400);
 /// How long a message under the list stays.
 const STATUS_FOR: Duration = Duration::from_secs(5);
 /// Rows a turn of the mouse wheel moves.
@@ -285,6 +288,9 @@ pub(crate) enum Modal {
     Help {
         scroll: usize,
     },
+    /// The `[ui]` table, changed in place and saved as it changes; the row
+    /// the keys are on.
+    Settings(usize),
     /// No instance yet: what tessera is, and how to sign in.
     Welcome,
 }
@@ -303,6 +309,8 @@ pub(crate) enum Button {
     No,
     Ok,
     MenuItem(usize),
+    /// A row of the settings, clicked to change it.
+    Setting(usize),
     Footer(Action),
 }
 
@@ -344,6 +352,8 @@ pub(crate) struct App {
     /// Typing goes to the filter: after `/` with the vim keys.
     pub(crate) filtering: bool,
     pub(crate) modal: Option<Modal>,
+    /// Which of the dialog's buttons the keys are on, left to right.
+    pub(crate) choice: usize,
     pub(crate) shares: SharesView,
     pub(crate) client: Option<Client>,
     defaults: Defaults,
@@ -354,11 +364,18 @@ pub(crate) struct App {
     pub(crate) capabilities: Option<Capabilities>,
     /// The config file named an accent, which wins over the site's.
     accent_chosen: bool,
+    /// The accent the site gave, for going back to it from the settings.
+    site_accent: Option<ratatui::style::Color>,
+    /// The `[ui]` table as loaded, which the settings change and save.
+    pub(crate) ui: crate::config::Ui,
     pub(crate) status: Option<(String, Tone, Instant)>,
     /// Where things were drawn, last drawn on top.
     pub(crate) hits: Vec<(Rect, Hit)>,
     pub(crate) selection: Option<Selection>,
     press: Option<Position>,
+    /// When the drag last moved, and what was last copied of it: a drag that
+    /// leaves the window may never be let go of here, so a pause copies too.
+    dragged: Option<(Instant, Option<Selection>)>,
     last_click: Option<(Hit, Instant)>,
     /// The screen as last drawn, for copying text off it.
     pub(crate) screen: Option<Buffer>,
@@ -403,6 +420,7 @@ impl App {
             finder: None,
             filtering: false,
             modal: client.is_none().then_some(Modal::Welcome),
+            choice: 0,
             shares: SharesView {
                 stale: true,
                 ..SharesView::default()
@@ -413,10 +431,13 @@ impl App {
             requests: FuturesUnordered::new(),
             capabilities: None,
             accent_chosen: false,
+            site_accent: None,
+            ui: crate::config::Ui::default(),
             status: None,
             hits: Vec::new(),
             selection: None,
             press: None,
+            dragged: None,
             last_click: None,
             screen: None,
             page: 10,
@@ -452,10 +473,18 @@ impl App {
             || !self.requests.is_empty()
             || self.finder.as_ref().is_some_and(Finder::walking)
             || self.status.is_some()
+            || self.dragged.is_some()
     }
 
     /// Catches up with what happened off screen.
     pub(crate) fn tick(&mut self) {
+        if let (Some((moved, copied)), Some(selection)) = (self.dragged, self.selection)
+            && moved.elapsed() > DRAG_PAUSE
+            && copied != Some(selection)
+        {
+            self.copy_selection(selection);
+            self.dragged = Some((moved, Some(selection)));
+        }
         if let Some(finder) = &mut self.finder {
             finder.poll();
         }
@@ -484,6 +513,11 @@ impl App {
     // --- keys ---
 
     fn key(&mut self, event: KeyEvent) {
+        // A drag let go of outside the window never ended here; a key does.
+        if self.dragged.take().is_some() || self.press.is_some() {
+            self.press = None;
+            self.selection = None;
+        }
         let key = Key::of(&event);
         let action = self.keymap.action(key);
         // Ctrl-C leaves from anywhere, even a dialog with a field in it.
@@ -636,12 +670,13 @@ impl App {
         match action {
             Action::Quit => {
                 if self.transfer.is_some() {
-                    self.modal = Some(Modal::Confirm(Confirm::Stop { then_quit: true }));
+                    self.show(Modal::Confirm(Confirm::Stop { then_quit: true }));
                 } else {
                     self.quit = true;
                 }
             }
             Action::Help => self.modal = Some(Modal::Help { scroll: 0 }),
+            Action::Settings => self.modal = Some(Modal::Settings(0)),
             Action::ToggleMouse => {
                 self.mouse = !self.mouse;
                 self.mouse_changed = true;
@@ -823,7 +858,7 @@ impl App {
             Command::CopyText(text) => self.copy(&text),
             Command::CopyShare(code) => self.copy_share(&code),
             Command::DeleteShare { code, name } => {
-                self.modal = Some(Modal::Confirm(Confirm::Delete { code, name }));
+                self.show(Modal::Confirm(Confirm::Delete { code, name }));
             }
             Command::GetLink => self.ask(Ask::Link, ""),
             Command::GoTo => self.act(Action::GoTo),
@@ -983,6 +1018,11 @@ impl App {
     }
 
     fn form_key(form: &mut Form, event: KeyEvent, key: Key, action: Option<Action>) -> FormOutcome {
+        // Sending is the form's point: its key works from any field, a text
+        // field included, where the letter would otherwise be typed.
+        if action == Some(Action::Send) && key.typed().is_none() {
+            return FormOutcome::Submit;
+        }
         match event.code {
             KeyCode::Esc => return FormOutcome::Cancel,
             KeyCode::Tab | KeyCode::Down => form.focus = form.focus.step(1),
@@ -1003,6 +1043,13 @@ impl App {
             }
             KeyCode::Left if form.focus == Field::Expires => form.cycle(-1),
             KeyCode::Right if form.focus == Field::Expires => form.cycle(1),
+            // The two buttons sit side by side, so the arrows go across them.
+            KeyCode::Left | KeyCode::Right if form.focus == Field::Send => {
+                form.focus = Field::Cancel;
+            }
+            KeyCode::Left | KeyCode::Right if form.focus == Field::Cancel => {
+                form.focus = Field::Send;
+            }
             code => match form.focus {
                 Field::Password => {
                     if !form.password.edit(code)
@@ -1018,7 +1065,6 @@ impl App {
                         form.uses.insert(typed);
                     }
                 }
-                _ if action == Some(Action::Send) => return FormOutcome::Submit,
                 _ => {}
             },
         }
@@ -1121,7 +1167,7 @@ impl App {
                     self.browser.clear_marks();
                 }
                 self.shares.stale = true;
-                self.modal = Some(Modal::Sent {
+                self.show(Modal::Sent {
                     link: sent.link,
                     what,
                     skipped: sent.skipped_empty,
@@ -1145,7 +1191,7 @@ impl App {
                 if let Some(first) = fetched.files.first().and_then(|path| path.file_name()) {
                     self.browser.select(&first.to_string_lossy());
                 }
-                self.modal = Some(match fetched.note {
+                self.show(match fetched.note {
                     Some(note) => Modal::Note(String::from_utf8_lossy(&note).into_owned()),
                     None => Modal::Got {
                         dir,
@@ -1210,10 +1256,11 @@ impl App {
                     .ok()
                     .and_then(|capabilities| capabilities.appearance.accent.clone());
                 self.capabilities = capabilities.ok();
+                self.site_accent = chosen
+                    .or(site)
+                    .and_then(|name| super::accent::named(&name, crate::logo::truecolor()));
                 if !self.accent_chosen
-                    && let Some(color) = chosen
-                        .or(site)
-                        .and_then(|name| super::accent::named(&name, crate::logo::truecolor()))
+                    && let Some(color) = self.site_accent
                 {
                     super::draw::set_accent(color);
                 }
@@ -1254,6 +1301,11 @@ impl App {
             return;
         };
         let close = event.code == KeyCode::Esc;
+        // A dialog with buttons along its bottom: the arrows and Tab move
+        // between them, and Enter presses the one they are on.
+        let Some(modal) = self.button_row_key(modal, event.code) else {
+            return;
+        };
         match modal {
             Modal::Send(mut form) => match Self::form_key(&mut form, event, key, action) {
                 FormOutcome::Stay => self.modal = Some(Modal::Send(form)),
@@ -1261,11 +1313,11 @@ impl App {
                 FormOutcome::Submit => self.submit(form),
             },
             Modal::Transfer => {
-                self.modal = Some(if close || action == Some(Action::Quit) {
-                    Modal::Confirm(Confirm::Stop { then_quit: false })
+                if close || action == Some(Action::Quit) {
+                    self.show(Modal::Confirm(Confirm::Stop { then_quit: false }));
                 } else {
-                    Modal::Transfer
-                });
+                    self.modal = Some(Modal::Transfer);
+                }
             }
             Modal::Sent {
                 link,
@@ -1276,11 +1328,7 @@ impl App {
                 if close {
                     return;
                 }
-                // Enter does what the focused button says: copy.
-                if event.code == KeyCode::Enter
-                    || action == Some(Action::Copy)
-                    || key.typed() == Some('c')
-                {
+                if action == Some(Action::Copy) || key.typed() == Some('c') {
                     self.copy(&link);
                 }
                 if key.typed() == Some('q') {
@@ -1295,15 +1343,15 @@ impl App {
             }
             Modal::Got { .. } | Modal::Failed { .. } if close || event.code == KeyCode::Enter => {}
             Modal::Welcome => {}
-            Modal::Note(text) => match event.code {
-                KeyCode::Esc | KeyCode::Enter => {}
-                _ => {
-                    if action == Some(Action::Copy) || key.typed() == Some('c') {
-                        self.copy(&text);
-                    }
-                    self.modal = Some(Modal::Note(text));
+            Modal::Note(text) => {
+                if close {
+                    return;
                 }
-            },
+                if action == Some(Action::Copy) || key.typed() == Some('c') {
+                    self.copy(&text);
+                }
+                self.modal = Some(Modal::Note(text));
+            }
             Modal::Prompt(mut prompt) => match event.code {
                 KeyCode::Esc => {}
                 KeyCode::Enter => self.answer(prompt),
@@ -1317,7 +1365,6 @@ impl App {
                 }
             },
             Modal::Confirm(confirm) => match key.typed().or(match event.code {
-                KeyCode::Enter => Some('y'),
                 KeyCode::Esc => Some('n'),
                 _ => None,
             }) {
@@ -1326,6 +1373,7 @@ impl App {
                 _ => self.modal = Some(Modal::Confirm(confirm)),
             },
             Modal::Menu(menu) => self.menu_key(menu, event.code),
+            Modal::Settings(row) => self.settings_key(row, event.code, action),
             Modal::Help { scroll } => match (event.code, action) {
                 (KeyCode::Esc | KeyCode::Enter, _) | (_, Some(Action::Help)) => {}
                 (_, Some(Action::Up)) => {
@@ -1339,6 +1387,123 @@ impl App {
                 _ => self.modal = Some(Modal::Help { scroll }),
             },
             other => self.modal = Some(other),
+        }
+    }
+
+    /// Steps setting `row` by `by` through its choices, puts it in force, and
+    /// saves it to the config file.
+    fn change_setting(&mut self, row: usize, by: isize) {
+        use crate::config::Preset;
+
+        match row {
+            0 => {
+                self.ui.keys = match self.ui.keys {
+                    Preset::Standard => Preset::Vim,
+                    Preset::Vim => Preset::Standard,
+                };
+                // The bindings read already when the view opened, so a new
+                // preset under them cannot fail.
+                if let Ok(keymap) = Keymap::new(self.ui.keys, &self.ui.bindings) {
+                    self.keymap = keymap;
+                }
+                self.filtering = false;
+            }
+            1 => {
+                self.ui.mouse = !self.ui.mouse;
+                self.mouse = self.ui.mouse;
+                self.mouse_changed = true;
+            }
+            2 => {
+                self.browser.toggle_hidden();
+                self.ui.show_hidden = self.browser.show_hidden();
+            }
+            _ => {
+                // The site's own first, then each accent by name.
+                let names = super::accent::NAMES;
+                let at = self
+                    .ui
+                    .accent
+                    .as_deref()
+                    .and_then(|name| names.iter().position(|known| *known == name))
+                    .map_or(0, |index| index + 1);
+                let count = names.len() + 1;
+                let next = at
+                    .saturating_add(count)
+                    .saturating_add_signed(by)
+                    .checked_rem(count)
+                    .unwrap_or(0);
+                self.ui.accent = next
+                    .checked_sub(1)
+                    .and_then(|index| names.get(index))
+                    .map(|name| (*name).to_owned());
+                self.accent_chosen = self.ui.accent.is_some();
+                let truecolor = crate::logo::truecolor();
+                let color = match &self.ui.accent {
+                    Some(name) => super::accent::named(name, truecolor),
+                    None => self.site_accent,
+                };
+                super::draw::set_accent(color.unwrap_or_else(|| super::accent::brand(truecolor)));
+            }
+        }
+        if let Err(error) = save_ui(&self.ui) {
+            self.say(format!("Not saved: {error}"), Tone::Problem);
+        }
+    }
+
+    /// Opens `modal` with the keys on its default button: the harmless one for
+    /// a question, the first otherwise.
+    pub(crate) fn show(&mut self, modal: Modal) {
+        self.choice = match modal {
+            Modal::Confirm(_) => 1,
+            _ => 0,
+        };
+        self.modal = Some(modal);
+    }
+
+    /// Moves between a dialog's buttons and presses one, for a dialog that
+    /// has a choice of them. Gives the dialog back when the key was for
+    /// something else.
+    fn button_row_key(&mut self, modal: Modal, code: KeyCode) -> Option<Modal> {
+        let row = buttons_of(&modal);
+        if row.is_empty() {
+            return Some(modal);
+        }
+        match code {
+            KeyCode::Left | KeyCode::BackTab => self.choice = self.choice.saturating_sub(1),
+            KeyCode::Right | KeyCode::Tab => self.choice = (self.choice + 1).min(row.len() - 1),
+            KeyCode::Enter => {
+                let pressed = row.get(self.choice).copied();
+                self.modal = Some(modal);
+                if let Some(button) = pressed {
+                    self.button(button);
+                }
+                return None;
+            }
+            _ => return Some(modal),
+        }
+        self.modal = Some(modal);
+        None
+    }
+
+    fn settings_key(&mut self, row: usize, code: KeyCode, action: Option<Action>) {
+        match code {
+            KeyCode::Esc => return,
+            _ if action == Some(Action::Settings) => return,
+            KeyCode::Up | KeyCode::BackTab => {
+                self.modal = Some(Modal::Settings(row.saturating_sub(1)));
+                return;
+            }
+            KeyCode::Down | KeyCode::Tab => {
+                self.modal = Some(Modal::Settings((row + 1).min(SETTINGS - 1)));
+                return;
+            }
+            _ => {}
+        }
+        self.modal = Some(Modal::Settings(row));
+        match code {
+            KeyCode::Left => self.change_setting(row, -1),
+            KeyCode::Right | KeyCode::Enter | KeyCode::Char(' ') => self.change_setting(row, 1),
+            _ => {}
         }
     }
 
@@ -1426,18 +1591,16 @@ impl App {
                     && (anchor != at || self.selection.is_some())
                 {
                     self.selection = Some(Selection { anchor, head: at });
+                    let copied = self.dragged.and_then(|(_, copied)| copied);
+                    self.dragged = Some((Instant::now(), copied));
                 }
             }
             MouseEventKind::Up(MouseButton::Left) => {
                 let pressed = self.press.take();
+                let copied = self.dragged.take().and_then(|(_, copied)| copied);
                 if let Some(selection) = self.selection.take() {
-                    let text = self
-                        .screen
-                        .as_ref()
-                        .map(|screen| selection.text(screen))
-                        .unwrap_or_default();
-                    if !text.is_empty() {
-                        self.copy(&text);
+                    if copied != Some(selection) {
+                        self.copy_selection(selection);
                     }
                 } else if let Some(at) = pressed {
                     self.click(at, event.modifiers);
@@ -1447,6 +1610,17 @@ impl App {
             MouseEventKind::ScrollUp => self.wheel(-WHEEL),
             MouseEventKind::ScrollDown => self.wheel(WHEEL),
             _ => {}
+        }
+    }
+
+    fn copy_selection(&mut self, selection: Selection) {
+        let text = self
+            .screen
+            .as_ref()
+            .map(|screen| selection.text(screen))
+            .unwrap_or_default();
+        if !text.is_empty() {
+            self.copy(&text);
         }
     }
 
@@ -1597,10 +1771,14 @@ impl App {
                 });
             }
             (Button::Stop, Some(Modal::Transfer)) => {
-                self.modal = Some(Modal::Confirm(Confirm::Stop { then_quit: false }));
+                self.show(Modal::Confirm(Confirm::Stop { then_quit: false }));
             }
             (Button::Yes, Some(Modal::Confirm(confirm))) => self.confirmed(confirm),
             (Button::Ok, Some(Modal::Prompt(prompt))) => self.answer(prompt),
+            (Button::Setting(row), Some(Modal::Settings(_))) => {
+                self.modal = Some(Modal::Settings(row));
+                self.change_setting(row, 1);
+            }
             (Button::MenuItem(index), Some(Modal::Menu(menu))) => {
                 if let Some((_, command)) = menu.items.into_iter().nth(index) {
                     self.run(command);
@@ -1737,6 +1915,28 @@ impl Form {
             .saturating_add_signed(by)
             .checked_rem(count)
             .unwrap_or(0);
+    }
+}
+
+/// Rows in the settings.
+pub(crate) const SETTINGS: usize = 4;
+
+/// Writes `ui` over the `[ui]` table of the config file, keeping the rest.
+fn save_ui(ui: &crate::config::Ui) -> Result<()> {
+    let path = crate::config::default_path()?;
+    let mut config = crate::config::load(&path)?;
+    config.ui = ui.clone();
+    crate::config::save(&path, &config)
+}
+
+/// The buttons along the bottom of a dialog that has a choice of them, left
+/// to right as drawn.
+pub(crate) const fn buttons_of(modal: &Modal) -> &'static [Button] {
+    match modal {
+        Modal::Sent { .. } => &[Button::CopyLink, Button::ToggleQr, Button::Close],
+        Modal::Note(_) => &[Button::CopyLink, Button::Close],
+        Modal::Confirm(_) => &[Button::Yes, Button::No],
+        _ => &[],
     }
 }
 
