@@ -124,6 +124,12 @@ async fn capabilities_report_what_this_instance_exposes() {
     assert!(body["default_expiry_hours"].is_u64());
     assert!(body["max_expiry_hours"].is_u64());
 
+    // The site's look, for a client that draws its own screen.
+    assert_eq!(
+        body["appearance"],
+        serde_json::json!({ "mode": "system", "theme": "default", "accent": "orange" })
+    );
+
     // The one field that is not everybody's business.
     assert!(
         body["storage_remaining_bytes"].is_null(),

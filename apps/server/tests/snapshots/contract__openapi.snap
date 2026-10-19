@@ -700,6 +700,10 @@ expression: document
             "description": "Whether a caller without a session may upload.\n\nIndependent of [`accounts`](Self::accounts): an instance can have\naccounts *and* accept anonymous uploads, the default.",
             "type": "boolean"
           },
+          "appearance": {
+            "description": "The look a visitor gets before choosing one: `mode`, `theme` and\n`accent`, named as in `GET /me/preferences`, always all three. For a\nclient that draws its own screen, such as `tess ui`, to match the site.",
+            "type": "object"
+          },
           "code_length": {
             "description": "Number of characters in a retrieval code on this instance\n(`share.code_length`), so the page that collects one can draw the right\nnumber of boxes. Codes already issued keep the length they had, so this\nis what *new* shares get, not a promise about every code in existence.",
             "example": 8,
@@ -793,7 +797,8 @@ expression: document
           "access_log",
           "code_length",
           "max_upload_bytes",
-          "version"
+          "version",
+          "appearance"
         ],
         "type": "object"
       },

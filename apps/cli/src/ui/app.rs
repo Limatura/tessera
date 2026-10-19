@@ -11,6 +11,7 @@ use std::{
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
+use futures_util::stream::FuturesUnordered;
 use ratatui::{
     buffer::Buffer,
     layout::{Position, Rect},
@@ -26,7 +27,7 @@ use super::{
 };
 use crate::{
     Error, Result,
-    client::{Client, OwnShare},
+    client::{Capabilities, Client, OwnShare},
     get::{self, Fetched},
     link, output, resume,
     send::{self, Content, Options, Sent},
@@ -116,8 +117,16 @@ pub(crate) enum Done {
 
 /// How a request about the account's shares ended.
 pub(crate) enum Reply {
+    /// The instance's capabilities, and the accent the account chose.
+    Looks {
+        capabilities: Result<Capabilities>,
+        chosen: Option<String>,
+    },
     Shares(Result<Vec<OwnShare>>),
-    Deleted { code: String, result: Result<()> },
+    Deleted {
+        code: String,
+        result: Result<()>,
+    },
 }
 
 /// The account's shares, as last fetched.
@@ -197,6 +206,8 @@ pub(crate) struct Form {
     pub(crate) summary: String,
     total: u64,
     pub(crate) encrypt: bool,
+    /// The instance offers sealing; when it does not, the switch stays off.
+    pub(crate) encryption: bool,
     pub(crate) password: Input,
     pub(crate) expiries: Vec<(Option<u64>, String)>,
     pub(crate) expiry: usize,
@@ -337,7 +348,12 @@ pub(crate) struct App {
     pub(crate) client: Option<Client>,
     defaults: Defaults,
     pub(crate) transfer: Option<Transfer>,
-    pub(crate) request: Option<Job<Reply>>,
+    /// Requests about the account and the instance, answered in any order.
+    pub(crate) requests: FuturesUnordered<Job<Reply>>,
+    /// What the instance allows, once it has said.
+    pub(crate) capabilities: Option<Capabilities>,
+    /// The config file named an accent, which wins over the site's.
+    accent_chosen: bool,
     pub(crate) status: Option<(String, Tone, Instant)>,
     /// Where things were drawn, last drawn on top.
     pub(crate) hits: Vec<(Rect, Hit)>,
@@ -376,8 +392,9 @@ impl App {
         browser: Browser,
         client: Option<Client>,
         defaults: Defaults,
+        accent: Option<ratatui::style::Color>,
     ) -> Self {
-        Self {
+        let mut app = Self {
             keymap,
             mouse,
             mouse_changed: false,
@@ -393,7 +410,9 @@ impl App {
             client,
             defaults,
             transfer: None,
-            request: None,
+            requests: FuturesUnordered::new(),
+            capabilities: None,
+            accent_chosen: false,
             status: None,
             hits: Vec::new(),
             selection: None,
@@ -403,14 +422,34 @@ impl App {
             page: 10,
             offsets: Offsets::default(),
             quit: false,
+        };
+        if let Some(color) = accent {
+            super::draw::set_accent(color);
+            app.accent_chosen = true;
         }
+        if let Some(client) = app.client.clone() {
+            app.requests.push(Box::pin(async move {
+                let capabilities = client.capabilities().await;
+                // Only an account has a choice; asking without one is a 401.
+                let chosen = if client.signed_in() {
+                    client.chosen_accent().await.ok().flatten()
+                } else {
+                    None
+                };
+                Reply::Looks {
+                    capabilities,
+                    chosen,
+                }
+            }));
+        }
+        app
     }
 
     /// Whether something on screen moves by itself, so the view should redraw
     /// without waiting for a key.
     pub(crate) fn busy(&self) -> bool {
         self.transfer.is_some()
-            || self.request.is_some()
+            || !self.requests.is_empty()
             || self.finder.as_ref().is_some_and(Finder::walking)
             || self.status.is_some()
     }
@@ -841,14 +880,41 @@ impl App {
     // --- the send form ---
 
     fn open_form(&mut self, paths: Vec<PathBuf>, from_marks: bool) {
-        if self.client.is_none() {
+        let Some(client) = &self.client else {
             self.modal = Some(Modal::Failed {
                 title: "No instance to send to".to_owned(),
-                message: "Run `tess login https://your.instance` first, or start with --server."
+                message: "Run `tess login share.example.com` first, or start with --server."
                     .to_owned(),
             });
             return;
+        };
+        let capabilities = self.capabilities.as_ref();
+        if !client.signed_in() && capabilities.is_some_and(|can| !can.anonymous_upload) {
+            let server = client.server();
+            let host = server.host_str().unwrap_or("this instance").to_owned();
+            // A host alone means HTTPS to `tess login`; anything else is spelled out.
+            let named = if server.scheme() == "https" {
+                host.clone()
+            } else {
+                server.as_str().trim_end_matches('/').to_owned()
+            };
+            self.modal = Some(Modal::Failed {
+                title: "Sign in to send".to_owned(),
+                message: format!(
+                    "{host} takes uploads from accounts only. Run `tess login {named}`, then \
+                     open tess ui again."
+                ),
+            });
+            return;
         }
+        // Until the instance has said, everything is offered, and it refuses
+        // what it does not allow when the share is made.
+        let encryption = capabilities.is_none_or(|can| can.encryption);
+        let longest = capabilities.and_then(|can| can.max_expiry_hours);
+        let by_default = capabilities.map(|can| match can.default_expiry_hours {
+            Some(hours) => format!("Instance default ({})", lasting(hours)),
+            None => "Instance default (no limit)".to_owned(),
+        });
         let (summary, total) = match send::expand(&paths, !self.defaults.encrypt) {
             Ok((entries, _)) => {
                 let total = entries
@@ -870,21 +936,23 @@ impl App {
                 return;
             }
         };
-        let mut expiries = vec![
-            (None, "Instance default".to_owned()),
-            (Some(1), "1 hour".to_owned()),
-            (Some(24), "1 day".to_owned()),
-            (Some(72), "3 days".to_owned()),
-            (Some(168), "7 days".to_owned()),
-            (Some(720), "30 days".to_owned()),
-        ];
+        let mut expiries: Vec<(Option<u64>, String)> = vec![(
+            None,
+            by_default.unwrap_or_else(|| "Instance default".to_owned()),
+        )];
+        expiries.extend(
+            [1, 24, 72, 168, 720]
+                .into_iter()
+                .filter(|hours| longest.is_none_or(|longest| *hours <= longest))
+                .map(|hours| (Some(hours), lasting(hours))),
+        );
         let expiry = match self.defaults.expires_in_hours {
             None => 0,
             Some(hours) => expiries
                 .iter()
                 .position(|(choice, _)| *choice == Some(hours))
                 .unwrap_or_else(|| {
-                    expiries.push((Some(hours), format!("{hours} hours")));
+                    expiries.push((Some(hours), lasting(hours)));
                     expiries.len() - 1
                 }),
         };
@@ -897,7 +965,8 @@ impl App {
             from_marks,
             summary,
             total,
-            encrypt: self.defaults.encrypt,
+            encrypt: self.defaults.encrypt && encryption,
+            encryption,
             password,
             expiries,
             expiry,
@@ -923,7 +992,7 @@ impl App {
             KeyCode::Enter | KeyCode::Char(' ') | KeyCode::Left | KeyCode::Right
                 if form.focus == Field::Encrypt =>
             {
-                form.encrypt = !form.encrypt;
+                form.encrypt = !form.encrypt && form.encryption;
             }
             KeyCode::Enter => {
                 return if form.focus == Field::Cancel {
@@ -1123,14 +1192,32 @@ impl App {
             return;
         };
         self.shares.loading = true;
-        self.request = Some(Box::pin(async move {
+        self.requests.push(Box::pin(async move {
             Reply::Shares(crate::shares::all_mine(&client).await)
         }));
     }
 
     pub(crate) fn reply(&mut self, reply: Reply) {
-        self.request = None;
         match reply {
+            Reply::Looks {
+                capabilities,
+                chosen,
+            } => {
+                // Without an answer the form offers everything, and the
+                // instance refuses what it does not allow when asked.
+                let site = capabilities
+                    .as_ref()
+                    .ok()
+                    .and_then(|capabilities| capabilities.appearance.accent.clone());
+                self.capabilities = capabilities.ok();
+                if !self.accent_chosen
+                    && let Some(color) = chosen
+                        .or(site)
+                        .and_then(|name| super::accent::named(&name, crate::logo::truecolor()))
+                {
+                    super::draw::set_accent(color);
+                }
+            }
             Reply::Shares(result) => {
                 self.shares.loading = false;
                 self.shares.stale = false;
@@ -1150,18 +1237,11 @@ impl App {
         }
     }
 
-    fn delete_share(&mut self, code: String) {
+    fn delete_share(&self, code: String) {
         let Some(client) = self.client.clone() else {
             return;
         };
-        if self.request.is_some() {
-            self.say(
-                "Still busy with the list; try again in a moment",
-                Tone::Info,
-            );
-            return;
-        }
-        self.request = Some(Box::pin(async move {
+        self.requests.push(Box::pin(async move {
             let result = client.delete_share(&code).await;
             Reply::Deleted { code, result }
         }));
@@ -1468,7 +1548,7 @@ impl App {
                 match field {
                     Field::Send => return self.submit(form),
                     Field::Cancel => return,
-                    Field::Encrypt => form.encrypt = !form.encrypt,
+                    Field::Encrypt => form.encrypt = !form.encrypt && form.encryption,
                     _ => {}
                 }
                 form.focus = field;
@@ -1660,6 +1740,16 @@ impl Form {
     }
 }
 
+/// Hours as people say them: `1 hour`, `3 days`, `36 hours`.
+fn lasting(hours: u64) -> String {
+    match hours {
+        1 => "1 hour".to_owned(),
+        24 => "1 day".to_owned(),
+        _ if hours.is_multiple_of(24) => format!("{} days", hours / 24),
+        _ => format!("{hours} hours"),
+    }
+}
+
 /// Whether pasted text is a share link, to offer to download it.
 fn looks_like_a_link(text: &str) -> bool {
     url::Url::parse(text).is_ok_and(|url| {
@@ -1706,6 +1796,14 @@ mod tests {
         assert!(looks_like_a_link("https://share.example/s/AB12#key"));
         assert!(!looks_like_a_link("https://share.example/admin"));
         assert!(!looks_like_a_link("notes.txt"));
+    }
+
+    #[test]
+    fn durations_read_as_people_say_them() {
+        assert_eq!(lasting(1), "1 hour");
+        assert_eq!(lasting(24), "1 day");
+        assert_eq!(lasting(168), "7 days");
+        assert_eq!(lasting(36), "36 hours");
     }
 
     #[test]

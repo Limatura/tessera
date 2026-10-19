@@ -41,6 +41,10 @@ pub struct Ui {
     pub mouse: bool,
     /// Whether files whose names start with a dot are listed.
     pub show_hidden: bool,
+    /// The colour that marks what matters, as named on the site: `violet`,
+    /// `rose`, `orange`, `amber`, `green`, `teal` or `blue`. Left out, the
+    /// account's choice on the site, then the site's own.
+    pub accent: Option<String>,
     /// Keys for actions, by action name, replacing the preset's keys for that
     /// action: `send = "ctrl-s"`, or several, `up = ["k", "up"]`.
     pub bindings: BTreeMap<String, Keys>,
@@ -52,6 +56,7 @@ impl Default for Ui {
             keys: Preset::default(),
             mouse: true,
             show_hidden: false,
+            accent: None,
             bindings: BTreeMap::new(),
         }
     }

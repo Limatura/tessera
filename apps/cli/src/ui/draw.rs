@@ -21,11 +21,21 @@ use crate::{
     style::{SPINNER, bytes},
 };
 
-/// The site's orange: exact where the terminal takes 24-bit colour, the
-/// nearest of the 256 otherwise.
+thread_local! {
+    /// The colour that marks what matters: the ticket's orange until the
+    /// site's accent is known. Kept here, not passed down, since nearly every
+    /// drawing function wants it and the view draws on one thread.
+    static ACCENT: std::cell::Cell<Color> =
+        std::cell::Cell::new(super::accent::brand(logo::truecolor()));
+}
+
 fn accent() -> Color {
-    static TRUECOLOR: std::sync::LazyLock<bool> = std::sync::LazyLock::new(logo::truecolor);
-    ink(logo::Ink::Stub, *TRUECOLOR)
+    ACCENT.with(std::cell::Cell::get)
+}
+
+/// Switches the accent, from the next frame on.
+pub(crate) fn set_accent(color: Color) {
+    ACCENT.with(|cell| cell.set(color));
 }
 
 const fn ink(ink: logo::Ink, truecolor: bool) -> Color {
@@ -1151,7 +1161,14 @@ fn draw_form(form: &Form, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
                     Style::new()
                 },
             ),
-            Span::styled("  sealed here; the instance never sees it", dim()),
+            Span::styled(
+                if form.encryption {
+                    "  sealed here; the instance never sees it"
+                } else {
+                    "  this instance does not offer it"
+                },
+                dim(),
+            ),
         ]),
         encrypt,
     );
