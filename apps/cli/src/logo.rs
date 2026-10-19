@@ -105,47 +105,6 @@ impl Picture {
                 .collect()
         })
     }
-
-    /// Lines of text with colour escapes, each set in by `indent` spaces and
-    /// ending with the colours reset.
-    #[must_use]
-    pub fn ansi(self, indent: usize, truecolor: bool) -> Vec<String> {
-        let colour = |layer: u8, ink: Ink| {
-            if truecolor {
-                let (red, green, blue) = ink.rgb();
-                format!("\x1b[{layer};2;{red};{green};{blue}m")
-            } else {
-                format!("\x1b[{layer};5;{}m", ink.indexed())
-            }
-        };
-        self.cells()
-            .map(|row| {
-                let mut line = " ".repeat(indent);
-                for cell in row {
-                    match cell {
-                        (None, None) => line.push_str("\x1b[0m "),
-                        (Some(top), None) => {
-                            line.push_str("\x1b[0m");
-                            line.push_str(&colour(38, top));
-                            line.push('▀');
-                        }
-                        (None, Some(bottom)) => {
-                            line.push_str("\x1b[0m");
-                            line.push_str(&colour(38, bottom));
-                            line.push('▄');
-                        }
-                        (Some(top), Some(bottom)) => {
-                            line.push_str(&colour(38, top));
-                            line.push_str(&colour(48, bottom));
-                            line.push('▀');
-                        }
-                    }
-                }
-                line.push_str("\x1b[0m");
-                line
-            })
-            .collect()
-    }
 }
 
 /// The colours the ticket is printed in.
@@ -218,20 +177,5 @@ mod tests {
             assert_eq!(picture.height(), height);
             assert_eq!(picture.cells().count(), height);
         }
-    }
-
-    #[test]
-    fn each_line_draws_a_cell_per_column_and_resets() {
-        for line in FLAT.ansi(2, false) {
-            let drawn = anstream::adapter::strip_str(&line).to_string();
-            assert_eq!(drawn.chars().count(), 2 + 40, "{drawn}");
-            assert!(line.ends_with("\x1b[0m"));
-        }
-        assert!(
-            TILTED
-                .ansi(0, true)
-                .iter()
-                .any(|line| line.contains("38;2;217;79;43"))
-        );
     }
 }

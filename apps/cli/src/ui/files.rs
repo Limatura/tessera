@@ -53,6 +53,10 @@ pub(crate) struct Browser {
     filter: String,
     show_hidden: bool,
     marked: BTreeMap<PathBuf, Marked>,
+    /// Folders gone back from and forward to, as a browser keeps them: each
+    /// with the name the cursor was on, to put it there again.
+    back: Vec<(PathBuf, Option<String>)>,
+    forward: Vec<(PathBuf, Option<String>)>,
     /// Why the folder could not be read, when it could not.
     pub(crate) error: Option<String>,
 }
@@ -68,6 +72,8 @@ impl Browser {
             filter: String::new(),
             show_hidden,
             marked: BTreeMap::new(),
+            back: Vec::new(),
+            forward: Vec::new(),
             error: None,
         };
         browser.reload();
@@ -127,12 +133,54 @@ impl Browser {
         }
     }
 
-    /// Goes into `dir`.
+    /// Goes into `dir`, remembering where it came from for going back.
     pub(crate) fn enter(&mut self, dir: PathBuf) {
+        if dir != self.dir {
+            let here = self.here();
+            self.back.push(here);
+            self.forward.clear();
+        }
+        self.show(dir, None);
+    }
+
+    /// Goes to the folder before, as a browser's back button does.
+    pub(crate) fn back(&mut self) -> bool {
+        let Some((dir, name)) = self.back.pop() else {
+            return false;
+        };
+        let here = self.here();
+        self.forward.push(here);
+        self.show(dir, name.as_deref());
+        true
+    }
+
+    /// Undoes going back.
+    pub(crate) fn forward(&mut self) -> bool {
+        let Some((dir, name)) = self.forward.pop() else {
+            return false;
+        };
+        let here = self.here();
+        self.back.push(here);
+        self.show(dir, name.as_deref());
+        true
+    }
+
+    fn here(&self) -> (PathBuf, Option<String>) {
+        let name = self
+            .current()
+            .and_then(|row| self.entry(row))
+            .map(|entry| entry.name.clone());
+        (self.dir.clone(), name)
+    }
+
+    fn show(&mut self, dir: PathBuf, name: Option<&str>) {
         self.dir = dir;
         self.filter.clear();
         self.cursor = 0;
         self.reload();
+        if let Some(name) = name {
+            self.select(name);
+        }
     }
 
     /// Goes up one folder, with the cursor on the one just left.
@@ -365,6 +413,29 @@ mod tests {
         assert_eq!(browser.dir(), dir.path());
         let current = browser.current().and_then(|row| browser.entry(row));
         assert_eq!(current.map(|entry| entry.name.as_str()), Some("src"));
+    }
+
+    #[test]
+    fn back_and_forward_retrace_the_folders_visited() {
+        let dir = tree();
+        let root = dir.path().to_path_buf();
+        let mut browser = Browser::new(root.clone(), false);
+        browser.select("README.md");
+        browser.enter(root.join("src"));
+        browser.up();
+        assert_eq!(browser.dir(), root);
+        assert!(browser.back());
+        assert_eq!(browser.dir(), root.join("src"));
+        assert!(browser.back());
+        assert_eq!(browser.dir(), root);
+        let current = browser.current().and_then(|row| browser.entry(row));
+        assert_eq!(current.map(|entry| entry.name.as_str()), Some("README.md"));
+        assert!(!browser.back());
+        assert!(browser.forward());
+        assert_eq!(browser.dir(), root.join("src"));
+        // Going somewhere new forgets the way forward.
+        browser.enter(root);
+        assert!(!browser.forward());
     }
 
     #[test]

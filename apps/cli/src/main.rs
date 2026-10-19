@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 use tessera_cli::{
     Error, Result,
     client::Client,
-    config, get, link, login, logo, output,
+    config, get, link, login, output,
     send::{self, Content, Options},
     shares,
     style::{self, DIM, ERROR, LINK, OK, SPINNER, STRONG},
@@ -137,7 +137,7 @@ enum Command {
 async fn main() -> ExitCode {
     let done = match Cli::parse().command {
         Some(command) => run(command).await,
-        None => welcome(),
+        None => by_itself().await,
     };
     match done {
         Ok(()) => ExitCode::SUCCESS,
@@ -248,45 +248,14 @@ async fn run(command: Command) -> Result<()> {
     }
 }
 
-/// `tess` alone: on a terminal, the ticket and the commands to start with;
-/// anywhere else, the help.
-fn welcome() -> Result<()> {
-    let mut stdout = std::io::stdout();
-    if !stdout.is_terminal() {
-        let help = <Cli as clap::CommandFactory>::command().render_help();
-        write!(stdout, "{help}")?;
-        return Ok(());
+/// `tess` alone: on a terminal, `tess ui`, as a full-screen tool opens on its
+/// name; anywhere else, the help.
+async fn by_itself() -> Result<()> {
+    if std::io::stdin().is_terminal() && std::io::stdout().is_terminal() {
+        return browse(PathBuf::from("."), None, None, ui::Defaults::default()).await;
     }
-    // The ticket is nothing but colour; without colour it is left out. Tilted
-    // when the screen holds it and the ten lines under it, flat when only that
-    // fits, and not at all on a smaller screen.
-    let (columns, rows) = crossterm::terminal::size().unwrap_or((80, 24));
-    let picture = [logo::TILTED, logo::FLAT].into_iter().find(|picture| {
-        usize::from(columns) >= picture.width() + 2 && usize::from(rows) >= picture.height() + 12
-    });
-    if let Some(picture) = picture.filter(|_| std::env::var_os("NO_COLOR").is_none()) {
-        writeln!(stdout)?;
-        for line in picture.ansi(2, logo::truecolor()) {
-            writeln!(stdout, "{line}")?;
-        }
-    }
-    // The site's orange, from the 256 colours every terminal has.
-    let brand = anstyle::Style::new().bold().fg_color(Some(
-        anstyle::Ansi256Color(logo::Ink::Stub.indexed()).into(),
-    ));
-    anstream::println!(
-        "\n  {brand}tessera{brand:#} {DIM}· send files from a terminal; the other side gets a \
-         link{DIM:#}\n"
-    );
-    for (command, does) in [
-        ("tess login share.example.com", "Sign in, once"),
-        ("tess send report.pdf", "Send, and print the link"),
-        ("tess get <link>", "Download a share"),
-        ("tess ui", "Pick files in a full-screen view"),
-    ] {
-        anstream::println!("  {STRONG}{command:<30}{STRONG:#} {does}");
-    }
-    anstream::println!("\n  {DIM}tess --help lists the rest.{DIM:#}\n");
+    let help = <Cli as clap::CommandFactory>::command().render_help();
+    write!(std::io::stdout(), "{help}")?;
     Ok(())
 }
 

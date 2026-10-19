@@ -124,9 +124,4 @@ case ":$PATH:" in
 *":$dir:"*) ;;
 *) say "$dir is not on your PATH. Add it with: export PATH=\"$dir:\$PATH\"" ;;
 esac
-
-# On a terminal, tess alone shows the ticket and the commands to start with.
-# A release from before it had that prints nothing here.
-if [ -t 1 ]; then
-	"$dir/tess" 2>/dev/null || true
-fi
+say "Run tess to start, or tess --help for its commands."

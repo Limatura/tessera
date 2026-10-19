@@ -51,9 +51,9 @@ const fn ink(ink: logo::Ink, truecolor: bool) -> Color {
 }
 
 /// The ticket, a line to a row of cells.
-fn ticket() -> Vec<Line<'static>> {
+fn ticket(picture: logo::Picture) -> Vec<Line<'static>> {
     let truecolor = logo::truecolor();
-    logo::FLAT
+    picture
         .cells()
         .map(|row| {
             Line::from(
@@ -90,7 +90,7 @@ fn draw_ticket_with(frame: &mut Frame<'_>, area: Rect, note: &str) {
     let top = area.y + (area.height - tall) / 2;
     let left = area.x + (area.width - cells(logo::FLAT.width())) / 2;
     frame.render_widget(
-        Paragraph::new(ticket()),
+        Paragraph::new(ticket(logo::FLAT)),
         Rect::new(
             left,
             top,
@@ -1166,28 +1166,39 @@ fn draw_welcome(frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         ])
         .centered(),
         Line::styled("Until then, browsing and finding files still work.", dim()).centered(),
+        Line::default(),
+        Line::from(vec![
+            Span::styled("From scripts: ", dim()),
+            Span::styled("tess send", bold()),
+            Span::styled(", ", dim()),
+            Span::styled("tess get", bold()),
+            Span::styled(", ", dim()),
+            Span::styled("tess --help", bold()),
+        ])
+        .centered(),
     ];
-    let room = area.height >= cells(logo::FLAT.height() + text.len() + 6);
-    let height = cells(text.len() + 4)
-        + if room {
-            cells(logo::FLAT.height() + 1)
-        } else {
-            0
-        };
-    let inner = dialog(frame, area, 64, height, "Welcome", hits);
+    // The tilted ticket, as on the site, when the screen holds it; flat when
+    // only that fits; none on a small screen.
+    let picture = [logo::TILTED, logo::FLAT].into_iter().find(|picture| {
+        area.height >= cells(picture.height() + text.len() + 7)
+            && area.width >= cells(picture.width() + 8)
+    });
+    let width = cells(picture.map_or(0, logo::Picture::width) + 6).max(64);
+    let height = cells(text.len() + 4) + picture.map_or(0, |picture| cells(picture.height() + 1));
+    let inner = dialog(frame, area, width, height, "Welcome", hits);
     let mut y = inner.y;
-    if room {
-        let left = inner.x + inner.width.saturating_sub(cells(logo::FLAT.width())) / 2;
+    if let Some(picture) = picture {
+        let left = inner.x + inner.width.saturating_sub(cells(picture.width())) / 2;
         frame.render_widget(
-            Paragraph::new(ticket()),
+            Paragraph::new(ticket(picture)),
             Rect::new(
                 left,
                 y,
-                cells(logo::FLAT.width()).min(inner.width),
-                cells(logo::FLAT.height()),
+                cells(picture.width()).min(inner.width),
+                cells(picture.height()),
             ),
         );
-        y += cells(logo::FLAT.height() + 1);
+        y += cells(picture.height() + 1);
     }
     frame.render_widget(
         Paragraph::new(text),
@@ -1440,7 +1451,7 @@ fn draw_transfer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) 
 }
 
 fn draw_help(app: &App, scroll: usize, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
-    let mut lines: Vec<Line<'_>> = ticket().into_iter().map(Line::centered).collect();
+    let mut lines: Vec<Line<'_>> = ticket(logo::FLAT).into_iter().map(Line::centered).collect();
     lines.push(Line::default());
     lines.push(
         Line::from(vec![
