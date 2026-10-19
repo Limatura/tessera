@@ -12,9 +12,14 @@ mod files;
 mod find;
 mod input;
 mod keys;
+mod qr;
 mod select;
 
-use std::{io::stdout, path::PathBuf, time::Duration};
+use std::{
+    io::{Write as _, stdout},
+    path::PathBuf,
+    time::Duration,
+};
 
 use crossterm::{
     event::{
@@ -24,6 +29,7 @@ use crossterm::{
     execute,
 };
 use futures_util::StreamExt as _;
+use ratatui_image::picker::{Picker, cap_parser::QueryStdioOptions};
 
 use crate::{Result, client::Client, config};
 
@@ -38,6 +44,34 @@ pub struct Launch {
     pub settings: config::Ui,
     /// This machine's offset from UTC, read before any thread started.
     pub local_offset: time::UtcOffset,
+}
+
+/// How the terminal draws pictures, if it says it can.
+///
+/// Not asked inside tmux or screen: they pass the question on only when told
+/// to, so it would go unanswered.
+fn pictures() -> Option<Picker> {
+    let term = std::env::var("TERM").unwrap_or_default();
+    if std::env::var_os("TMUX").is_some() || term.starts_with("screen") || term.starts_with("tmux")
+    {
+        return None;
+    }
+    let options = QueryStdioOptions {
+        timeout: Duration::from_secs(1),
+        // A QR code is flat colour, and over SSH every byte counts.
+        kitty_compression: true,
+        ..QueryStdioOptions::default()
+    };
+    Picker::from_query_stdio_with_options(options)
+        .ok()
+        .or_else(|| {
+            // Its reader still waits on the keys for an answer that ends with
+            // the reply to a status request. Asking for one again, plainly,
+            // lets it finish instead of keeping the keys pressed meanwhile.
+            let mut out = stdout();
+            out.write_all(b"\x1b[5n").and_then(|()| out.flush()).ok();
+            None
+        })
 }
 
 /// Runs the view until it is quit.
@@ -70,6 +104,8 @@ pub async fn run(launch: Launch) -> Result<()> {
     app.local_offset = launch.local_offset;
 
     let (mut terminal, _screen) = Screen::enter(app.mouse)?;
+    // Asked before anything else reads the terminal's answers.
+    app.picker = pictures();
     let mut events = EventStream::new();
     let mut ticks = tokio::time::interval(Duration::from_millis(100));
     ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);

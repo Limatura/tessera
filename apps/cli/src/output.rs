@@ -42,6 +42,66 @@ pub fn qr(text: &str) -> Result<String> {
 /// phones read two, and four make a white slab larger than the code itself.
 const MARGIN: usize = 2;
 
+/// A QR code as a square of modules, its margin included.
+#[derive(Debug, Clone)]
+pub struct Matrix {
+    side: usize,
+    dark: Vec<bool>,
+    finder: Vec<bool>,
+}
+
+impl Matrix {
+    /// `text` as a QR code.
+    ///
+    /// # Errors
+    ///
+    /// When `text` is too long for any QR code, which no link is.
+    pub fn new(text: &str) -> Result<Self> {
+        // The lowest error correction: a screen is not scuffed or folded, and
+        // the code comes out a size or two smaller.
+        let code = QrCode::with_error_correction_level(text.as_bytes(), EcLevel::L)
+            .map_err(|error| Error::Usage(format!("cannot draw that as a QR code: {error}")))?;
+        let width = code.width();
+        let colors = code.to_colors();
+        let side = width + 2 * MARGIN;
+        let mut dark = vec![false; side * side];
+        let mut finder = vec![false; side * side];
+        for (at, color) in colors.iter().enumerate() {
+            let (x, y) = (at % width, at / width);
+            let index = (y + MARGIN) * side + x + MARGIN;
+            if let Some(cell) = dark.get_mut(index) {
+                *cell = *color == qrcode::Color::Dark;
+            }
+            // The three squares in the corners that a reader finds it by.
+            let near = |at: usize| at < 7 || at >= width - 7;
+            if (y < 7 && (x < 7 || near(x)) || x < 7 && near(y))
+                && let Some(cell) = finder.get_mut(index)
+            {
+                *cell = true;
+            }
+        }
+        Ok(Self { side, dark, finder })
+    }
+
+    /// Modules across, and down.
+    #[must_use]
+    pub const fn side(&self) -> usize {
+        self.side
+    }
+
+    /// Whether the module at `x`, `y` is dark; outside the square, it is not.
+    #[must_use]
+    pub fn is_dark(&self, x: usize, y: usize) -> bool {
+        x < self.side && self.dark.get(y * self.side + x).copied().unwrap_or(false)
+    }
+
+    /// Whether the module at `x`, `y` is part of a finder square.
+    #[must_use]
+    pub fn is_finder(&self, x: usize, y: usize) -> bool {
+        x < self.side && self.finder.get(y * self.side + x).copied().unwrap_or(false)
+    }
+}
+
 /// `text` as a QR code in block characters, two rows of modules to a line,
 /// with a margin and no colour: blocks are the dark modules, so it scans only
 /// when drawn dark on light.
@@ -50,33 +110,26 @@ const MARGIN: usize = 2;
 ///
 /// When `text` is too long for any QR code, which no link is.
 pub fn qr_blocks(text: &str) -> Result<String> {
-    // The lowest error correction: a screen is not scuffed or folded, and
-    // the code comes out a size or two smaller.
-    let code = QrCode::with_error_correction_level(text.as_bytes(), EcLevel::L)
-        .map_err(|error| Error::Usage(format!("cannot draw that as a QR code: {error}")))?;
-    let width = code.width();
-    let colors = code.to_colors();
-    let side = width + 2 * MARGIN;
-    let dark = |x: usize, y: usize| {
-        x.checked_sub(MARGIN)
-            .zip(y.checked_sub(MARGIN))
-            .filter(|(x, _)| *x < width)
-            .and_then(|(x, y)| colors.get(y * width + x))
-            .is_some_and(|color| *color == qrcode::Color::Dark)
-    };
+    let matrix = Matrix::new(text)?;
     let mut out = String::new();
-    for y in (0..side).step_by(2) {
-        for x in 0..side {
-            out.push(match (dark(x, y), dark(x, y + 1)) {
-                (true, true) => '\u{2588}',
-                (true, false) => '\u{2580}',
-                (false, true) => '\u{2584}',
-                (false, false) => ' ',
-            });
+    for y in (0..matrix.side()).step_by(2) {
+        for x in 0..matrix.side() {
+            out.push(block(matrix.is_dark(x, y), matrix.is_dark(x, y + 1)));
         }
         out.push('\n');
     }
     Ok(out)
+}
+
+/// The block that draws an upper and a lower module, dark ones in ink.
+#[must_use]
+pub const fn block(upper: bool, lower: bool) -> char {
+    match (upper, lower) {
+        (true, true) => '\u{2588}',
+        (true, false) => '\u{2580}',
+        (false, true) => '\u{2584}',
+        (false, false) => ' ',
+    }
 }
 
 /// How [`copy`] got the text onto a clipboard.
