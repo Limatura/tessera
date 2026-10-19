@@ -291,6 +291,11 @@ impl Browser {
         }
     }
 
+    /// Unmarks `path`, if it is marked.
+    pub(crate) fn unmark(&mut self, path: &Path) {
+        self.marked.remove(path);
+    }
+
     pub(crate) fn clear_marks(&mut self) {
         self.marked.clear();
     }

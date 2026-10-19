@@ -83,21 +83,35 @@ impl Progress {
     }
 }
 
-/// A send or a download under way.
+/// A send or a download under way, in the background.
 pub(crate) struct Transfer {
-    /// What it is doing, for the dialog's title.
+    id: u64,
+    /// What it is doing: `Sending report.pdf · 2.1 MB`, `Downloading AB12`.
     pub(crate) title: String,
     pub(crate) progress: Rc<RefCell<Progress>>,
     pub(crate) started: Instant,
-    /// For a send, what it sends, and whether that is what was marked.
-    sending: Option<(String, bool)>,
+    /// For a send, what it sends, and the paths to unmark once it has.
+    sending: Option<(String, Vec<PathBuf>)>,
     job: Job<Done>,
 }
 
-impl Transfer {
-    pub(crate) const fn job(&mut self) -> &mut Job<Done> {
-        &mut self.job
+/// Waits for whichever transfer ends first: its id and how it ended. Never,
+/// with none under way.
+pub(crate) async fn any_done(transfers: &mut [Transfer]) -> (u64, Done) {
+    use std::task::Poll;
+
+    if transfers.is_empty() {
+        return std::future::pending().await;
     }
+    std::future::poll_fn(|context| {
+        for transfer in transfers.iter_mut() {
+            if let Poll::Ready(done) = transfer.job.as_mut().poll(context) {
+                return Poll::Ready((transfer.id, done));
+            }
+        }
+        Poll::Pending
+    })
+    .await
 }
 
 impl std::fmt::Debug for Transfer {
@@ -250,8 +264,15 @@ pub(crate) enum Ask {
 
 #[derive(Debug)]
 pub(crate) enum Confirm {
-    Delete { code: String, name: String },
-    Stop { then_quit: bool },
+    Delete {
+        code: String,
+        name: String,
+    },
+    /// Stop one transfer, or with `None`, all of them.
+    Stop {
+        which: Option<u64>,
+        then_quit: bool,
+    },
 }
 
 /// What a menu item does.
@@ -280,7 +301,8 @@ pub(crate) struct Menu {
 #[derive(Debug)]
 pub(crate) enum Modal {
     Send(Form),
-    Transfer,
+    /// The transfers under way; the one the keys are on.
+    Transfers(usize),
     Sent {
         link: String,
         what: String,
@@ -389,7 +411,11 @@ pub(crate) struct App {
     pub(crate) shares: SharesView,
     pub(crate) client: Option<Client>,
     defaults: Defaults,
-    pub(crate) transfer: Option<Transfer>,
+    /// Sends and downloads under way, oldest first.
+    pub(crate) transfers: Vec<Transfer>,
+    next_transfer: u64,
+    /// Results waiting for the dialog in front of them to close.
+    waiting: std::collections::VecDeque<Modal>,
     /// Requests about the account and the instance, answered in any order.
     pub(crate) requests: FuturesUnordered<Job<Reply>>,
     /// A sign-in under way, apart from the other requests so that closing its
@@ -464,7 +490,9 @@ impl App {
             },
             client,
             defaults,
-            transfer: None,
+            transfers: Vec::new(),
+            next_transfer: 0,
+            waiting: std::collections::VecDeque::new(),
             requests: FuturesUnordered::new(),
             signing: None,
             capabilities: None,
@@ -508,7 +536,7 @@ impl App {
     /// Whether something on screen moves by itself, so the view should redraw
     /// without waiting for a key.
     pub(crate) fn busy(&self) -> bool {
-        self.transfer.is_some()
+        !self.transfers.is_empty()
             || !self.requests.is_empty()
             || self.signing.is_some()
             || self.finder.as_ref().is_some_and(Finder::walking)
@@ -518,6 +546,19 @@ impl App {
 
     /// Catches up with what happened off screen.
     pub(crate) fn tick(&mut self) {
+        if self.modal.is_none()
+            && let Some(next) = self.waiting.pop_front()
+        {
+            self.show(next);
+        }
+        // A list of transfers with none left has nothing to show.
+        if let Some(Modal::Transfers(row)) = &mut self.modal {
+            if self.transfers.is_empty() {
+                self.modal = None;
+            } else {
+                *row = (*row).min(self.transfers.len() - 1);
+            }
+        }
         if let (Some((moved, copied)), Some(selection)) = (self.dragged, self.selection)
             && moved.elapsed() > DRAG_PAUSE
             && copied != Some(selection)
@@ -709,14 +750,24 @@ impl App {
         }
         match action {
             Action::Quit => {
-                if self.transfer.is_some() {
-                    self.show(Modal::Confirm(Confirm::Stop { then_quit: true }));
-                } else {
+                if self.transfers.is_empty() {
                     self.quit = true;
+                } else {
+                    self.show(Modal::Confirm(Confirm::Stop {
+                        which: None,
+                        then_quit: true,
+                    }));
                 }
             }
             Action::Help => self.modal = Some(Modal::Help { scroll: 0 }),
             Action::Settings => self.modal = Some(Modal::Settings(0)),
+            Action::Transfers => {
+                if self.transfers.is_empty() {
+                    self.say("Nothing is being sent or downloaded", Tone::Info);
+                } else {
+                    self.modal = Some(Modal::Transfers(0));
+                }
+            }
             Action::ToggleMouse => {
                 self.mouse = !self.mouse;
                 self.mouse_changed = true;
@@ -1150,19 +1201,56 @@ impl App {
         }));
         let report = Rc::clone(&progress);
         let paths = form.paths;
+        let sent = if form.from_marks {
+            paths.clone()
+        } else {
+            Vec::new()
+        };
         let job: Job<Done> = Box::pin(async move {
             let mut update =
                 |name: &str, done: u64, total: u64| report.borrow_mut().update(name, done, total);
             Done::Sent(send::send(&client, Content::Files(paths), options, &mut update).await)
         });
-        self.transfer = Some(Transfer {
-            title: "Sending".to_owned(),
+        self.begin(
+            format!("Sending {}", form.summary),
+            progress,
+            Some((form.summary, sent)),
+            job,
+        );
+    }
+
+    /// Starts `job` in the background and says how to watch it.
+    fn begin(
+        &mut self,
+        title: String,
+        progress: Rc<RefCell<Progress>>,
+        sending: Option<(String, Vec<PathBuf>)>,
+        job: Job<Done>,
+    ) {
+        self.next_transfer += 1;
+        self.transfers.push(Transfer {
+            id: self.next_transfer,
+            title,
             progress,
             started: Instant::now(),
-            sending: Some((form.summary, form.from_marks)),
+            sending,
             job,
         });
-        self.modal = Some(Modal::Transfer);
+        let watch = self.keymap.hint(Action::Transfers).unwrap_or_default();
+        self.say(
+            format!("Working in the background; {watch} shows how far it has got"),
+            Tone::Info,
+        );
+    }
+
+    /// Shows `modal` now, or once the dialog in front is closed: a transfer
+    /// ending must not snatch the keys from a form being filled in.
+    fn present(&mut self, modal: Modal) {
+        if self.modal.is_none() {
+            self.show(modal);
+        } else {
+            self.waiting.push_back(modal);
+        }
     }
 
     // --- downloads ---
@@ -1191,31 +1279,27 @@ impl App {
             .await;
             Done::Got { result, link, dir }
         });
-        self.transfer = Some(Transfer {
-            title: format!("Downloading {code}"),
-            progress,
-            started: Instant::now(),
-            sending: None,
-            job,
-        });
-        self.modal = Some(Modal::Transfer);
+        self.begin(format!("Downloading {code}"), progress, None, job);
         Ok(())
     }
 
     /// Takes the end of a transfer.
-    pub(crate) fn finish(&mut self, done: Done) {
-        let (what, from_marks) = self
-            .transfer
-            .take()
+    pub(crate) fn finish(&mut self, id: u64, done: Done) {
+        let ended = self
+            .transfers
+            .iter()
+            .position(|transfer| transfer.id == id)
+            .map(|at| self.transfers.remove(at));
+        let (what, sent_paths) = ended
             .and_then(|transfer| transfer.sending)
             .unwrap_or_default();
         match done {
             Done::Sent(Ok(sent)) => {
-                if from_marks {
-                    self.browser.clear_marks();
+                for path in &sent_paths {
+                    self.browser.unmark(path);
                 }
                 self.shares.stale = true;
-                self.show(Modal::Sent {
+                self.present(Modal::Sent {
                     link: sent.link,
                     what,
                     skipped: sent.skipped_empty,
@@ -1223,7 +1307,7 @@ impl App {
                 });
             }
             Done::Sent(Err(error)) => {
-                self.modal = Some(Modal::Failed {
+                self.present(Modal::Failed {
                     title: "Not sent".to_owned(),
                     message: format!(
                         "{error}\n\nSending the same files again picks up where this stopped."
@@ -1239,7 +1323,7 @@ impl App {
                 if let Some(first) = fetched.files.first().and_then(|path| path.file_name()) {
                     self.browser.select(&first.to_string_lossy());
                 }
-                self.show(match fetched.note {
+                self.present(match fetched.note {
                     Some(note) => Modal::Note(String::from_utf8_lossy(&note).into_owned()),
                     None => Modal::Got {
                         dir,
@@ -1251,7 +1335,11 @@ impl App {
                 result: Err(Error::PasswordRequired),
                 link,
                 ..
-            } => self.ask(Ask::Password { link }, ""),
+            } => self.present(Modal::Prompt(Prompt {
+                ask: Ask::Password { link },
+                input: Input::masked(),
+                error: None,
+            })),
             Done::Got {
                 result: Err(error), ..
             } => {
@@ -1262,7 +1350,7 @@ impl App {
                     Error::Server { status: 401, .. } => "Wrong password.".to_owned(),
                     other => other.to_string(),
                 };
-                self.modal = Some(Modal::Failed {
+                self.present(Modal::Failed {
                     title: "Not downloaded".to_owned(),
                     message,
                 });
@@ -1362,13 +1450,8 @@ impl App {
                 FormOutcome::Cancel => {}
                 FormOutcome::Submit => self.submit(form),
             },
-            Modal::Transfer => {
-                if close || action == Some(Action::Quit) {
-                    self.show(Modal::Confirm(Confirm::Stop { then_quit: false }));
-                } else {
-                    self.modal = Some(Modal::Transfer);
-                }
-            }
+            Modal::Transfers(_) if close || action == Some(Action::Transfers) => {}
+            Modal::Transfers(row) => self.transfers_key(row, event.code),
             Modal::Sent {
                 link,
                 what,
@@ -1625,6 +1708,30 @@ impl App {
         }));
     }
 
+    fn transfers_key(&mut self, row: usize, code: KeyCode) {
+        let last = self.transfers.len().saturating_sub(1);
+        let row = match code {
+            KeyCode::Up => row.saturating_sub(1),
+            KeyCode::Down => (row + 1).min(last),
+            _ => row,
+        };
+        self.modal = Some(Modal::Transfers(row));
+        if matches!(code, KeyCode::Delete | KeyCode::Char('x')) {
+            self.stop_at(row);
+        }
+    }
+
+    /// Asks before stopping the transfer on row `row` of the list.
+    fn stop_at(&mut self, row: usize) {
+        if let Some(transfer) = self.transfers.get(row) {
+            let which = Some(transfer.id);
+            self.show(Modal::Confirm(Confirm::Stop {
+                which,
+                then_quit: false,
+            }));
+        }
+    }
+
     /// Opens `modal` with the keys on its default button: the harmless one for
     /// a question, the first otherwise.
     pub(crate) fn show(&mut self, modal: Modal) {
@@ -1744,8 +1851,11 @@ impl App {
     fn confirmed(&mut self, confirm: Confirm) {
         match confirm {
             Confirm::Delete { code, .. } => self.delete_share(code),
-            Confirm::Stop { then_quit } => {
-                self.transfer = None;
+            Confirm::Stop { which, then_quit } => {
+                match which {
+                    Some(id) => self.transfers.retain(|transfer| transfer.id != id),
+                    None => self.transfers.clear(),
+                }
                 self.say(
                     "Stopped. Sending the same files again picks up where this stopped.",
                     Tone::Info,
@@ -1948,8 +2058,9 @@ impl App {
                     qr: !qr,
                 });
             }
-            (Button::Stop, Some(Modal::Transfer)) => {
-                self.show(Modal::Confirm(Confirm::Stop { then_quit: false }));
+            (Button::Stop, Some(Modal::Transfers(row))) => {
+                self.modal = Some(Modal::Transfers(row));
+                self.stop_at(row);
             }
             (Button::Yes, Some(Modal::Confirm(confirm))) => self.confirmed(confirm),
             (Button::Ok, Some(Modal::Prompt(prompt))) => self.answer(prompt),
@@ -2129,6 +2240,7 @@ pub(crate) const fn buttons_of(modal: &Modal) -> &'static [Button] {
         Modal::Sent { .. } => &[Button::CopyLink, Button::ToggleQr, Button::Close],
         Modal::Note(_) | Modal::SignIn(_) => &[Button::CopyLink, Button::Close],
         Modal::Confirm(_) => &[Button::Yes, Button::No],
+        Modal::Transfers(_) => &[Button::Stop, Button::Close],
         Modal::Welcome | Modal::NeedSignIn { .. } => &[Button::SignIn, Button::Close],
         _ => &[],
     }
