@@ -40,7 +40,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tessera-crypto = { workspace = true }
 thiserror = { workspace = true }
-time = { workspace = true }
+# `local-offset` for showing an expiry as this machine's clock reads it.
+time = { workspace = true, features = ["local-offset"] }
 toml = "1.1"
 # How many cells a character takes, for copying text off the screen.
 unicode-width = "0.2"
