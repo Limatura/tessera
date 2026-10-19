@@ -922,6 +922,124 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     }
 }
 
+/// The text of a line, without its styles.
+fn plain(line: &Line<'_>) -> String {
+    line.spans
+        .iter()
+        .map(|span| span.content.as_ref())
+        .collect()
+}
+
+/// A dialog of `lines`, with a QR code of `qr` when there is one: beside the
+/// text when the screen is wide enough, under it when it is tall enough, and
+/// otherwise a line saying so, since a code cut short does not scan. Gives
+/// the inside of the dialog, for its buttons along the bottom.
+fn with_qr(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    hits: &mut Hits,
+    (title, width): (&str, u16),
+    mut lines: Vec<Line<'static>>,
+    qr: Option<&str>,
+) -> Rect {
+    // Around the text: a border and a column of space on each side, and below
+    // it, a blank row, the buttons and the border.
+    const SIDES: u16 = 4;
+    const ENDS: u16 = 4;
+    let room = (area.width.saturating_sub(2), area.height.saturating_sub(2));
+    let rows = |lines: &[Line<'_>], width: u16| -> u16 {
+        lines.iter().map(|line| rows_for(&plain(line), width)).sum()
+    };
+    let natural = lines
+        .iter()
+        .map(|line| cells(width_of(&plain(line))))
+        .max()
+        .unwrap_or(0);
+    let narrow = width.min(room.0).saturating_sub(SIDES);
+    let drawn = qr.and_then(|link| crate::output::qr_blocks(link).ok());
+    let size = drawn.as_deref().map(|drawn| {
+        (
+            cells(drawn.lines().map(width_of).max().unwrap_or(0)),
+            cells(drawn.lines().count()),
+        )
+    });
+    let Some(((qr_width, qr_height), drawn)) = size.zip(drawn) else {
+        let height = rows(&lines, narrow) + ENDS;
+        let inner = dialog(frame, area, width, height, title, hits);
+        frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
+        return inner;
+    };
+    let style = Style::new()
+        .fg(ink(logo::Ink::Print, logo::truecolor()))
+        .bg(ink(logo::Ink::Paper, logo::truecolor()));
+    let beside = room
+        .0
+        .saturating_sub(SIDES + 2 + qr_width)
+        .min(natural.max(narrow.min(48)));
+    let beside_height = rows(&lines, beside).max(qr_height) + ENDS;
+    if beside >= 30 && beside_height <= room.1 {
+        let inner = dialog(
+            frame,
+            area,
+            beside + 2 + qr_width + SIDES,
+            beside_height,
+            title,
+            hits,
+        );
+        frame.render_widget(
+            Paragraph::new(lines).wrap(Wrap { trim: false }),
+            Rect {
+                width: beside,
+                ..inner
+            },
+        );
+        let at = Rect::new(
+            inner.right().saturating_sub(qr_width),
+            inner.y,
+            qr_width,
+            qr_height,
+        );
+        frame.render_widget(Paragraph::new(drawn).style(style), at);
+        return inner;
+    }
+    let text_rows = rows(&lines, narrow);
+    let below_height = text_rows + 1 + qr_height + ENDS;
+    if below_height <= room.1 && qr_width <= room.0.saturating_sub(SIDES) {
+        let inner = dialog(
+            frame,
+            area,
+            width.max(qr_width + SIDES),
+            below_height,
+            title,
+            hits,
+        );
+        frame.render_widget(
+            Paragraph::new(lines).wrap(Wrap { trim: false }),
+            Rect {
+                height: text_rows,
+                ..inner
+            },
+        );
+        let at = Rect::new(
+            inner.x + inner.width.saturating_sub(qr_width) / 2,
+            inner.y + text_rows + 1,
+            qr_width,
+            qr_height,
+        );
+        frame.render_widget(Paragraph::new(drawn).style(style), at);
+        return inner;
+    }
+    lines.push(Line::default());
+    lines.push(Line::styled(
+        "A larger window would show the QR code whole.",
+        dim(),
+    ));
+    let height = rows(&lines, narrow) + ENDS;
+    let inner = dialog(frame, area, width, height, title, hits);
+    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
+    inner
+}
+
 fn draw_sent(
     frame: &mut Frame<'_>,
     area: Rect,
@@ -929,62 +1047,22 @@ fn draw_sent(
     (link, what, skipped, qr): (&str, &str, usize, bool),
     (copy, choice): (&str, usize),
 ) {
-    let width = 72.min(area.width);
-    let link_rows = rows_for(link, width.saturating_sub(4));
-    let drawn = if qr {
-        crate::output::qr_blocks(link).ok()
-    } else {
-        None
-    };
-    let qr_rows = drawn.as_deref().map_or(0, |qr| cells(qr.lines().count()));
-    let height = 7 + link_rows + u16::from(skipped > 0) + qr_rows;
-    let inner = dialog(frame, area, width, height, "Sent", hits);
-    frame.render_widget(
+    let mut lines = vec![
         Line::styled(what.to_owned(), dim()),
-        Rect { height: 1, ..inner },
-    );
-    let link_area = Rect {
-        y: inner.y + 2,
-        height: link_rows,
-        ..inner
-    };
-    frame.render_widget(
-        Paragraph::new(Line::styled(
+        Line::default(),
+        Line::styled(
             link.to_owned(),
             bold().fg(accent()).add_modifier(Modifier::UNDERLINED),
-        ))
-        .wrap(Wrap { trim: false }),
-        link_area,
-    );
-    let mut y = link_area.bottom() + 1;
+        ),
+    ];
     if skipped > 0 {
-        frame.render_widget(
-            Line::styled(
-                format!("Left out {skipped} empty file{}.", plural(skipped)),
-                dim(),
-            ),
-            Rect {
-                y,
-                height: 1,
-                ..inner
-            },
-        );
-        y += 1;
+        lines.push(Line::default());
+        lines.push(Line::styled(
+            format!("Left out {skipped} empty file{}.", plural(skipped)),
+            dim(),
+        ));
     }
-    if let Some(drawn) = drawn {
-        let qr_width = cells(drawn.lines().map(width_of).max().unwrap_or(0));
-        let qr_area = Rect::new(
-            inner.x + inner.width.saturating_sub(qr_width) / 2,
-            y,
-            qr_width.min(inner.width),
-            qr_rows.min(inner.bottom().saturating_sub(y + 1)),
-        );
-        // Dark on light whatever the terminal's theme: a phone reads no other.
-        frame.render_widget(
-            Paragraph::new(drawn).style(Style::new().fg(Color::Black).bg(Color::White)),
-            qr_area,
-        );
-    }
+    let inner = with_qr(frame, area, hits, ("Sent", 72), lines, qr.then_some(link));
     buttons(
         frame,
         inner,
@@ -1353,9 +1431,9 @@ fn share_lines(app: &App, share: &crate::client::OwnShare) -> (Vec<Line<'static>
         link.clone(),
         bold().fg(accent()).add_modifier(Modifier::UNDERLINED),
     ));
-    if sealed {
+    if sealed && share.encryption.as_deref() != Some("password") {
         lines.push(Line::styled(
-            "Without its key: the share opens only with the link it was sent with.",
+            "Without its key: it opens only with the link it was sent with.",
             dim(),
         ));
     }
@@ -1372,36 +1450,15 @@ fn draw_share(
     hits: &mut Hits,
 ) {
     let (lines, link) = share_lines(app, share);
-    let drawn = if qr {
-        crate::output::qr_blocks(&link).ok()
-    } else {
-        None
-    };
-    let qr_rows = drawn.as_deref().map_or(0, |qr| cells(qr.lines().count()));
-    let height = cells(lines.len() + 4) + qr_rows;
-    let inner = dialog(
+    let title = format!("Share {}", share.code);
+    let inner = with_qr(
         frame,
         area,
-        72,
-        height,
-        &format!("Share {}", share.code),
         hits,
+        (&title, 72),
+        lines,
+        qr.then_some(link.as_str()),
     );
-    let text_rows = cells(lines.len());
-    frame.render_widget(Paragraph::new(lines), inner);
-    if let Some(drawn) = drawn {
-        let qr_width = cells(drawn.lines().map(width_of).max().unwrap_or(0));
-        let y = inner.y + text_rows;
-        frame.render_widget(
-            Paragraph::new(drawn).style(Style::new().fg(Color::Black).bg(Color::White)),
-            Rect::new(
-                inner.x + inner.width.saturating_sub(qr_width) / 2,
-                y,
-                qr_width.min(inner.width),
-                qr_rows.min(inner.bottom().saturating_sub(y + 1)),
-            ),
-        );
-    }
     buttons(
         frame,
         inner,
@@ -1537,69 +1594,30 @@ fn draw_sign_in(
         buttons(frame, inner, &[("Cancel", Button::Close, true)], hits);
         return;
     }
-    let width = 72.min(area.width);
-    let link_rows = rows_for(&sign_in.link, width.saturating_sub(12));
-    let drawn = crate::output::qr_blocks(&sign_in.link).ok();
-    let qr_rows = drawn.as_deref().map_or(0, |qr| cells(qr.lines().count()));
-    let without_qr = 9 + link_rows;
-    let show_qr = area.height >= without_qr + qr_rows + 4;
-    let height = without_qr + if show_qr { qr_rows } else { 0 };
-    let inner = dialog(frame, area, width, height, &title, hits);
     let frames = usize::try_from(sign_in.started.elapsed().as_millis() / 100).unwrap_or(0);
     let spinner = SPINNER.get(frames % SPINNER.len()).copied().unwrap_or(' ');
     let lines = vec![
         Line::styled(
-            "Open the link wherever you are signed in, a phone will do,",
+            "Open the link wherever you are signed in, a phone will do, and check that it \
+             shows the same code:",
             dim(),
         ),
-        Line::styled("and check that it shows the same code:", dim()),
         Line::default(),
         Line::from(vec![
-            Span::styled("Code    ", dim()),
+            Span::styled("Code  ", dim()),
             Span::styled(sign_in.code.clone(), bold().fg(accent())),
         ]),
-    ];
-    frame.render_widget(Paragraph::new(lines), inner);
-    frame.render_widget(
-        Span::styled("Link    ", dim()),
-        Rect::new(inner.x, inner.y + 4, 8, 1),
-    );
-    frame.render_widget(
-        Paragraph::new(Line::styled(
-            sign_in.link.clone(),
-            Style::new().fg(accent()).add_modifier(Modifier::UNDERLINED),
-        ))
-        .wrap(Wrap { trim: false }),
-        Rect::new(
-            inner.x + 8,
-            inner.y + 4,
-            inner.width.saturating_sub(8),
-            link_rows,
-        ),
-    );
-    let mut y = inner.y + 4 + link_rows + 1;
-    if let Some(drawn) = drawn.filter(|_| show_qr) {
-        let qr_width = cells(drawn.lines().map(width_of).max().unwrap_or(0));
-        frame.render_widget(
-            Paragraph::new(drawn).style(Style::new().fg(Color::Black).bg(Color::White)),
-            Rect::new(
-                inner.x + inner.width.saturating_sub(qr_width) / 2,
-                y,
-                qr_width.min(inner.width),
-                qr_rows,
+        Line::from(vec![
+            Span::styled("Link  ", dim()),
+            Span::styled(
+                sign_in.link.clone(),
+                Style::new().fg(accent()).add_modifier(Modifier::UNDERLINED),
             ),
-        );
-        y += qr_rows;
-    }
-    frame.render_widget(
+        ]),
+        Line::default(),
         Line::styled(format!("{spinner} Waiting for approval…"), dim()),
-        Rect::new(
-            inner.x,
-            y.min(inner.bottom().saturating_sub(1)),
-            inner.width,
-            1,
-        ),
-    );
+    ];
+    let inner = with_qr(frame, area, hits, (&title, 72), lines, Some(&sign_in.link));
     buttons(
         frame,
         inner,
@@ -1979,7 +1997,7 @@ fn draw_help(app: &App, scroll: usize, frame: &mut Frame<'_>, area: Rect, hits: 
     lines.push(Line::default());
     for (what, does) in [
         ("Drag", "Select text; letting go copies it"),
-        ("Click", "Pick a row; on □, mark it"),
+        ("Click", "Pick a row; on its box, mark it"),
         ("Ctrl-click", "Mark a row"),
         ("Double-click", "Open a folder; on a file, send"),
         ("Right-click", "What can be done there"),
@@ -1995,9 +2013,10 @@ fn draw_help(app: &App, scroll: usize, frame: &mut Frame<'_>, area: Rect, hits: 
         .map(|path| tilde(&path))
         .unwrap_or_default();
     lines.push(Line::styled(
-        format!("Change keys under [ui.bindings] in {config}, by the names on the right."),
+        "Change keys by the names on the right, under [ui.bindings] in",
         dim(),
     ));
+    lines.push(Line::styled(config, dim()));
     let height = cells(lines.len() + 4).min(area.height.saturating_sub(2));
     let inner = dialog(frame, area, 76, height, "Keys", hits);
     let visible = usize::from(inner.height.saturating_sub(1));

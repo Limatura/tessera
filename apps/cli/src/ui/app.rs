@@ -1650,7 +1650,9 @@ impl App {
         let Some(modal) = self.modal.take() else {
             return;
         };
-        let close = event.code == KeyCode::Esc;
+        // Backspace too, as going back: the dialogs that take text read the
+        // keys before this does.
+        let close = matches!(event.code, KeyCode::Esc | KeyCode::Backspace);
         // A dialog with buttons along its bottom: the arrows and Tab move
         // between them, and Enter presses the one they are on.
         let Some(modal) = self.button_row_key(modal, event.code) else {
@@ -1687,8 +1689,9 @@ impl App {
                     qr,
                 });
             }
+            Modal::Share { share, qr } if !close => self.share_key(share, qr, key, action),
             Modal::Got { .. } | Modal::Failed { .. } if close || event.code == KeyCode::Enter => {}
-            Modal::Welcome | Modal::NeedSignIn { .. } if close => {}
+            Modal::Share { .. } | Modal::Welcome | Modal::NeedSignIn { .. } if close => {}
             Modal::SignIn(_) if close => self.signing = None,
             Modal::SignIn(sign_in) => {
                 if action == Some(Action::Copy) || key.typed() == Some('c') {
@@ -1728,7 +1731,8 @@ impl App {
             Modal::Menu(menu) => self.menu_key(menu, event.code),
             Modal::Settings(row) => self.settings_key(row, event.code, action),
             Modal::Help { scroll } => match (event.code, action) {
-                (KeyCode::Esc | KeyCode::Enter, _) | (_, Some(Action::Help)) => {}
+                (KeyCode::Esc | KeyCode::Backspace | KeyCode::Enter, _)
+                | (_, Some(Action::Help)) => {}
                 (_, Some(Action::Up)) => {
                     self.modal = Some(Modal::Help {
                         scroll: scroll.saturating_sub(1),
@@ -1741,6 +1745,16 @@ impl App {
             },
             other => self.modal = Some(other),
         }
+    }
+
+    fn share_key(&mut self, share: OwnShare, mut qr: bool, key: Key, action: Option<Action>) {
+        if action == Some(Action::Copy) || key.typed() == Some('c') {
+            self.copy_share(&share.code);
+        }
+        if key.typed() == Some('q') {
+            qr = !qr;
+        }
+        self.modal = Some(Modal::Share { share, qr });
     }
 
     /// Steps setting `row` by `by` through its choices, puts it in force, and
@@ -1929,7 +1943,7 @@ impl App {
         action: Option<Action>,
     ) {
         match event.code {
-            KeyCode::Esc => return,
+            KeyCode::Esc | KeyCode::Backspace => return,
             KeyCode::Tab => {
                 compose.focus = match compose.focus {
                     ComposeField::Title => ComposeField::Language,
@@ -2057,7 +2071,7 @@ impl App {
 
     fn settings_key(&mut self, row: usize, code: KeyCode, action: Option<Action>) {
         match code {
-            KeyCode::Esc => return,
+            KeyCode::Esc | KeyCode::Backspace => return,
             _ if action == Some(Action::Settings) => return,
             KeyCode::Up | KeyCode::BackTab => {
                 self.modal = Some(Modal::Settings(row.saturating_sub(1)));

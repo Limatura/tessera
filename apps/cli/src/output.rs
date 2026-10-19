@@ -6,7 +6,7 @@ use std::{
 };
 
 use base64ct::{Base64, Encoding as _};
-use qrcode::QrCode;
+use qrcode::{EcLevel, QrCode};
 
 use crate::{Error, Result};
 
@@ -50,7 +50,9 @@ const MARGIN: usize = 2;
 ///
 /// When `text` is too long for any QR code, which no link is.
 pub fn qr_blocks(text: &str) -> Result<String> {
-    let code = QrCode::new(text.as_bytes())
+    // The lowest error correction: a screen is not scuffed or folded, and
+    // the code comes out a size or two smaller.
+    let code = QrCode::with_error_correction_level(text.as_bytes(), EcLevel::L)
         .map_err(|error| Error::Usage(format!("cannot draw that as a QR code: {error}")))?;
     let width = code.width();
     let colors = code.to_colors();
