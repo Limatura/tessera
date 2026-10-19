@@ -202,6 +202,8 @@
   "shares_error": "Could not load shares",
   "shares_loading": "Loading…",
   "shares_col_code": "Code",
+  "shares_col_name": "Name",
+  "shares_name_more_files": "{name} and others ({count} files)",
   "shares_col_kind": "Kind",
   "shares_kind_text": "Text",
   "shares_kind_file": "File",

@@ -15,7 +15,12 @@ import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import type { RowSelection } from "@/hooks/use-row-selection";
 import * as m from "@/paraglide/messages";
 
-import { ShareBadges, ShareStateBadge, shareState } from "./share-fields";
+import {
+  ShareBadges,
+  ShareStateBadge,
+  shareName,
+  shareState,
+} from "./share-fields";
 import type { Share } from "./share-fields";
 import { ShareRowActions } from "./share-row-actions";
 
@@ -47,7 +52,7 @@ export function SharesTable({
           <TableHead className="w-10">
             <SelectAllCheckbox selection={selection} />
           </TableHead>
-          <TableHead>{m.shares_col_code()}</TableHead>
+          <TableHead>{m.shares_col_name()}</TableHead>
           <TableHead>{m.shares_col_kind()}</TableHead>
           <TableHead>{m.shares_col_created()}</TableHead>
           <TableHead>{m.shares_col_accessed()}</TableHead>
@@ -59,6 +64,7 @@ export function SharesTable({
         {shares.map((share) => {
           const state = shareState(share);
           const dead = state !== "live";
+          const name = shareName(share);
           return (
             <TableRow
               className={cn(dead && "text-muted-foreground")}
@@ -76,13 +82,34 @@ export function SharesTable({
                   }
                 />
               </TableCell>
-              <TableCell className={cn("font-mono", !dead && "font-medium")}>
+              <TableCell className="max-w-72">
                 <Link
-                  className="hover:underline"
+                  className="group flex flex-col"
                   params={{ code: share.code }}
+                  title={name ?? undefined}
                   to="/s/$code"
                 >
-                  {share.code}
+                  {name && (
+                    <span
+                      className={cn(
+                        "truncate group-hover:underline",
+                        !dead && "font-medium"
+                      )}
+                    >
+                      {name}
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "font-mono",
+                      name
+                        ? "text-muted-foreground text-xs"
+                        : "group-hover:underline",
+                      !(name || dead) && "font-medium"
+                    )}
+                  >
+                    {share.code}
+                  </span>
                 </Link>
               </TableCell>
               <TableCell className={cn(dead && "opacity-60")}>

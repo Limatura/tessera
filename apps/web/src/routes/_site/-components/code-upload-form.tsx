@@ -19,7 +19,11 @@ import {
   TabsList,
   TabsTrigger,
 } from "@tessera/ui/components/tabs";
-import { LANGUAGE_LABELS, detectLanguage } from "@tessera/upload/languages";
+import {
+  LANGUAGE_LABELS,
+  detectLanguage,
+  languageLabel,
+} from "@tessera/upload/languages";
 import { ExternalChange } from "@uiw/react-codemirror";
 import type { Extension, ViewUpdate } from "@uiw/react-codemirror";
 import { Maximize2, Sparkles } from "lucide-react";
@@ -356,7 +360,9 @@ export function CodeUploadForm({
             className="size-3.5 text-muted-foreground"
           />
         )}
-        <SelectValue />
+        <SelectValue>
+          {(value: string) => languageLabel(value) ?? value}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {LANGUAGES.map((lang) => (

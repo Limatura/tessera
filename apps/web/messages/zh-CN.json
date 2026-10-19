@@ -202,6 +202,8 @@
   "shares_error": "分享加载失败",
   "shares_loading": "加载中…",
   "shares_col_code": "取件码",
+  "shares_col_name": "名称",
+  "shares_name_more_files": "{name} 等 {count} 个文件",
   "shares_col_kind": "类型",
   "shares_kind_text": "文字",
   "shares_kind_file": "文件",

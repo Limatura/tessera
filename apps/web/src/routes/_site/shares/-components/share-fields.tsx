@@ -34,6 +34,27 @@ export function shareState(share: Share): ShareState {
   return "live";
 }
 
+/**
+ * What the owner would recognise it by: its title, or the file it holds. `null` when
+ * there is neither, a note without a title or an encrypted share, whose names are
+ * sealed and never reach the server in the clear; the code stands in for those.
+ */
+export function shareName(share: Share): string | null {
+  if (share.title) {
+    return share.title;
+  }
+  const [first] = share.files;
+  if (!first?.filename) {
+    return null;
+  }
+  return share.files.length > 1
+    ? m.shares_name_more_files({
+        count: share.files.length,
+        name: first.filename,
+      })
+    : first.filename;
+}
+
 /** Why it can no longer be retrieved. Nothing for a live share: the normal state needs no label. */
 export function ShareStateBadge({ state }: { state: ShareState }) {
   switch (state) {
