@@ -1,0 +1,1293 @@
+//! Drawing the view, and noting where each clickable thing landed.
+
+use std::{fmt::Write as _, time::SystemTime};
+
+use ratatui::{
+    Frame,
+    layout::{Position, Rect},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, BorderType, Clear, Paragraph, Wrap},
+};
+use unicode_width::UnicodeWidthChar as _;
+
+use super::{
+    app::{App, Ask, Button, Confirm, Field, Form, Hit, Menu, Modal, Prompt, Tab, Tone, tilde},
+    files::{Marked, Row},
+    keys::Action,
+};
+use crate::style::{SPINNER, bytes};
+
+const ACCENT: Color = Color::Cyan;
+const FOLDER: Color = Color::Blue;
+const MARK: Color = Color::Green;
+const PROBLEM: Color = Color::Red;
+
+const fn dim() -> Style {
+    Style::new().add_modifier(Modifier::DIM)
+}
+
+const fn bold() -> Style {
+    Style::new().add_modifier(Modifier::BOLD)
+}
+
+const fn cursor() -> Style {
+    Style::new().add_modifier(Modifier::REVERSED)
+}
+
+/// Cells, from a count that fits in any terminal.
+fn cells(count: usize) -> u16 {
+    u16::try_from(count).unwrap_or(u16::MAX)
+}
+
+fn width_of(text: &str) -> usize {
+    text.chars().map(|c| c.width().unwrap_or(0)).sum()
+}
+
+/// `text` cut to `width` cells, with `…` where it was cut.
+fn fit(text: &str, width: usize) -> String {
+    if width_of(text) <= width {
+        return text.to_owned();
+    }
+    let mut out = String::new();
+    let mut used = 0;
+    for c in text.chars() {
+        let w = c.width().unwrap_or(0);
+        if used + w + 1 > width {
+            break;
+        }
+        out.push(c);
+        used += w;
+    }
+    out.push('…');
+    out
+}
+
+/// `text` cut from the left, for paths, whose end is what matters.
+fn fit_left(text: &str, width: usize) -> String {
+    if width_of(text) <= width {
+        return text.to_owned();
+    }
+    let mut kept: Vec<char> = Vec::new();
+    let mut used = 1;
+    for c in text.chars().rev() {
+        let w = c.width().unwrap_or(0);
+        if used + w > width {
+            break;
+        }
+        kept.push(c);
+        used += w;
+    }
+    std::iter::once('…').chain(kept.into_iter().rev()).collect()
+}
+
+/// How long ago, coarsely: `now`, `5m`, `3h`, `2d`, or a date.
+fn ago(when: SystemTime) -> String {
+    let Ok(age) = SystemTime::now().duration_since(when) else {
+        return "now".to_owned();
+    };
+    let seconds = age.as_secs();
+    match seconds {
+        0..60 => "now".to_owned(),
+        60..3_600 => format!("{}m", seconds / 60),
+        3_600..86_400 => format!("{}h", seconds / 3_600),
+        86_400..2_592_000 => format!("{}d", seconds / 86_400),
+        _ => {
+            let date = time::OffsetDateTime::from(when).date();
+            format!(
+                "{}-{:02}-{:02}",
+                date.year(),
+                u8::from(date.month()),
+                date.day()
+            )
+        }
+    }
+}
+
+/// Rows `offset` must move to so `cursor` is among `height` rows.
+const fn scrolled(offset: usize, cursor: usize, height: usize) -> usize {
+    if height == 0 {
+        return 0;
+    }
+    if cursor < offset {
+        cursor
+    } else if cursor >= offset + height {
+        cursor + 1 - height
+    } else {
+        offset
+    }
+}
+
+pub(crate) fn draw(app: &mut App, frame: &mut Frame<'_>) {
+    let area = frame.area();
+    let mut hits = Vec::new();
+    if area.width < 30 || area.height < 8 {
+        frame.render_widget(
+            Paragraph::new("Make the terminal larger").wrap(Wrap { trim: true }),
+            area,
+        );
+        app.hits = hits;
+        return;
+    }
+    let header = Rect { height: 1, ..area };
+    let footer = Rect {
+        y: area.bottom().saturating_sub(1),
+        height: 1,
+        ..area
+    };
+    let body = Rect {
+        y: area.y + 1,
+        height: area.height.saturating_sub(2),
+        ..area
+    };
+    draw_header(app, frame, header, &mut hits);
+    match app.tab {
+        Tab::Files if app.finder.is_some() => draw_finder(app, frame, body, &mut hits),
+        Tab::Files => draw_files(app, frame, body, &mut hits),
+        Tab::Shares => draw_shares(app, frame, body, &mut hits),
+    }
+    draw_footer(app, frame, footer, &mut hits);
+    if app.modal.is_some() {
+        draw_modal(app, frame, area, &mut hits);
+    }
+    if let Some(selection) = app.selection {
+        selection.highlight(frame.buffer_mut());
+    }
+    app.hits = hits;
+}
+
+fn draw_header(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let mut x = area.x;
+    let mut spans = Vec::new();
+    for (tab, label) in [(Tab::Files, " Files "), (Tab::Shares, " Shares ")] {
+        let style = if app.tab == tab {
+            bold().fg(ACCENT).add_modifier(Modifier::UNDERLINED)
+        } else {
+            dim()
+        };
+        let width = cells(width_of(label));
+        hits.push((Rect::new(x, area.y, width, 1), Hit::Tab(tab)));
+        x = x.saturating_add(width);
+        spans.push(Span::styled(label, style));
+    }
+    frame.render_widget(Line::from(spans), area);
+
+    let instance = match &app.client {
+        Some(client) => {
+            let host = client.server().host_str().unwrap_or("instance").to_owned();
+            if client.signed_in() {
+                format!("{host} · signed in ")
+            } else {
+                format!("{host} · anonymous ")
+            }
+        }
+        None => "no instance · run tess login ".to_owned(),
+    };
+    frame.render_widget(Line::styled(instance, dim()).right_aligned(), area);
+}
+
+/// The folder as a row of names, each a way back to it.
+fn draw_crumbs(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let dir = app.browser.dir();
+    let mut crumbs: Vec<(String, std::path::PathBuf)> = Vec::new();
+    let home = std::env::home_dir().filter(|home| dir.starts_with(home));
+    let mut walked = std::path::PathBuf::new();
+    for part in dir.components() {
+        walked.push(part);
+        if home
+            .as_ref()
+            .is_some_and(|home| home.starts_with(&walked) && *home != walked)
+        {
+            continue;
+        }
+        let label = if home.as_ref() == Some(&walked) {
+            "~".to_owned()
+        } else {
+            match part {
+                std::path::Component::RootDir => "/".to_owned(),
+                other => other.as_os_str().to_string_lossy().into_owned(),
+            }
+        };
+        crumbs.push((label, walked.clone()));
+    }
+    // Leave out the first ones until the rest fit.
+    let separator = " / ";
+    let total = |from: usize| -> usize {
+        crumbs
+            .iter()
+            .skip(from)
+            .map(|(label, _)| width_of(label) + separator.len())
+            .sum::<usize>()
+            + 2
+    };
+    let available = usize::from(area.width);
+    let skip = (0..crumbs.len())
+        .find(|from| total(*from) <= available)
+        .unwrap_or_else(|| crumbs.len().saturating_sub(1));
+    let mut spans = vec![Span::raw(" ")];
+    let mut x = area.x + 1;
+    if skip > 0 {
+        spans.push(Span::styled("…/", dim()));
+        x += 2;
+    }
+    let last = crumbs.len().saturating_sub(1);
+    for (index, (label, path)) in crumbs.into_iter().enumerate().skip(skip) {
+        let width = cells(width_of(&label));
+        hits.push((Rect::new(x, area.y, width, 1), Hit::Crumb(path)));
+        x = x.saturating_add(width);
+        let style = if index == last { bold() } else { Style::new() };
+        let joins = label != "/" && index != last;
+        spans.push(Span::styled(label, style));
+        if joins {
+            spans.push(Span::styled(" / ", dim()));
+            x = x.saturating_add(3);
+        }
+    }
+    frame.render_widget(Line::from(spans), area);
+}
+
+fn draw_files(app: &mut App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    draw_crumbs(app, frame, Rect { height: 1, ..area }, hits);
+    let filter_shown = app.filtering || !app.browser.filter().is_empty();
+    let list = Rect {
+        y: area.y + 1,
+        height: area.height.saturating_sub(1 + u16::from(filter_shown)),
+        ..area
+    };
+    let height = usize::from(list.height);
+    app.page = height.saturating_sub(1).max(1);
+
+    if let Some(error) = &app.browser.error {
+        frame.render_widget(
+            Paragraph::new(format!(" Cannot read this folder: {error}"))
+                .style(Style::new().fg(PROBLEM))
+                .wrap(Wrap { trim: true }),
+            list,
+        );
+    } else if app.browser.rows().iter().all(|row| *row == Row::Parent) {
+        let note = if app.browser.filter().is_empty() {
+            " Empty folder".to_owned()
+        } else {
+            format!(" Nothing here matches “{}”", app.browser.filter())
+        };
+        let below = Rect {
+            y: list.y + cells(app.browser.rows().len()),
+            height: 1,
+            ..list
+        };
+        frame.render_widget(Line::styled(note, dim()), below);
+    }
+
+    app.offsets.files = scrolled(app.offsets.files, app.browser.cursor(), height);
+    draw_file_rows(app, frame, list, hits);
+
+    if filter_shown {
+        let filter_area = Rect {
+            y: area.bottom().saturating_sub(1),
+            height: 1,
+            ..area
+        };
+        let count = app
+            .browser
+            .rows()
+            .iter()
+            .filter(|row| **row != Row::Parent)
+            .count();
+        frame.render_widget(
+            Line::from(vec![
+                Span::styled(" Filter ", dim()),
+                Span::styled(app.browser.filter().to_owned(), bold()),
+                Span::styled(format!("   {count} shown · Esc clears"), dim()),
+            ]),
+            filter_area,
+        );
+        if app.filtering && app.modal.is_none() {
+            frame.set_cursor_position(Position::new(
+                filter_area.x + 8 + cells(width_of(app.browser.filter())),
+                filter_area.y,
+            ));
+        }
+    }
+}
+
+/// The rows of the folder that fit in `list`, from the first on screen.
+fn draw_file_rows(app: &App, frame: &mut Frame<'_>, list: Rect, hits: &mut Hits) {
+    let height = usize::from(list.height);
+    let width = usize::from(list.width);
+    for (shown, row) in app
+        .browser
+        .rows()
+        .iter()
+        .enumerate()
+        .skip(app.offsets.files)
+        .take(height)
+    {
+        let y = list.y + cells(shown - app.offsets.files);
+        let line_area = Rect::new(list.x, y, list.width, 1);
+        hits.push((line_area, Hit::FileRow(shown)));
+        let entry = app.browser.entry(*row);
+        let marked = entry.is_some_and(|entry| app.browser.is_marked(&entry.path));
+        let mark = match (row, marked) {
+            (Row::Parent, _) => "    ",
+            (_, true) => " ■  ",
+            (_, false) => " □  ",
+        };
+        if *row != Row::Parent {
+            hits.push((Rect::new(list.x, y, 3, 1), Hit::FileMark(shown)));
+        }
+        let (name, style, size, when) = match entry {
+            None => (
+                "..".to_owned(),
+                Style::new().fg(FOLDER),
+                String::new(),
+                String::new(),
+            ),
+            Some(entry) => (
+                if entry.is_dir {
+                    format!("{}/", entry.name)
+                } else {
+                    entry.name.clone()
+                },
+                if entry.is_dir {
+                    bold().fg(FOLDER)
+                } else {
+                    Style::new()
+                },
+                entry.size.map(bytes).unwrap_or_default(),
+                entry.modified.map(ago).unwrap_or_default(),
+            ),
+        };
+        let name_width = width.saturating_sub(4 + 10 + 12);
+        let name = fit(&name, name_width);
+        let pad = name_width.saturating_sub(width_of(&name));
+        let mut spans = vec![
+            Span::styled(mark, if marked { bold().fg(MARK) } else { dim() }),
+            Span::styled(name, style),
+            Span::raw(" ".repeat(pad)),
+            Span::styled(format!("{size:>10}"), dim()),
+            Span::styled(format!("{when:>11} "), dim()),
+        ];
+        let mut line_style = Style::new();
+        if shown == app.browser.cursor() && app.modal.is_none() {
+            line_style = cursor();
+        }
+        if marked {
+            spans.iter_mut().skip(1).take(1).for_each(|span| {
+                span.style = span.style.fg(MARK);
+            });
+        }
+        frame.render_widget(Line::from(spans).style(line_style), line_area);
+    }
+}
+
+fn draw_finder(app: &mut App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let Some(finder) = &app.finder else {
+        return;
+    };
+    let top = Rect { height: 1, ..area };
+    let root = tilde(finder.root());
+    let prompt = format!(" Find under {} ", fit_left(&root, 30));
+    let state = if finder.walking() {
+        let frame_index = finder.total() / 256 % SPINNER.len();
+        format!(
+            "{} {} files…",
+            SPINNER.get(frame_index).copied().unwrap_or(' '),
+            finder.total()
+        )
+    } else if finder.capped() {
+        format!("{} files (stopped there)", finder.total())
+    } else {
+        format!("{} files", finder.total())
+    };
+    frame.render_widget(
+        Line::from(vec![
+            Span::styled(prompt.clone(), dim()),
+            Span::styled(finder.query().to_owned(), bold()),
+        ]),
+        top,
+    );
+    frame.render_widget(
+        Line::styled(format!("{state} "), dim()).right_aligned(),
+        top,
+    );
+    if app.modal.is_none() {
+        frame.set_cursor_position(Position::new(
+            top.x + cells(width_of(&prompt) + width_of(finder.query())),
+            top.y,
+        ));
+    }
+
+    let list = Rect {
+        y: area.y + 1,
+        height: area.height.saturating_sub(1),
+        ..area
+    };
+    let height = usize::from(list.height);
+    app.page = height.saturating_sub(1).max(1);
+    app.offsets.found = scrolled(app.offsets.found, finder.cursor(), height);
+    if finder.matches() == 0 && !finder.walking() {
+        frame.render_widget(
+            Line::styled(" Nothing matches", dim()),
+            Rect { height: 1, ..list },
+        );
+    }
+    for (shown, found) in finder
+        .shown()
+        .enumerate()
+        .skip(app.offsets.found)
+        .take(height)
+    {
+        let y = list.y + cells(shown - app.offsets.found);
+        let line_area = Rect::new(list.x, y, list.width, 1);
+        hits.push((line_area, Hit::FoundRow(shown)));
+        hits.push((Rect::new(list.x, y, 3, 1), Hit::FoundMark(shown)));
+        let marked = app.browser.is_marked(&finder.absolute(found));
+        let (folder, name) = match found.path.rsplit_once('/') {
+            Some((folder, name)) => (format!("{folder}/"), name.to_owned()),
+            None => (String::new(), found.path.clone()),
+        };
+        let name = if found.is_dir {
+            format!("{name}/")
+        } else {
+            name
+        };
+        let space = usize::from(list.width).saturating_sub(4 + width_of(&name));
+        let style = if found.is_dir {
+            bold().fg(FOLDER)
+        } else if marked {
+            Style::new().fg(MARK)
+        } else {
+            bold()
+        };
+        let line = Line::from(vec![
+            Span::styled(
+                if marked { " ■  " } else { " □  " },
+                if marked { bold().fg(MARK) } else { dim() },
+            ),
+            Span::styled(fit_left(&folder, space), dim()),
+            Span::styled(name, style),
+        ]);
+        let line_style = if shown == finder.cursor() && app.modal.is_none() {
+            cursor()
+        } else {
+            Style::new()
+        };
+        frame.render_widget(line.style(line_style), line_area);
+    }
+}
+
+fn draw_shares(app: &mut App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let list = match &app.shares.list {
+        None => {
+            frame.render_widget(Line::styled(" Loading your shares…", dim()), area);
+            return;
+        }
+        Some(Err(problem)) => {
+            frame.render_widget(
+                Paragraph::new(format!(" {problem}")).wrap(Wrap { trim: true }),
+                area,
+            );
+            return;
+        }
+        Some(Ok(list)) => list,
+    };
+    if list.is_empty() {
+        frame.render_widget(Line::styled(" No shares yet", dim()), area);
+        return;
+    }
+    let now = time::OffsetDateTime::now_utc();
+    let code_width = list
+        .iter()
+        .map(|share| share.code.len())
+        .max()
+        .unwrap_or(4)
+        .max(4);
+    frame.render_widget(
+        Line::styled(
+            format!(
+                " {:<code_width$}  {:<8} {:>5}  NAME",
+                "CODE", "EXPIRES", "LEFT"
+            ),
+            dim(),
+        ),
+        Rect { height: 1, ..area },
+    );
+    let rows = Rect {
+        y: area.y + 1,
+        height: area.height.saturating_sub(1),
+        ..area
+    };
+    let height = usize::from(rows.height);
+    app.page = height.saturating_sub(1).max(1);
+    app.offsets.shares = scrolled(app.offsets.shares, app.shares.cursor, height);
+    for (index, share) in list
+        .iter()
+        .enumerate()
+        .skip(app.offsets.shares)
+        .take(height)
+    {
+        let y = rows.y + cells(index - app.offsets.shares);
+        let line_area = Rect::new(rows.x, y, rows.width, 1);
+        hits.push((line_area, Hit::ShareRow(index)));
+        let left = share
+            .uses_remaining
+            .map_or_else(|| "-".to_owned(), |left| left.to_string());
+        let line = Line::from(vec![
+            Span::styled(format!(" {:<code_width$}  ", share.code), bold()),
+            Span::styled(
+                format!(
+                    "{:<8} {left:>5}  ",
+                    crate::shares::expires(share.expires_at.as_deref(), now)
+                ),
+                dim(),
+            ),
+            Span::raw(crate::shares::name(share)),
+        ]);
+        let style = if index == app.shares.cursor && app.modal.is_none() {
+            cursor()
+        } else {
+            Style::new()
+        };
+        frame.render_widget(line.style(style), line_area);
+    }
+}
+
+fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let actions: &[(&str, Action)] = match app.tab {
+        Tab::Files if app.finder.is_some() => &[("Send", Action::Send), ("Keys", Action::Help)],
+        Tab::Files => &[
+            ("Send", Action::Send),
+            ("Find", Action::Find),
+            ("Download", Action::Get),
+            ("Keys", Action::Help),
+        ],
+        Tab::Shares => &[
+            ("Copy", Action::Copy),
+            ("Delete", Action::Delete),
+            ("Reload", Action::Refresh),
+            ("Keys", Action::Help),
+        ],
+    };
+    let mut spans = Vec::new();
+    let mut width = 0;
+    let mut placed = Vec::new();
+    for (label, action) in actions {
+        let hint = app.keymap.hint(*action).unwrap_or_default();
+        let text = format!(" {label} {hint} ");
+        let text_width = width_of(&text);
+        placed.push((width, text_width, *action));
+        width += text_width + 1;
+        spans.push(Span::styled(text, cursor().add_modifier(Modifier::DIM)));
+        spans.push(Span::raw(" "));
+    }
+    let start = area.right().saturating_sub(cells(width));
+    for (offset, text_width, action) in placed {
+        hits.push((
+            Rect::new(start + cells(offset), area.y, cells(text_width), 1),
+            Hit::Button(Button::Footer(action)),
+        ));
+    }
+    frame.render_widget(Line::from(spans).right_aligned(), area);
+
+    let left = Rect {
+        width: area.width.saturating_sub(cells(width)),
+        ..area
+    };
+    let line = if let Some((message, tone, _)) = &app.status {
+        let style = match tone {
+            Tone::Info => Style::new(),
+            Tone::Done => Style::new().fg(MARK),
+            Tone::Problem => Style::new().fg(PROBLEM),
+        };
+        Line::styled(format!(" {message}"), style)
+    } else if app.tab == Tab::Files && app.finder.is_some() {
+        Line::styled(" Tab marks · Enter goes there · Esc closes", dim())
+    } else if app.tab == Tab::Files && app.browser.marked_count() > 0 {
+        let (files, folders, size) = app.browser.marked().fold(
+            (0_usize, 0_usize, 0_u64),
+            |(files, folders, size), (_, kind)| match kind {
+                Marked::File(bytes) => (files + 1, folders, size + bytes),
+                Marked::Folder => (files, folders + 1, size),
+            },
+        );
+        let mut text = format!(" {files} file{} · {}", plural(files), bytes(size));
+        if folders > 0 {
+            // Writing to a `String` cannot fail.
+            write!(text, " + {folders} folder{}", plural(folders)).ok();
+        }
+        Line::styled(format!("{text} marked"), bold().fg(MARK))
+    } else if app.tab == Tab::Files && app.keymap.type_to_filter {
+        Line::styled(" Type to filter · Space marks", dim())
+    } else {
+        Line::default()
+    };
+    frame.render_widget(line, left);
+}
+
+const fn plural(count: usize) -> &'static str {
+    if count == 1 { "" } else { "s" }
+}
+
+// --- dialogs ---
+
+/// Clears a box `width` by `height` in the middle of `area`, draws its frame,
+/// and gives back the inside.
+fn dialog(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    width: u16,
+    height: u16,
+    title: &str,
+    hits: &mut Hits,
+) -> Rect {
+    let width = width.min(area.width.saturating_sub(2));
+    let height = height.min(area.height.saturating_sub(2));
+    let outer = Rect::new(
+        area.x + (area.width - width) / 2,
+        area.y + (area.height - height) / 2,
+        width,
+        height,
+    );
+    frame.render_widget(Clear, outer);
+    let block = Block::bordered()
+        .border_type(BorderType::Rounded)
+        .border_style(Style::new().fg(ACCENT))
+        .title(Span::styled(format!(" {title} "), bold()));
+    let inner = block.inner(outer);
+    frame.render_widget(block, outer);
+    hits.push((outer, Hit::Dialog));
+    Rect {
+        x: inner.x + 1,
+        width: inner.width.saturating_sub(2),
+        ..inner
+    }
+}
+
+/// Buttons along the bottom of `inner`, right-aligned.
+fn buttons(frame: &mut Frame<'_>, inner: Rect, list: &[(&str, Button, bool)], hits: &mut Hits) {
+    let row = Rect {
+        y: inner.bottom().saturating_sub(1),
+        height: 1,
+        ..inner
+    };
+    let total: usize = list.iter().map(|(label, _, _)| width_of(label) + 5).sum();
+    let mut x = row.right().saturating_sub(cells(total));
+    let mut spans = Vec::new();
+    for (label, button, focused) in list {
+        let text = format!("[ {label} ]");
+        let width = cells(width_of(&text));
+        hits.push((Rect::new(x, row.y, width, 1), Hit::Button(*button)));
+        x = x.saturating_add(width + 1);
+        let style = if *focused {
+            bold().fg(ACCENT).add_modifier(Modifier::REVERSED)
+        } else {
+            bold()
+        };
+        spans.push(Span::styled(text, style));
+        spans.push(Span::raw(" "));
+    }
+    frame.render_widget(Line::from(spans).right_aligned(), row);
+}
+
+/// Rows `text` takes wrapped to `width`, roughly as `Paragraph` wraps it.
+fn rows_for(text: &str, width: u16) -> u16 {
+    let width = usize::from(width.max(1));
+    let rows: usize = text
+        .lines()
+        .map(|line| width_of(line).div_ceil(width).max(1))
+        .sum();
+    cells(rows.max(1))
+}
+
+type Hits = Vec<(Rect, Hit)>;
+
+fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let Some(modal) = &app.modal else {
+        return;
+    };
+    match modal {
+        Modal::Send(form) => draw_form(form, frame, area, hits),
+        Modal::Transfer => draw_transfer(app, frame, area, hits),
+        Modal::Sent {
+            link,
+            what,
+            skipped,
+            qr,
+        } => {
+            let copy = app.keymap.hint(Action::Copy).unwrap_or_default();
+            draw_sent(frame, area, hits, (link, what, *skipped, *qr), &copy);
+        }
+        Modal::Got { dir, files } => draw_got(frame, area, hits, dir, files),
+        Modal::Note(text) => draw_note(frame, area, hits, text),
+        Modal::Failed { title, message } => {
+            let width = 64.min(area.width);
+            let rows = rows_for(message, width.saturating_sub(4));
+            let inner = dialog(frame, area, width, rows + 4, title, hits);
+            frame.render_widget(
+                Paragraph::new(message.clone()).wrap(Wrap { trim: false }),
+                inner,
+            );
+            buttons(frame, inner, &[("Close", Button::Close, true)], hits);
+        }
+        Modal::Prompt(prompt) => draw_prompt(app, prompt, frame, area, hits),
+        Modal::Confirm(confirm) => draw_confirm(confirm, frame, area, hits),
+        Modal::Menu(menu) => draw_menu(menu, frame, area, hits),
+        Modal::Help { scroll } => draw_help(app, *scroll, frame, area, hits),
+    }
+}
+
+fn draw_sent(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    hits: &mut Hits,
+    (link, what, skipped, qr): (&str, &str, usize, bool),
+    copy: &str,
+) {
+    let width = 72.min(area.width);
+    let link_rows = rows_for(link, width.saturating_sub(4));
+    let drawn = if qr {
+        crate::output::qr_blocks(link).ok()
+    } else {
+        None
+    };
+    let qr_rows = drawn.as_deref().map_or(0, |qr| cells(qr.lines().count()));
+    let height = 7 + link_rows + u16::from(skipped > 0) + qr_rows;
+    let inner = dialog(frame, area, width, height, "Sent", hits);
+    frame.render_widget(
+        Line::styled(what.to_owned(), dim()),
+        Rect { height: 1, ..inner },
+    );
+    let link_area = Rect {
+        y: inner.y + 2,
+        height: link_rows,
+        ..inner
+    };
+    frame.render_widget(
+        Paragraph::new(Line::styled(
+            link.to_owned(),
+            bold().fg(ACCENT).add_modifier(Modifier::UNDERLINED),
+        ))
+        .wrap(Wrap { trim: false }),
+        link_area,
+    );
+    let mut y = link_area.bottom() + 1;
+    if skipped > 0 {
+        frame.render_widget(
+            Line::styled(
+                format!("Left out {skipped} empty file{}.", plural(skipped)),
+                dim(),
+            ),
+            Rect {
+                y,
+                height: 1,
+                ..inner
+            },
+        );
+        y += 1;
+    }
+    if let Some(drawn) = drawn {
+        let qr_width = cells(drawn.lines().map(width_of).max().unwrap_or(0));
+        let qr_area = Rect::new(
+            inner.x + inner.width.saturating_sub(qr_width) / 2,
+            y,
+            qr_width.min(inner.width),
+            qr_rows.min(inner.bottom().saturating_sub(y + 1)),
+        );
+        // Dark on light whatever the terminal's theme: a phone reads no other.
+        frame.render_widget(
+            Paragraph::new(drawn).style(Style::new().fg(Color::Black).bg(Color::White)),
+            qr_area,
+        );
+    }
+    buttons(
+        frame,
+        inner,
+        &[
+            (&format!("Copy link {copy}"), Button::CopyLink, true),
+            (
+                if qr { "Hide QR" } else { "QR code" },
+                Button::ToggleQr,
+                false,
+            ),
+            ("Close", Button::Close, false),
+        ],
+        hits,
+    );
+}
+
+fn draw_got(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    hits: &mut Hits,
+    dir: &std::path::Path,
+    files: &[std::path::PathBuf],
+) {
+    let shown = files.len().min(12);
+    let height = 6 + cells(shown);
+    let inner = dialog(frame, area, 64, height, "Downloaded", hits);
+    let mut lines = vec![
+        Line::from(vec![
+            Span::styled("Into ", dim()),
+            Span::styled(fit_left(&tilde(dir), 50), bold()),
+        ]),
+        Line::default(),
+    ];
+    for file in files.iter().take(shown) {
+        let name = file.strip_prefix(dir).unwrap_or(file).display().to_string();
+        lines.push(Line::raw(name));
+    }
+    if files.len() > shown {
+        lines.push(Line::styled(
+            format!("and {} more", files.len() - shown),
+            dim(),
+        ));
+    }
+    frame.render_widget(Paragraph::new(lines), inner);
+    buttons(frame, inner, &[("Close", Button::Close, true)], hits);
+}
+
+fn draw_note(frame: &mut Frame<'_>, area: Rect, hits: &mut Hits, text: &str) {
+    let width = 72.min(area.width);
+    let rows = rows_for(text, width.saturating_sub(4)).min(area.height.saturating_sub(8));
+    let inner = dialog(frame, area, width, rows + 4, "Note", hits);
+    frame.render_widget(
+        Paragraph::new(text.to_owned()).wrap(Wrap { trim: false }),
+        Rect {
+            height: inner.height.saturating_sub(2),
+            ..inner
+        },
+    );
+    buttons(
+        frame,
+        inner,
+        &[
+            ("Copy", Button::CopyLink, true),
+            ("Close", Button::Close, false),
+        ],
+        hits,
+    );
+}
+
+fn draw_prompt(app: &App, prompt: &Prompt, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let (title, question) = match &prompt.ask {
+        Ask::GoTo => (
+            "Go to",
+            "A folder or a file, absolute, relative or from ~".to_owned(),
+        ),
+        Ask::Link => (
+            "Download",
+            format!(
+                "A link or a code, to download into {}",
+                fit_left(&tilde(app.browser.dir()), 30)
+            ),
+        ),
+        Ask::Password { .. } => ("Password", "This share has a password".to_owned()),
+    };
+    let height = 7 + u16::from(prompt.error.is_some());
+    let inner = dialog(frame, area, 68, height, title, hits);
+    frame.render_widget(Line::styled(question, dim()), Rect { height: 1, ..inner });
+    let field = Rect {
+        y: inner.y + 2,
+        height: 1,
+        ..inner
+    };
+    let shown = prompt.input.shown();
+    let before: String = shown.chars().take(prompt.input.caret()).collect();
+    let visible = fit_left(&before, usize::from(field.width.saturating_sub(2)));
+    let after: String = shown.chars().skip(prompt.input.caret()).collect();
+    frame.render_widget(
+        Line::from(vec![
+            Span::styled("› ", Style::new().fg(ACCENT)),
+            Span::raw(visible.clone()),
+            Span::raw(after),
+        ]),
+        field,
+    );
+    frame.set_cursor_position(Position::new(
+        field.x + 2 + cells(width_of(&visible)),
+        field.y,
+    ));
+    if let Some(error) = &prompt.error {
+        frame.render_widget(
+            Line::styled(error.clone(), Style::new().fg(PROBLEM)),
+            Rect {
+                y: field.y + 1,
+                ..field
+            },
+        );
+    }
+    buttons(
+        frame,
+        inner,
+        &[("OK", Button::Ok, true), ("Cancel", Button::Close, false)],
+        hits,
+    );
+}
+
+fn draw_confirm(confirm: &Confirm, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let (title, text, yes, no) = match confirm {
+        Confirm::Delete { code, name } => (
+            "Delete",
+            format!("Delete {code} ({name})? The link stops working for everyone."),
+            "Delete",
+            "Keep",
+        ),
+        Confirm::Stop { then_quit } => (
+            "Stop",
+            if *then_quit {
+                "Stop the transfer and quit? Sending the same files again picks up where it \
+                 stopped."
+            } else {
+                "Stop the transfer? Sending the same files again picks up where it stopped."
+            }
+            .to_owned(),
+            "Stop",
+            "Go on",
+        ),
+    };
+    let rows = rows_for(&text, 52);
+    let inner = dialog(frame, area, 56, rows + 4, title, hits);
+    frame.render_widget(Paragraph::new(text).wrap(Wrap { trim: true }), inner);
+    buttons(
+        frame,
+        inner,
+        &[
+            (&format!("{yes} y"), Button::Yes, false),
+            (&format!("{no} n"), Button::No, true),
+        ],
+        hits,
+    );
+}
+
+fn draw_menu(menu: &Menu, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let width = cells(
+        menu.items
+            .iter()
+            .map(|(label, _)| width_of(label))
+            .max()
+            .unwrap_or(0)
+            + 4,
+    );
+    let height = cells(menu.items.len() + 2);
+    let x = menu.at.x.min(area.right().saturating_sub(width));
+    let y = menu.at.y.min(area.bottom().saturating_sub(height));
+    let outer = Rect::new(x, y, width.min(area.width), height.min(area.height));
+    frame.render_widget(Clear, outer);
+    let block = Block::bordered()
+        .border_type(BorderType::Rounded)
+        .border_style(Style::new().fg(ACCENT));
+    let inner = block.inner(outer);
+    frame.render_widget(block, outer);
+    hits.push((outer, Hit::Dialog));
+    for (index, (label, _)) in menu.items.iter().enumerate() {
+        let row = Rect::new(inner.x, inner.y + cells(index), inner.width, 1);
+        if row.y >= inner.bottom() {
+            break;
+        }
+        hits.push((row, Hit::Button(Button::MenuItem(index))));
+        let style = if index == menu.cursor {
+            cursor()
+        } else {
+            Style::new()
+        };
+        frame.render_widget(Line::styled(format!(" {label} "), style), row);
+    }
+}
+
+fn draw_form(form: &Form, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let height = 12 + u16::from(form.error.is_some());
+    let inner = dialog(frame, area, 64, height, "Send", hits);
+    frame.render_widget(
+        Line::styled(fit(&form.summary, usize::from(inner.width)), bold()),
+        Rect { height: 1, ..inner },
+    );
+    let label = |field: Field, text: &'static str| {
+        let style = if form.focus == field {
+            bold().fg(ACCENT)
+        } else {
+            dim()
+        };
+        Span::styled(format!("{text:<11}"), style)
+    };
+    let row = |offset: u16| Rect {
+        y: inner.y + offset,
+        height: 1,
+        ..inner
+    };
+
+    let encrypt = row(2);
+    hits.push((encrypt, Hit::Button(Button::Field(Field::Encrypt))));
+    frame.render_widget(
+        Line::from(vec![
+            label(Field::Encrypt, "Encrypt"),
+            Span::styled(
+                if form.encrypt { "■ yes" } else { "□ no" },
+                if form.encrypt {
+                    bold().fg(MARK)
+                } else {
+                    Style::new()
+                },
+            ),
+            Span::styled("  sealed here; the instance never sees it", dim()),
+        ]),
+        encrypt,
+    );
+
+    draw_password(
+        form,
+        frame,
+        row(3),
+        label(Field::Password, "Password"),
+        hits,
+    );
+
+    draw_expires(form, frame, row(4), label(Field::Expires, "Expires"), hits);
+
+    let uses = row(5);
+    hits.push((uses, Hit::Button(Button::Field(Field::Uses))));
+    frame.render_widget(
+        Line::from(vec![
+            label(Field::Uses, "Downloads"),
+            Span::raw(form.uses.text().to_owned()),
+            Span::styled(
+                if form.uses.text().is_empty() {
+                    "no limit"
+                } else {
+                    "  then it stops working"
+                },
+                dim(),
+            ),
+        ]),
+        uses,
+    );
+    if form.focus == Field::Uses {
+        frame.set_cursor_position(Position::new(
+            uses.x + 11 + cells(form.uses.caret()),
+            uses.y,
+        ));
+    }
+
+    if let Some(error) = &form.error {
+        frame.render_widget(
+            Line::styled(error.clone(), Style::new().fg(PROBLEM)),
+            row(7),
+        );
+    }
+    frame.render_widget(
+        Line::styled("Tab moves · ←/→ changes the expiry · Enter sends", dim()),
+        row(6 + 1 + u16::from(form.error.is_some())),
+    );
+    buttons(
+        frame,
+        inner,
+        &[
+            (
+                "Send",
+                Button::Field(Field::Send),
+                form.focus == Field::Send,
+            ),
+            (
+                "Cancel",
+                Button::Field(Field::Cancel),
+                form.focus == Field::Cancel,
+            ),
+        ],
+        hits,
+    );
+}
+
+/// The password row of the send form, saying what the password will do.
+fn draw_password(
+    form: &Form,
+    frame: &mut Frame<'_>,
+    password: Rect,
+    label: Span<'static>,
+    hits: &mut Hits,
+) {
+    hits.push((password, Hit::Button(Button::Field(Field::Password))));
+    let shown = form.password.shown();
+    let note = if form.password.text().is_empty() {
+        "none"
+    } else if form.encrypt {
+        "  the key comes from it"
+    } else {
+        "  asked before download"
+    };
+    frame.render_widget(
+        Line::from(vec![
+            label,
+            Span::raw(shown.clone()),
+            Span::styled(note, dim()),
+        ]),
+        password,
+    );
+    if form.focus == Field::Password {
+        let before: String = shown.chars().take(form.password.caret()).collect();
+        frame.set_cursor_position(Position::new(
+            password.x + 11 + cells(width_of(&before)),
+            password.y,
+        ));
+    }
+}
+
+/// The expiry row of the send form, with arrows to click through the choices.
+fn draw_expires(
+    form: &Form,
+    frame: &mut Frame<'_>,
+    expires: Rect,
+    label: Span<'static>,
+    hits: &mut Hits,
+) {
+    let choice = form
+        .expiries
+        .get(form.expiry)
+        .map_or("", |(_, label)| label.as_str());
+    hits.push((
+        Rect {
+            width: 13,
+            ..expires
+        },
+        Hit::Button(Button::Field(Field::Expires)),
+    ));
+    hits.push((
+        Rect::new(expires.x + 11, expires.y, 2, 1),
+        Hit::Button(Button::ExpiresPrevious),
+    ));
+    let next_at = expires.x + 13 + cells(width_of(choice)) + 1;
+    hits.push((
+        Rect::new(next_at, expires.y, 2, 1),
+        Hit::Button(Button::ExpiresNext),
+    ));
+    frame.render_widget(
+        Line::from(vec![
+            label,
+            Span::styled("‹ ", Style::new().fg(ACCENT)),
+            Span::raw(choice.to_owned()),
+            Span::styled(" ›", Style::new().fg(ACCENT)),
+        ]),
+        expires,
+    );
+}
+
+fn draw_transfer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let Some(transfer) = &app.transfer else {
+        return;
+    };
+    let inner = dialog(frame, area, 64, 9, &transfer.title, hits);
+    let progress = transfer.progress.borrow();
+    let width = usize::from(inner.width).saturating_sub(18);
+    let (filled, empty) = crate::style::bar(progress.done, progress.total, width);
+    let percent = progress
+        .done
+        .saturating_mul(100)
+        .checked_div(progress.total)
+        .unwrap_or(0);
+    let elapsed = transfer.started.elapsed().as_secs_f64();
+    let overall = progress.overall();
+    let rate = if elapsed > 0.5 {
+        // Whole bytes are all a rate needs.
+        let per_second = u64::try_from(
+            (u128::from(overall) * 1000) / transfer.started.elapsed().as_millis().max(1),
+        )
+        .unwrap_or(u64::MAX);
+        format!(" · {}/s", bytes(per_second))
+    } else {
+        String::new()
+    };
+    let total_line = match progress.all {
+        Some(all) => format!("{} of {}{rate}", bytes(overall), bytes(all)),
+        None => format!("{}{rate}", bytes(overall)),
+    };
+    let lines = vec![
+        Line::styled(
+            fit(
+                if progress.name.is_empty() {
+                    "Starting…"
+                } else {
+                    &progress.name
+                },
+                usize::from(inner.width),
+            ),
+            bold(),
+        ),
+        Line::default(),
+        Line::from(vec![
+            Span::styled(filled, Style::new().fg(ACCENT)),
+            Span::styled(empty, dim()),
+            Span::raw(format!(" {percent:>3}%")),
+        ]),
+        Line::styled(total_line, dim()),
+    ];
+    frame.render_widget(Paragraph::new(lines), inner);
+    buttons(frame, inner, &[("Stop", Button::Stop, false)], hits);
+}
+
+fn draw_help(app: &App, scroll: usize, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let mut lines = Vec::new();
+    for action in Action::ALL {
+        let keys: Vec<String> = app.keymap.keys(action).map(|key| key.to_string()).collect();
+        if keys.is_empty() {
+            continue;
+        }
+        lines.push(Line::from(vec![
+            Span::styled(format!("{:<20}", keys.join(" ")), bold()),
+            Span::raw(action.describe()),
+            Span::styled(format!("  {}", action.name()), dim()),
+        ]));
+    }
+    lines.push(Line::default());
+    for (what, does) in [
+        ("Drag", "Select text; letting go copies it"),
+        ("Click", "Pick a row; on □, mark it"),
+        ("Ctrl-click", "Mark a row"),
+        ("Double-click", "Open a folder; on a file, send"),
+        ("Right-click", "What can be done there"),
+        ("Paste a link", "Download it into this folder"),
+    ] {
+        lines.push(Line::from(vec![
+            Span::styled(format!("{what:<20}"), bold()),
+            Span::raw(does),
+        ]));
+    }
+    lines.push(Line::default());
+    let config = crate::config::default_path()
+        .map(|path| tilde(&path))
+        .unwrap_or_default();
+    lines.push(Line::styled(
+        format!("Change keys under [ui.bindings] in {config}, by the names on the right."),
+        dim(),
+    ));
+    let height = cells(lines.len() + 4).min(area.height.saturating_sub(2));
+    let inner = dialog(frame, area, 76, height, "Keys", hits);
+    let visible = usize::from(inner.height.saturating_sub(1));
+    let scroll = scroll.min(lines.len().saturating_sub(visible));
+    frame.render_widget(
+        Paragraph::new(lines).scroll((cells(scroll), 0)),
+        Rect {
+            height: inner.height.saturating_sub(1),
+            ..inner
+        },
+    );
+    buttons(frame, inner, &[("Close", Button::Close, true)], hits);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn long_names_are_cut_where_they_stop_mattering() {
+        assert_eq!(fit("report.pdf", 20), "report.pdf");
+        assert_eq!(fit("quarterly-report.pdf", 10), "quarterly…");
+        assert_eq!(fit("報告書.pdf", 5), "報告…");
+        assert_eq!(fit_left("/home/me/projects/tessera", 12), "…cts/tessera");
+    }
+
+    #[test]
+    fn the_list_scrolls_only_as_far_as_the_cursor_needs() {
+        assert_eq!(scrolled(0, 3, 10), 0);
+        assert_eq!(scrolled(0, 12, 10), 3);
+        assert_eq!(scrolled(5, 2, 10), 2);
+        assert_eq!(scrolled(5, 9, 10), 5);
+    }
+}

@@ -7,7 +7,6 @@
 # Frontend
 /apps/web/ @sao-coding
 /apps/extension/ @sao-coding
-/apps/tui/ @sao-coding
 /packages/ui/ @sao-coding
 
 # Backend

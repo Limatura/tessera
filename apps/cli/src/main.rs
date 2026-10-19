@@ -14,6 +14,7 @@ use tessera_cli::{
     send::{self, Content, Options},
     shares,
     style::{self, DIM, ERROR, LINK, OK, SPINNER, STRONG},
+    ui,
 };
 use url::Url;
 
@@ -28,10 +29,10 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Command {
     /// Upload files, or a note from standard input, and print the link.
+    /// Without any, on a terminal, pick them in `tess ui`.
     Send {
         /// The files to put in one share; a directory sends every file under
         /// it, keeping their paths. `-` reads a note from standard input.
-        #[arg(required = true)]
         paths: Vec<PathBuf>,
         /// The instance to upload to. Defaults to the one `tess login` saved.
         #[arg(long, env = "TESSERA_SERVER")]
@@ -96,6 +97,18 @@ enum Command {
         #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
         token: Option<String>,
     },
+    /// Browse folders to pick what to send, and your shares, full screen.
+    Ui {
+        /// The folder to start in.
+        #[arg(default_value = ".")]
+        dir: PathBuf,
+        /// The instance. Defaults to the one `tess login` saved.
+        #[arg(long, env = "TESSERA_SERVER")]
+        server: Option<Url>,
+        /// An API token. Defaults to the one `tess login` saved.
+        #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
+        token: Option<String>,
+    },
     /// Print a completion script for a shell, to source from its startup file.
     Completions {
         /// The shell to write it for.
@@ -144,6 +157,15 @@ async fn run(cli: Cli) -> Result<()> {
             qr,
             copy,
         } => {
+            if paths.is_empty() {
+                let defaults = ui::Defaults {
+                    encrypt,
+                    password: None,
+                    expires_in_hours: expires,
+                    max_uses,
+                };
+                return pick_and_send(server, token, defaults, password).await;
+            }
             let content = if paths.iter().any(|path| path.as_os_str() == "-") {
                 if paths.len() > 1 {
                     return Err(Error::Usage(
@@ -195,6 +217,9 @@ async fn run(cli: Cli) -> Result<()> {
             output,
         } => fetch(&link, server, &output).await,
         Command::Ls { server, token } => list(server, token).await,
+        Command::Ui { dir, server, token } => {
+            browse(dir, server, token, ui::Defaults::default()).await
+        }
         Command::Rm {
             share,
             server,
@@ -227,6 +252,51 @@ fn sending_client(server: Option<Url>, token: Option<String>) -> Result<Client> 
     })?;
     let token = token.or_else(|| saved.token_for(&server).map(str::to_owned));
     Client::new(server, token)
+}
+
+/// `tess send` with nothing named: picking it in `tess ui`, on a terminal.
+async fn pick_and_send(
+    server: Option<Url>,
+    token: Option<String>,
+    mut defaults: ui::Defaults,
+    password: bool,
+) -> Result<()> {
+    if !(std::io::stdin().is_terminal() && std::io::stdout().is_terminal()) {
+        return Err(Error::Usage(
+            "nothing to send; give files, or `-` for standard input".to_owned(),
+        ));
+    }
+    if password {
+        defaults.password = Some(new_password()?);
+    }
+    browse(PathBuf::from("."), server, token, defaults).await
+}
+
+/// Opens `tess ui` in `dir`. Without an instance it still browses, and says
+/// where to sign in when asked to send.
+async fn browse(
+    dir: PathBuf,
+    server: Option<Url>,
+    token: Option<String>,
+    defaults: ui::Defaults,
+) -> Result<()> {
+    let saved = config::load(&config::default_path()?)?;
+    let client = match server.or_else(|| saved.server.clone()) {
+        Some(server) => {
+            let token = token.or_else(|| saved.token_for(&server).map(str::to_owned));
+            Some(Client::new(server, token)?)
+        }
+        None => None,
+    };
+    let dir = std::fs::canonicalize(&dir)
+        .map_err(|error| Error::Usage(format!("cannot open `{}`: {error}", dir.display())))?;
+    ui::run(ui::Launch {
+        dir,
+        client,
+        defaults,
+        settings: saved.ui,
+    })
+    .await
 }
 
 /// Downloads a share, asking for its password if it has one.

@@ -12,7 +12,7 @@
   "commit": false,
   "privatePackages": { "version": true, "tag": false },
   "ignore": [],
-  "fixed": [["tessera-server", "web", "tui", "extension"]],
+  "fixed": [["tessera-server", "web", "extension"]],
   "linked": [],
   "updateInternalDependencies": "patch",
   "snapshot": {

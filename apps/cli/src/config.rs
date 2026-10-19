@@ -1,4 +1,5 @@
-//! The config file `tess login` writes: which instance, and the token for it.
+//! The config file `tess login` writes: which instance, and the token for it,
+//! and how `tess ui` should behave, which a person writes by hand.
 //!
 //! TOML, at `$XDG_CONFIG_HOME/tessera/config.toml`, which is
 //! `~/.config/tessera/config.toml` unless set otherwise, on macOS too, and the
@@ -6,7 +7,10 @@
 //!
 //! The file holds a credential, so it is written readable by its owner only.
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -22,6 +26,74 @@ pub struct Config {
     pub server: Option<Url>,
     /// An API token for that instance, and only that one.
     pub token: Option<String>,
+    /// `[ui]`: how `tess ui` behaves.
+    #[serde(default, skip_serializing_if = "Ui::is_default")]
+    pub ui: Ui,
+}
+
+/// The `[ui]` table. Every key may be left out.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Ui {
+    /// Which set of keys to start from.
+    pub keys: Preset,
+    /// Whether the view takes the mouse. Selecting text still copies it.
+    pub mouse: bool,
+    /// Whether files whose names start with a dot are listed.
+    pub show_hidden: bool,
+    /// Keys for actions, by action name, replacing the preset's keys for that
+    /// action: `send = "ctrl-s"`, or several, `up = ["k", "up"]`.
+    pub bindings: BTreeMap<String, Keys>,
+}
+
+impl Default for Ui {
+    fn default() -> Self {
+        Self {
+            keys: Preset::default(),
+            mouse: true,
+            show_hidden: false,
+            bindings: BTreeMap::new(),
+        }
+    }
+}
+
+impl Ui {
+    fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// A set of keys to start from.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Preset {
+    /// Arrows and the mouse; typing a name filters the list, and commands are
+    /// on Ctrl and the function keys.
+    #[default]
+    Standard,
+    /// `hjkl` to move and single letters for commands; `/` to filter.
+    Vim,
+}
+
+/// One key, or several, for an action.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Keys {
+    /// One key.
+    One(String),
+    /// Several, any of which does it.
+    Many(Vec<String>),
+}
+
+impl Keys {
+    /// Each key, as written.
+    #[must_use]
+    pub fn each(&self) -> &[String] {
+        match self {
+            Self::One(key) => std::slice::from_ref(key),
+            Self::Many(keys) => keys,
+        }
+    }
 }
 
 impl Config {
@@ -129,6 +201,7 @@ mod tests {
         let config = Config {
             server: Some(url("https://share.example")),
             token: Some("tsk_secret".to_owned()),
+            ..Config::default()
         };
         assert_eq!(
             config.token_for(&url("https://share.example/")),
@@ -154,6 +227,7 @@ mod tests {
         let config = Config {
             server: Some(url("https://share.example")),
             token: Some("tsk_secret".to_owned()),
+            ..Config::default()
         };
         save(&path, &config).expect("saved");
         assert_eq!(load(&path).expect("loaded"), config);
@@ -167,5 +241,40 @@ mod tests {
                 .mode();
             assert_eq!(mode & 0o777, 0o600);
         }
+    }
+
+    #[test]
+    fn a_ui_table_written_by_hand_reads() {
+        let config: Config = toml::from_str(
+            r#"
+            server = "https://share.example"
+
+            [ui]
+            keys = "vim"
+            mouse = false
+
+            [ui.bindings]
+            send = "ctrl-s"
+            up = ["k", "up"]
+            "#,
+        )
+        .expect("a config");
+        assert_eq!(config.ui.keys, Preset::Vim);
+        assert!(!config.ui.mouse);
+        assert!(!config.ui.show_hidden);
+        assert_eq!(
+            config.ui.bindings.get("up").map(Keys::each),
+            Some(["k".to_owned(), "up".to_owned()].as_slice())
+        );
+    }
+
+    #[test]
+    fn a_config_without_ui_writes_without_it() {
+        let config = Config {
+            server: Some(url("https://share.example")),
+            ..Config::default()
+        };
+        let text = toml::to_string(&config).expect("written");
+        assert!(!text.contains("[ui]"), "{text}");
     }
 }

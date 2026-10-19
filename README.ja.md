@@ -137,7 +137,10 @@ tess get https://share.example.com/s/P8D72PSF
 echo "hello" | tess send -
 tess ls
 tess rm P8D72PSF
+tess ui
 ```
+
+`tess ui` はフルスクリーン画面を開き、パスを入力せずにファイルを探して送信したり、自分の共有を管理したりできます。ファイルを指定せずに `tess send` を実行しても開きます。
 
 `--encrypt` を付けると、内容はマシンを離れる前に暗号化されます。鍵はリンクの `#` 以降の部分で、サーバーが目にすることはありません。
 

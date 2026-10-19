@@ -34,7 +34,7 @@ pub async fn all_mine(client: &Client) -> Result<Vec<OwnShare>> {
 
 /// What a share is called in the list: its title, else its first file, with
 /// how many more there are.
-fn name(share: &OwnShare) -> String {
+pub(crate) fn name(share: &OwnShare) -> String {
     if share.encryption.is_some() {
         // The name is sealed with a key the server never had, and neither does
         // this list: it lives in the link.
@@ -73,7 +73,7 @@ fn name(share: &OwnShare) -> String {
 }
 
 /// How long until `expires_at`, coarsely: `3d`, `5h`, `12m`, `expired`.
-fn expires(expires_at: Option<&str>, now: OffsetDateTime) -> String {
+pub(crate) fn expires(expires_at: Option<&str>, now: OffsetDateTime) -> String {
     let Some(at) = expires_at.and_then(|at| OffsetDateTime::parse(at, &Rfc3339).ok()) else {
         return if expires_at.is_some() { "?" } else { "never" }.to_owned();
     };

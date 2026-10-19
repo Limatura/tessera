@@ -144,7 +144,7 @@ export default defineConfig({
       //
       // ultracite now wants components written as arrow functions. web's src has
       // its own rule in the overrides above (function declarations); everywhere
-      // else (og/, apps/tui, apps/extension) never had one.
+      // else (og/, apps/extension) never had one.
       "react/function-component-definition": "off",
       // React Compiler diagnostics: code it does not support (try/finally,
       // dynamic import, ...), incompatible libraries (react-hook-form's watch),
