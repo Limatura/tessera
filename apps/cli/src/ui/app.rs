@@ -1747,13 +1747,7 @@ impl App {
         }
     }
 
-    fn share_key(
-        &mut self,
-        share: OwnShare,
-        mut qr: bool,
-        key: Key,
-        action: Option<Action>,
-    ) {
+    fn share_key(&mut self, share: OwnShare, mut qr: bool, key: Key, action: Option<Action>) {
         if action == Some(Action::Copy) || key.typed() == Some('c') {
             self.copy_share(&share.code);
         }
