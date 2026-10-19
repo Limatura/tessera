@@ -35,7 +35,7 @@ enum Command {
         /// it, keeping their paths. `-` reads a note from standard input.
         paths: Vec<PathBuf>,
         /// The instance to upload to. Defaults to the one `tess login` saved.
-        #[arg(long, env = "TESSERA_SERVER")]
+        #[arg(long, env = "TESSERA_SERVER", value_parser = link::instance)]
         server: Option<Url>,
         /// An API token, to upload as an account instead of anonymously.
         /// Defaults to the one `tess login` saved, for that instance.
@@ -70,7 +70,7 @@ enum Command {
         link: String,
         /// The instance, when only a code is given. Defaults to the one
         /// `tess login` saved.
-        #[arg(long, env = "TESSERA_SERVER")]
+        #[arg(long, env = "TESSERA_SERVER", value_parser = link::instance)]
         server: Option<Url>,
         /// The directory to write files into. A note goes to standard output.
         #[arg(short, long, default_value = ".")]
@@ -79,7 +79,7 @@ enum Command {
     /// List your own shares: code, expiry, retrievals left, name.
     Ls {
         /// The instance. Defaults to the one `tess login` saved.
-        #[arg(long, env = "TESSERA_SERVER")]
+        #[arg(long, env = "TESSERA_SERVER", value_parser = link::instance)]
         server: Option<Url>,
         /// An API token. Defaults to the one `tess login` saved.
         #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
@@ -91,7 +91,7 @@ enum Command {
         share: String,
         /// The instance, when only a code is given. Defaults to the one
         /// `tess login` saved.
-        #[arg(long, env = "TESSERA_SERVER")]
+        #[arg(long, env = "TESSERA_SERVER", value_parser = link::instance)]
         server: Option<Url>,
         /// An API token. Defaults to the one `tess login` saved.
         #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
@@ -103,7 +103,7 @@ enum Command {
         #[arg(default_value = ".")]
         dir: PathBuf,
         /// The instance. Defaults to the one `tess login` saved.
-        #[arg(long, env = "TESSERA_SERVER")]
+        #[arg(long, env = "TESSERA_SERVER", value_parser = link::instance)]
         server: Option<Url>,
         /// An API token. Defaults to the one `tess login` saved.
         #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
@@ -117,7 +117,8 @@ enum Command {
     /// Sign in to an instance by approving this machine in a browser, and
     /// save it as the default for `send` and `get`.
     Login {
-        /// The instance to sign in to.
+        /// The instance to sign in to: `share.example.com` is enough.
+        #[arg(value_parser = link::instance)]
         server: Url,
         /// Only print the link, without trying to open a browser.
         #[arg(long)]
