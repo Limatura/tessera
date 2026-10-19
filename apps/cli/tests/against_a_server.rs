@@ -208,6 +208,53 @@ async fn files_sealed_with_a_key_in_the_link_come_back_whole() {
 }
 
 #[tokio::test]
+async fn a_titled_note_and_a_link_are_the_kinds_the_site_makes() {
+    let server = server().await;
+    let client = Client::new(server.url.clone(), None).unwrap();
+
+    let text = send::send(
+        &client,
+        Content::Text {
+            body: b"fn main() {}".to_vec(),
+            title: Some("main.rs".to_owned()),
+            language: Some("rust".to_owned()),
+        },
+        Options::default(),
+        &mut |_, _, _| {},
+    )
+    .await
+    .expect("a note");
+    let described = client.describe(&text.code, None).await.expect("described");
+    assert_eq!(described.kind, "text");
+    let into = tempfile::tempdir().unwrap();
+    let fetched = fetch(&text.link, None, into.path()).await.expect("get");
+    assert_eq!(fetched.note.as_deref(), Some(&b"fn main() {}"[..]));
+
+    let link = send::send(
+        &client,
+        Content::Link("https://example.com/long/way".to_owned()),
+        Options::default(),
+        &mut |_, _, _| {},
+    )
+    .await
+    .expect("a link");
+    let described = client.describe(&link.code, None).await.expect("described");
+    assert_eq!(described.kind, "link");
+
+    let sealed = send::send(
+        &client,
+        Content::Link("https://example.com".to_owned()),
+        Options {
+            encrypt: true,
+            ..Options::default()
+        },
+        &mut |_, _, _| {},
+    )
+    .await;
+    assert!(matches!(sealed, Err(Error::Usage(_))));
+}
+
+#[tokio::test]
 async fn without_the_key_an_encrypted_share_is_refused_with_a_reason() {
     let server = server().await;
     let local = tempfile::tempdir().unwrap();

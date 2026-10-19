@@ -226,7 +226,7 @@ impl Field {
 /// How a share should be made, before it is.
 #[derive(Debug)]
 pub(crate) struct Form {
-    pub(crate) paths: Vec<PathBuf>,
+    pub(crate) payload: Payload,
     /// The paths are what was marked, to unmark once they are sent.
     from_marks: bool,
     /// What is being sent, in a line: `3 files · 12.4 MB`.
@@ -243,6 +243,96 @@ pub(crate) struct Form {
     pub(crate) error: Option<String>,
 }
 
+/// What a share is made of, as the site's three kinds.
+#[derive(Debug, Clone)]
+pub(crate) enum Payload {
+    Files(Vec<PathBuf>),
+    Text {
+        body: String,
+        title: Option<String>,
+        language: Option<String>,
+    },
+    /// A web address the share sends its visitors on to.
+    Link(String),
+}
+
+/// A note being written, before it is sent.
+#[derive(Debug)]
+pub(crate) struct Compose {
+    pub(crate) title: Input,
+    /// Into [`LANGUAGES`]; 0 takes it from the title's extension.
+    pub(crate) language: usize,
+    pub(crate) body: String,
+    pub(crate) focus: ComposeField,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ComposeField {
+    Title,
+    Language,
+    Body,
+}
+
+impl Compose {
+    /// The language to send: the one picked, or the title's.
+    pub(crate) fn language(&self) -> Option<&'static str> {
+        match LANGUAGES.get(self.language) {
+            Some(&"from the title") | None => language_of(self.title.text()),
+            Some(picked) => Some(picked),
+        }
+    }
+}
+
+/// The languages the site highlights, as it names them, after the choice of
+/// taking one from the title.
+pub(crate) const LANGUAGES: [&str; 19] = [
+    "from the title",
+    "plaintext",
+    "cpp",
+    "css",
+    "go",
+    "html",
+    "java",
+    "javascript",
+    "json",
+    "markdown",
+    "mermaid",
+    "php",
+    "python",
+    "rust",
+    "shellscript",
+    "sql",
+    "svg",
+    "typescript",
+    "yaml",
+];
+
+/// The language a file name's extension stands for, as the site reads it.
+fn language_of(name: &str) -> Option<&'static str> {
+    let (_, extension) = name.rsplit_once('.')?;
+    Some(match extension.to_ascii_lowercase().as_str() {
+        "sh" | "bash" | "zsh" => "shellscript",
+        "c" | "cc" | "cpp" | "cxx" | "h" | "hpp" => "cpp",
+        "css" => "css",
+        "go" => "go",
+        "htm" | "html" => "html",
+        "java" => "java",
+        "js" | "jsx" | "mjs" | "cjs" => "javascript",
+        "json" | "jsonc" => "json",
+        "md" | "markdown" => "markdown",
+        "mmd" | "mermaid" => "mermaid",
+        "php" => "php",
+        "py" => "python",
+        "rs" => "rust",
+        "sql" => "sql",
+        "svg" => "svg",
+        "ts" | "tsx" | "mts" | "cts" => "typescript",
+        "yaml" | "yml" => "yaml",
+        "txt" => "plaintext",
+        _ => return None,
+    })
+}
+
 /// A question with a line to type in.
 #[derive(Debug)]
 pub(crate) struct Prompt {
@@ -255,6 +345,8 @@ pub(crate) struct Prompt {
 pub(crate) enum Ask {
     GoTo,
     Link,
+    /// A web address to make a link share of.
+    Target,
     /// The address of an instance to sign in to.
     Instance,
     Password {
@@ -278,6 +370,8 @@ pub(crate) enum Confirm {
 /// What a menu item does.
 #[derive(Debug, Clone)]
 pub(crate) enum Command {
+    WriteText,
+    ShareLink,
     Open(Row),
     Send(Row),
     Mark(Row),
@@ -301,6 +395,8 @@ pub(crate) struct Menu {
 #[derive(Debug)]
 pub(crate) enum Modal {
     Send(Form),
+    /// A note being written.
+    Compose(Compose),
     /// The transfers under way; the one the keys are on.
     Transfers(usize),
     Sent {
@@ -329,6 +425,11 @@ pub(crate) enum Modal {
     Settings(usize),
     /// No instance yet: what tessera is, and how to sign in.
     Welcome,
+    /// One of the account's shares, in full.
+    Share {
+        share: OwnShare,
+        qr: bool,
+    },
     /// Something wants an account: why, with a way to sign in.
     NeedSignIn {
         title: String,
@@ -365,6 +466,7 @@ pub(crate) enum Button {
     /// A row of the settings, clicked to change it.
     Setting(usize),
     SignIn,
+    DeleteShare,
     Footer(Action),
 }
 
@@ -425,6 +527,8 @@ pub(crate) struct App {
     pub(crate) capabilities: Option<Capabilities>,
     /// The config file named an accent, which wins over the site's.
     accent_chosen: bool,
+    /// Why the instance could not be reached, the last time it was asked.
+    pub(crate) unreachable: Option<String>,
     /// The accent the site gave, for going back to it from the settings.
     site_accent: Option<ratatui::style::Color>,
     /// The `[ui]` table as loaded, which the settings change and save.
@@ -498,6 +602,7 @@ impl App {
             capabilities: None,
             accent_chosen: false,
             site_accent: None,
+            unreachable: None,
             ui: crate::config::Ui::default(),
             local_offset: time::UtcOffset::UTC,
             status: None,
@@ -515,22 +620,29 @@ impl App {
             super::draw::set_accent(color);
             app.accent_chosen = true;
         }
-        if let Some(client) = app.client.clone() {
-            app.requests.push(Box::pin(async move {
-                let capabilities = client.capabilities().await;
-                // Only an account has a choice; asking without one is a 401.
-                let chosen = if client.signed_in() {
-                    client.chosen_accent().await.ok().flatten()
-                } else {
-                    None
-                };
-                Reply::Looks {
-                    capabilities,
-                    chosen,
-                }
-            }));
-        }
+        app.look_again();
         app
+    }
+
+    /// Asks the instance, again, what it allows and how it looks: at start,
+    /// after signing in, and on reload while it could not be reached.
+    fn look_again(&self) {
+        let Some(client) = self.client.clone() else {
+            return;
+        };
+        self.requests.push(Box::pin(async move {
+            let capabilities = client.capabilities().await;
+            // Only an account has a choice; asking without one is a 401.
+            let chosen = if client.signed_in() {
+                client.chosen_accent().await.ok().flatten()
+            } else {
+                None
+            };
+            Reply::Looks {
+                capabilities,
+                chosen,
+            }
+        }));
     }
 
     /// Whether something on screen moves by itself, so the view should redraw
@@ -785,6 +897,16 @@ impl App {
                 Tab::Shares => Tab::Files,
             }),
             Action::Get => self.ask(Ask::Link, ""),
+            Action::New => {
+                self.modal = Some(Modal::Menu(Menu {
+                    at: Position::new(2, 3),
+                    items: vec![
+                        ("Text or code…".to_owned(), Command::WriteText),
+                        ("Link to a web page…".to_owned(), Command::ShareLink),
+                    ],
+                    cursor: 0,
+                }));
+            }
             Action::GoTo => {
                 let dir = self.browser.dir().display().to_string();
                 self.ask(Ask::GoTo, &dir);
@@ -857,7 +979,25 @@ impl App {
                     self.copy(&path);
                 }
             }
-            Action::Refresh => self.browser.reload(),
+            Action::Refresh => {
+                if self.unreachable.is_some() {
+                    self.look_again();
+                }
+                self.browser.reload();
+            }
+            Action::Sort => {
+                self.ui.sort = self.ui.sort.next();
+                self.browser.set_sort(self.ui.sort);
+                let how = match self.ui.sort {
+                    crate::config::Sort::Name => "by name",
+                    crate::config::Sort::Modified => "newest first",
+                    crate::config::Sort::Size => "largest first",
+                };
+                self.say(format!("Ordered {how}"), Tone::Info);
+                if let Err(error) = save_ui(&self.ui) {
+                    self.say(format!("Not saved: {error}"), Tone::Problem);
+                }
+            }
             Action::ToggleHidden => {
                 self.browser.toggle_hidden();
                 if let Some(finder) = &self.finder {
@@ -886,13 +1026,15 @@ impl App {
             .current()
             .map(|share| (share.code.clone(), crate::shares::name(share)));
         match (action, current) {
-            (Action::Open, Some(_)) => {
-                let row = self.shares.cursor.saturating_sub(self.offsets.shares) + 3;
-                self.share_menu(Position::new(4, u16::try_from(row).unwrap_or(0)));
-            }
+            (Action::Open, Some(_)) => self.share_details(),
             (Action::Copy, Some((code, _))) => self.run(Command::CopyShare(code)),
             (Action::Delete, Some((code, name))) => self.run(Command::DeleteShare { code, name }),
-            (Action::Refresh, _) => self.load_shares(),
+            (Action::Refresh, _) => {
+                if self.unreachable.is_some() {
+                    self.look_again();
+                }
+                self.load_shares();
+            }
             (Action::Open, None) if !self.client.as_ref().is_some_and(Client::signed_in) => {
                 self.sign_in();
             }
@@ -927,6 +1069,15 @@ impl App {
 
     pub(crate) fn run(&mut self, command: Command) {
         match command {
+            Command::WriteText => {
+                self.modal = Some(Modal::Compose(Compose {
+                    title: Input::default(),
+                    language: 0,
+                    body: String::new(),
+                    focus: ComposeField::Body,
+                }));
+            }
+            Command::ShareLink => self.ask(Ask::Target, ""),
             Command::Open(Row::Parent) => self.browser.up(),
             Command::Open(row) => {
                 let Some(entry) = self.browser.entry(row) else {
@@ -944,7 +1095,7 @@ impl App {
             Command::Send(row) => {
                 if let Some(entry) = self.browser.entry(row) {
                     let path = entry.path.clone();
-                    self.open_form(vec![path], false);
+                    self.open_form(Payload::Files(vec![path]), false);
                 }
             }
             Command::Mark(row) => self.browser.toggle_mark(row),
@@ -958,7 +1109,7 @@ impl App {
                     let mark = self.keymap.hint(Action::Mark).unwrap_or_default();
                     self.say(format!("Nothing marked; {mark} marks a file"), Tone::Info);
                 } else {
-                    self.open_form(paths, true);
+                    self.open_form(Payload::Files(paths), true);
                 }
             }
             Command::CopyText(text) => self.copy(&text),
@@ -1020,7 +1171,45 @@ impl App {
 
     // --- the send form ---
 
-    fn open_form(&mut self, paths: Vec<PathBuf>, from_marks: bool) {
+    /// What `payload` is in a line, `3 files · 12.4 MB`, and its bytes; or
+    /// why it cannot be sent, said in a dialog.
+    fn summarize(&mut self, payload: &Payload) -> Option<(String, u64)> {
+        match payload {
+            Payload::Text { body, title, .. } => {
+                let lines = body.lines().count().max(1);
+                let what = title.clone().unwrap_or_else(|| "Text".to_owned());
+                let total = u64::try_from(body.len()).unwrap_or(u64::MAX);
+                Some((
+                    format!("{what} · {lines} line{}", if lines == 1 { "" } else { "s" }),
+                    total,
+                ))
+            }
+            Payload::Link(target) => Some((format!("Link to {target}"), 0)),
+            Payload::Files(paths) => match send::expand(paths, !self.defaults.encrypt) {
+                Ok((entries, _)) => {
+                    let total = entries
+                        .iter()
+                        .filter_map(|entry| std::fs::metadata(&entry.path).ok())
+                        .map(|meta| meta.len())
+                        .sum::<u64>();
+                    let what = match entries.as_slice() {
+                        [one] => one.name.clone(),
+                        many => format!("{} files", many.len()),
+                    };
+                    Some((format!("{what} · {}", crate::style::bytes(total)), total))
+                }
+                Err(error) => {
+                    self.modal = Some(Modal::Failed {
+                        title: "Cannot send that".to_owned(),
+                        message: error.to_string(),
+                    });
+                    None
+                }
+            },
+        }
+    }
+
+    fn open_form(&mut self, payload: Payload, from_marks: bool) {
         let Some(client) = &self.client else {
             self.show(Modal::NeedSignIn {
                 title: "No instance to send to".to_owned(),
@@ -1043,32 +1232,16 @@ impl App {
         }
         // Until the instance has said, everything is offered, and it refuses
         // what it does not allow when the share is made.
-        let encryption = capabilities.is_none_or(|can| can.encryption);
+        // A link is read by the instance to send visitors on, so never sealed.
+        let encryption =
+            capabilities.is_none_or(|can| can.encryption) && !matches!(payload, Payload::Link(_));
         let longest = capabilities.and_then(|can| can.max_expiry_hours);
         let by_default = capabilities.map(|can| match can.default_expiry_hours {
             Some(hours) => format!("Instance default ({})", lasting(hours)),
             None => "Instance default (no limit)".to_owned(),
         });
-        let (summary, total) = match send::expand(&paths, !self.defaults.encrypt) {
-            Ok((entries, _)) => {
-                let total = entries
-                    .iter()
-                    .filter_map(|entry| std::fs::metadata(&entry.path).ok())
-                    .map(|meta| meta.len())
-                    .sum::<u64>();
-                let what = match entries.as_slice() {
-                    [one] => one.name.clone(),
-                    many => format!("{} files", many.len()),
-                };
-                (format!("{what} · {}", crate::style::bytes(total)), total)
-            }
-            Err(error) => {
-                self.modal = Some(Modal::Failed {
-                    title: "Cannot send that".to_owned(),
-                    message: error.to_string(),
-                });
-                return;
-            }
+        let Some((summary, total)) = self.summarize(&payload) else {
+            return;
         };
         let mut expiries: Vec<(Option<u64>, String)> = vec![(
             None,
@@ -1095,7 +1268,7 @@ impl App {
             password.paste(given);
         }
         self.modal = Some(Modal::Send(Form {
-            paths,
+            payload,
             from_marks,
             summary,
             total,
@@ -1200,16 +1373,27 @@ impl App {
             ..Progress::default()
         }));
         let report = Rc::clone(&progress);
-        let paths = form.paths;
-        let sent = if form.from_marks {
-            paths.clone()
-        } else {
-            Vec::new()
+        let sent = match &form.payload {
+            Payload::Files(paths) if form.from_marks => paths.clone(),
+            _ => Vec::new(),
+        };
+        let content = match form.payload {
+            Payload::Files(paths) => Content::Files(paths),
+            Payload::Text {
+                body,
+                title,
+                language,
+            } => Content::Text {
+                body: body.into_bytes(),
+                title,
+                language,
+            },
+            Payload::Link(target) => Content::Link(target),
         };
         let job: Job<Done> = Box::pin(async move {
             let mut update =
                 |name: &str, done: u64, total: u64| report.borrow_mut().update(name, done, total);
-            Done::Sent(send::send(&client, Content::Files(paths), options, &mut update).await)
+            Done::Sent(send::send(&client, content, options, &mut update).await)
         });
         self.begin(
             format!("Sending {}", form.summary),
@@ -1393,6 +1577,12 @@ impl App {
                     .as_ref()
                     .ok()
                     .and_then(|capabilities| capabilities.appearance.accent.clone());
+                // No answer at all, as against a refusal, means the instance
+                // is not there: down, or the address is wrong.
+                self.unreachable = match &capabilities {
+                    Err(Error::Http(error)) => Some(error.to_string()),
+                    _ => None,
+                };
                 self.capabilities = capabilities.ok();
                 self.site_accent = chosen
                     .or(site)
@@ -1404,9 +1594,26 @@ impl App {
                 }
             }
             Reply::Shares(result) => {
+                match &result {
+                    Ok(_) => self.unreachable = None,
+                    Err(Error::Http(error)) => self.unreachable = Some(error.to_string()),
+                    Err(_) => {}
+                }
                 self.shares.loading = false;
                 self.shares.stale = false;
-                self.shares.list = Some(result.map_err(|error| error.to_string()));
+                let host = self
+                    .client
+                    .as_ref()
+                    .and_then(|client| client.server().host_str().map(str::to_owned))
+                    .unwrap_or_default();
+                self.shares.list = Some(result.map_err(|error| match error {
+                    Error::Http(_) => {
+                        format!(
+                            "Can't reach {host}. Is it up, and the address right? F5 tries again."
+                        )
+                    }
+                    other => other.to_string(),
+                }));
                 self.shares.move_by(0);
             }
             Reply::Deleted { code, result } => match result {
@@ -1450,6 +1657,7 @@ impl App {
                 FormOutcome::Cancel => {}
                 FormOutcome::Submit => self.submit(form),
             },
+            Modal::Compose(compose) => self.compose_key(compose, event, key, action),
             Modal::Transfers(_) if close || action == Some(Action::Transfers) => {}
             Modal::Transfers(row) => self.transfers_key(row, event.code),
             Modal::Sent {
@@ -1535,8 +1743,11 @@ impl App {
     fn change_setting(&mut self, row: usize, by: isize) {
         use crate::config::Preset;
 
-        match row {
-            0 => {
+        let Some(setting) = Setting::ALL.get(row).copied() else {
+            return;
+        };
+        match setting {
+            Setting::Keys => {
                 self.ui.keys = match self.ui.keys {
                     Preset::Standard => Preset::Vim,
                     Preset::Vim => Preset::Standard,
@@ -1548,22 +1759,26 @@ impl App {
                 }
                 self.filtering = false;
             }
-            1 => {
+            Setting::Mouse => {
                 self.ui.mouse = !self.ui.mouse;
                 self.mouse = self.ui.mouse;
                 self.mouse_changed = true;
             }
-            2 => {
+            Setting::Dotfiles => {
                 self.browser.toggle_hidden();
                 self.ui.show_hidden = self.browser.show_hidden();
             }
-            4 => {
+            Setting::Order => {
+                self.ui.sort = self.ui.sort.next();
+                self.browser.set_sort(self.ui.sort);
+            }
+            Setting::Account => {
                 // Saved by the sign-in itself, once approved.
                 self.modal = None;
                 self.sign_in();
                 return;
             }
-            _ => {
+            Setting::Colour => {
                 // The site's own first, then each accent by name.
                 let names = super::accent::NAMES;
                 let at = self
@@ -1693,19 +1908,87 @@ impl App {
         let Ok(client) = Client::new(server, Some(token)) else {
             return;
         };
-        self.client = Some(client.clone());
+        self.client = Some(client);
         self.shares.stale = true;
         if self.tab == Tab::Shares {
             self.load_shares();
         }
-        self.requests.push(Box::pin(async move {
-            let capabilities = client.capabilities().await;
-            let chosen = client.chosen_accent().await.ok().flatten();
-            Reply::Looks {
-                capabilities,
-                chosen,
+        self.look_again();
+    }
+
+    fn compose_key(
+        &mut self,
+        mut compose: Compose,
+        event: KeyEvent,
+        key: Key,
+        action: Option<Action>,
+    ) {
+        match event.code {
+            KeyCode::Esc => return,
+            KeyCode::Tab => {
+                compose.focus = match compose.focus {
+                    ComposeField::Title => ComposeField::Language,
+                    ComposeField::Language => ComposeField::Body,
+                    ComposeField::Body => ComposeField::Title,
+                };
             }
-        }));
+            KeyCode::BackTab => {
+                compose.focus = match compose.focus {
+                    ComposeField::Title => ComposeField::Body,
+                    ComposeField::Language => ComposeField::Title,
+                    ComposeField::Body => ComposeField::Language,
+                };
+            }
+            _ if action == Some(Action::Send) && key.typed().is_none() => {
+                if compose.body.trim().is_empty() {
+                    self.say("Write something to send first", Tone::Info);
+                } else {
+                    let language = compose.language().map(str::to_owned);
+                    let title = Some(compose.title.text().trim().to_owned())
+                        .filter(|title| !title.is_empty());
+                    self.open_form(
+                        Payload::Text {
+                            body: compose.body,
+                            title,
+                            language,
+                        },
+                        false,
+                    );
+                    return;
+                }
+            }
+            code => match compose.focus {
+                ComposeField::Title => {
+                    if !compose.title.edit(code)
+                        && let Some(typed) = key.typed()
+                    {
+                        compose.title.insert(typed);
+                    }
+                }
+                ComposeField::Language => {
+                    let count = LANGUAGES.len();
+                    match code {
+                        KeyCode::Left => compose.language = (compose.language + count - 1) % count,
+                        KeyCode::Right | KeyCode::Char(' ') => {
+                            compose.language = (compose.language + 1) % count;
+                        }
+                        _ => {}
+                    }
+                }
+                ComposeField::Body => match code {
+                    KeyCode::Enter => compose.body.push('\n'),
+                    KeyCode::Backspace => {
+                        compose.body.pop();
+                    }
+                    _ => {
+                        if let Some(typed) = key.typed() {
+                            compose.body.push(typed);
+                        }
+                    }
+                },
+            },
+        }
+        self.modal = Some(Modal::Compose(compose));
     }
 
     fn transfers_key(&mut self, row: usize, code: KeyCode) {
@@ -1811,6 +2094,13 @@ impl App {
         let text = prompt.input.text().trim().to_owned();
         let outcome = match &prompt.ask {
             Ask::GoTo => self.go_to(&text),
+            Ask::Target => match url::Url::parse(&text) {
+                Ok(target) if matches!(target.scheme(), "http" | "https") => {
+                    self.open_form(Payload::Link(target.to_string()), false);
+                    Ok(())
+                }
+                _ => Err("Give a whole web address, starting with https://".to_owned()),
+            },
             Ask::Instance => link::instance(&text)
                 .map(|server| self.start_sign_in(server))
                 .map_err(|error| error.to_string()),
@@ -1992,7 +2282,7 @@ impl App {
                 self.shares.cursor = row;
                 self.shares.move_by(0);
                 if double {
-                    self.share_menu(at);
+                    self.share_details();
                 }
             }
             Hit::Button(button) => self.button(button),
@@ -2069,6 +2359,20 @@ impl App {
                 self.change_setting(row, 1);
             }
             (Button::SignIn, _) => self.sign_in(),
+            (Button::CopyLink, Some(Modal::Share { share, qr })) => {
+                self.copy_share(&share.code);
+                self.modal = Some(Modal::Share { share, qr });
+            }
+            (Button::ToggleQr, Some(Modal::Share { share, qr })) => {
+                self.modal = Some(Modal::Share { share, qr: !qr });
+            }
+            (Button::DeleteShare, Some(Modal::Share { share, .. })) => {
+                let name = crate::shares::name(&share);
+                self.run(Command::DeleteShare {
+                    code: share.code,
+                    name,
+                });
+            }
             (Button::CopyLink, Some(Modal::SignIn(sign_in))) => {
                 self.copy(&sign_in.link);
                 self.modal = Some(Modal::SignIn(sign_in));
@@ -2141,6 +2445,13 @@ impl App {
         }));
     }
 
+    /// Everything known about the share under the cursor, with its link.
+    fn share_details(&mut self) {
+        if let Some(share) = self.shares.current().cloned() {
+            self.show(Modal::Share { share, qr: false });
+        }
+    }
+
     fn share_menu(&mut self, at: Position) {
         let Some(share) = self.shares.current() else {
             return;
@@ -2162,6 +2473,15 @@ impl App {
     fn paste(&mut self, text: &str) {
         match &mut self.modal {
             Some(Modal::Prompt(prompt)) => return prompt.input.paste(text),
+            Some(Modal::Compose(compose)) => {
+                match compose.focus {
+                    ComposeField::Title => compose.title.paste(text),
+                    _ => compose
+                        .body
+                        .push_str(&text.replace("\r\n", "\n").replace('\r', "\n")),
+                }
+                return;
+            }
             Some(Modal::Send(form)) => {
                 match form.focus {
                     Field::Password => form.password.paste(text),
@@ -2213,8 +2533,31 @@ impl Form {
     }
 }
 
+/// A row of the settings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Setting {
+    Keys,
+    Mouse,
+    Dotfiles,
+    Order,
+    Colour,
+    Account,
+}
+
+impl Setting {
+    /// The rows, top to bottom: drawn in this order and found by it.
+    pub(crate) const ALL: [Self; 6] = [
+        Self::Keys,
+        Self::Mouse,
+        Self::Dotfiles,
+        Self::Order,
+        Self::Colour,
+        Self::Account,
+    ];
+}
+
 /// Rows in the settings.
-pub(crate) const SETTINGS: usize = 5;
+pub(crate) const SETTINGS: usize = Setting::ALL.len();
 
 /// Saves `server` and its token as the defaults, as `tess login` does.
 fn save_sign_in(server: &url::Url, token: &str) -> Result<()> {
@@ -2241,6 +2584,12 @@ pub(crate) const fn buttons_of(modal: &Modal) -> &'static [Button] {
         Modal::Note(_) | Modal::SignIn(_) => &[Button::CopyLink, Button::Close],
         Modal::Confirm(_) => &[Button::Yes, Button::No],
         Modal::Transfers(_) => &[Button::Stop, Button::Close],
+        Modal::Share { .. } => &[
+            Button::CopyLink,
+            Button::ToggleQr,
+            Button::DeleteShare,
+            Button::Close,
+        ],
         Modal::Welcome | Modal::NeedSignIn { .. } => &[Button::SignIn, Button::Close],
         _ => &[],
     }

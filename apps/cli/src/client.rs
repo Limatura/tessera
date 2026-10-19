@@ -82,7 +82,7 @@ struct Issued {
 }
 
 /// One of the account's own shares, as `tess ls` shows it.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct OwnShare {
     /// The retrieval code.
     pub code: String,
@@ -97,10 +97,28 @@ pub struct OwnShare {
     pub expires_at: Option<String>,
     /// Retrievals left, or `None` for unlimited.
     pub uses_remaining: Option<u64>,
+    /// `file`, `text` or `link`.
+    #[serde(default)]
+    pub kind: Option<String>,
+    /// A note's language, as the site names them.
+    #[serde(default)]
+    pub language: Option<String>,
+    /// When it was made, RFC 3339.
+    #[serde(default)]
+    pub created_at: Option<String>,
+    /// Bytes stored for it.
+    #[serde(default)]
+    pub size_bytes: Option<u64>,
+    /// How many times it has been retrieved.
+    #[serde(default)]
+    pub use_count: Option<u64>,
+    /// Whether it asks for a password.
+    #[serde(default)]
+    pub has_password: bool,
 }
 
 /// One file of an own share.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct OwnFile {
     /// Its name, unless the share is encrypted.
     pub filename: Option<String>,

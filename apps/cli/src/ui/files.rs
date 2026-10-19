@@ -6,6 +6,8 @@ use std::{
     time::SystemTime,
 };
 
+use crate::config::Sort;
+
 /// One thing in a folder.
 #[derive(Debug, Clone)]
 pub(crate) struct Entry {
@@ -52,6 +54,7 @@ pub(crate) struct Browser {
     cursor: usize,
     filter: String,
     show_hidden: bool,
+    sort: Sort,
     marked: BTreeMap<PathBuf, Marked>,
     /// Folders gone back from and forward to, as a browser keeps them: each
     /// with the name the cursor was on, to put it there again.
@@ -63,7 +66,7 @@ pub(crate) struct Browser {
 
 impl Browser {
     /// Looks at `dir`.
-    pub(crate) fn new(dir: PathBuf, show_hidden: bool) -> Self {
+    pub(crate) fn new(dir: PathBuf, show_hidden: bool, sort: Sort) -> Self {
         let mut browser = Self {
             dir,
             entries: Vec::new(),
@@ -71,6 +74,7 @@ impl Browser {
             cursor: 0,
             filter: String::new(),
             show_hidden,
+            sort,
             marked: BTreeMap::new(),
             back: Vec::new(),
             forward: Vec::new(),
@@ -118,7 +122,8 @@ impl Browser {
             .and_then(|row| self.entry(row))
             .map(|entry| entry.name.clone());
         match read(&self.dir) {
-            Ok(entries) => {
+            Ok(mut entries) => {
+                order(&mut entries, self.sort);
                 self.entries = entries;
                 self.error = None;
             }
@@ -213,6 +218,24 @@ impl Browser {
         self.filter = filter;
         self.cursor = 0;
         self.refilter();
+    }
+
+    pub(crate) const fn sort(&self) -> Sort {
+        self.sort
+    }
+
+    /// Orders the folder another way, keeping the cursor on the same name.
+    pub(crate) fn set_sort(&mut self, sort: Sort) {
+        self.sort = sort;
+        let keep = self
+            .current()
+            .and_then(|row| self.entry(row))
+            .map(|entry| entry.name.clone());
+        order(&mut self.entries, sort);
+        self.refilter();
+        if let Some(name) = keep {
+            self.select(&name);
+        }
     }
 
     pub(crate) fn toggle_hidden(&mut self) {
@@ -329,6 +352,24 @@ impl Browser {
     }
 }
 
+/// Folders first, then files, each in the order `sort` asks for, with the
+/// name, ignoring case, settling ties.
+fn order(entries: &mut [Entry], sort: Sort) {
+    let name = |a: &Entry, b: &Entry| {
+        a.name
+            .to_lowercase()
+            .cmp(&b.name.to_lowercase())
+            .then_with(|| a.name.cmp(&b.name))
+    };
+    entries.sort_by(|a, b| {
+        b.is_dir.cmp(&a.is_dir).then_with(|| match sort {
+            Sort::Name => name(a, b),
+            Sort::Modified => b.modified.cmp(&a.modified).then_with(|| name(a, b)),
+            Sort::Size => b.size.cmp(&a.size).then_with(|| name(a, b)),
+        })
+    });
+}
+
 /// What is in `dir`: folders first, then files, each by name ignoring case.
 fn read(dir: &Path) -> std::io::Result<Vec<Entry>> {
     let mut entries = Vec::new();
@@ -390,7 +431,7 @@ mod tests {
     #[test]
     fn folders_come_first_and_dotfiles_only_when_asked() {
         let dir = tree();
-        let mut browser = Browser::new(dir.path().to_path_buf(), false);
+        let mut browser = Browser::new(dir.path().to_path_buf(), false, Sort::Name);
         assert_eq!(names(&browser), ["..", "src", "build.log", "README.md"]);
         browser.toggle_hidden();
         assert_eq!(
@@ -400,9 +441,28 @@ mod tests {
     }
 
     #[test]
+    fn a_folder_orders_by_size_or_age_folders_first() {
+        let dir = tree();
+        std::fs::write(dir.path().join("big.iso"), vec![0_u8; 4096]).expect("a file");
+        let mut browser = Browser::new(dir.path().to_path_buf(), false, Sort::Size);
+        assert_eq!(
+            names(&browser),
+            ["..", "src", "big.iso", "README.md", "build.log"]
+        );
+        browser.select("README.md");
+        browser.set_sort(Sort::Name);
+        assert_eq!(
+            names(&browser),
+            ["..", "src", "big.iso", "build.log", "README.md"]
+        );
+        let current = browser.current().and_then(|row| browser.entry(row));
+        assert_eq!(current.map(|entry| entry.name.as_str()), Some("README.md"));
+    }
+
+    #[test]
     fn a_filter_keeps_matching_names_in_any_case() {
         let dir = tree();
-        let mut browser = Browser::new(dir.path().to_path_buf(), false);
+        let mut browser = Browser::new(dir.path().to_path_buf(), false, Sort::Name);
         browser.set_filter("read".to_owned());
         assert_eq!(names(&browser), ["README.md"]);
         browser.set_filter(String::new());
@@ -412,7 +472,7 @@ mod tests {
     #[test]
     fn going_up_lands_on_the_folder_left() {
         let dir = tree();
-        let mut browser = Browser::new(dir.path().join("src"), false);
+        let mut browser = Browser::new(dir.path().join("src"), false, Sort::Name);
         assert_eq!(names(&browser), ["..", "main.rs"]);
         browser.up();
         assert_eq!(browser.dir(), dir.path());
@@ -424,7 +484,7 @@ mod tests {
     fn back_and_forward_retrace_the_folders_visited() {
         let dir = tree();
         let root = dir.path().to_path_buf();
-        let mut browser = Browser::new(root.clone(), false);
+        let mut browser = Browser::new(root.clone(), false, Sort::Name);
         browser.select("README.md");
         browser.enter(root.join("src"));
         browser.up();
@@ -446,7 +506,7 @@ mod tests {
     #[test]
     fn marks_outlive_leaving_the_folder() {
         let dir = tree();
-        let mut browser = Browser::new(dir.path().to_path_buf(), false);
+        let mut browser = Browser::new(dir.path().to_path_buf(), false, Sort::Name);
         browser.select("README.md");
         browser.toggle_mark(browser.current().expect("a row"));
         browser.enter(dir.path().join("src"));
@@ -466,7 +526,7 @@ mod tests {
     #[test]
     fn the_cursor_stays_on_the_list() {
         let dir = tree();
-        let mut browser = Browser::new(dir.path().to_path_buf(), false);
+        let mut browser = Browser::new(dir.path().to_path_buf(), false, Sort::Name);
         browser.move_by(-5);
         assert_eq!(browser.cursor(), 0);
         browser.move_by(50);

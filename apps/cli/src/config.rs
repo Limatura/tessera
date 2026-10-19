@@ -41,6 +41,9 @@ pub struct Ui {
     pub mouse: bool,
     /// Whether files whose names start with a dot are listed.
     pub show_hidden: bool,
+    /// How a folder is ordered: `name`, `modified` (newest first) or `size`
+    /// (largest first). Folders come first either way.
+    pub sort: Sort,
     /// The colour that marks what matters, as named on the site: `violet`,
     /// `rose`, `orange`, `amber`, `green`, `teal` or `blue`. Left out, the
     /// account's choice on the site, then the site's own.
@@ -57,6 +60,7 @@ impl Default for Ui {
             keys: Preset::default(),
             mouse: true,
             show_hidden: false,
+            sort: Sort::default(),
             accent: None,
             bindings: BTreeMap::new(),
         }
@@ -79,6 +83,41 @@ pub enum Preset {
     Standard,
     /// `hjkl` to move and single letters for commands; `/` to filter.
     Vim,
+}
+
+/// How a folder is ordered.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Sort {
+    /// By name, ignoring case.
+    #[default]
+    Name,
+    /// Newest first.
+    Modified,
+    /// Largest first.
+    Size,
+}
+
+impl Sort {
+    /// The next way round, for a key that steps through them.
+    #[must_use]
+    pub const fn next(self) -> Self {
+        match self {
+            Self::Name => Self::Modified,
+            Self::Modified => Self::Size,
+            Self::Size => Self::Name,
+        }
+    }
+
+    /// Its name, as written in the config file.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Name => "name",
+            Self::Modified => "modified",
+            Self::Size => "size",
+        }
+    }
 }
 
 /// One key, or several, for an action.
