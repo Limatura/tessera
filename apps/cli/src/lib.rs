@@ -12,6 +12,7 @@ pub mod config;
 pub mod get;
 pub mod link;
 pub mod login;
+pub mod logo;
 pub mod names;
 pub mod output;
 pub mod resume;

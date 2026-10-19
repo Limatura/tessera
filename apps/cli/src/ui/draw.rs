@@ -16,9 +16,75 @@ use super::{
     files::{Marked, Row},
     keys::Action,
 };
-use crate::style::{SPINNER, bytes};
+use crate::{
+    logo,
+    style::{SPINNER, bytes},
+};
 
-const ACCENT: Color = Color::Cyan;
+/// The site's orange: exact where the terminal takes 24-bit colour, the
+/// nearest of the 256 otherwise.
+fn accent() -> Color {
+    static TRUECOLOR: std::sync::LazyLock<bool> = std::sync::LazyLock::new(logo::truecolor);
+    ink(logo::Ink::Stub, *TRUECOLOR)
+}
+
+const fn ink(ink: logo::Ink, truecolor: bool) -> Color {
+    if truecolor {
+        let (red, green, blue) = ink.rgb();
+        Color::Rgb(red, green, blue)
+    } else {
+        Color::Indexed(ink.indexed())
+    }
+}
+
+/// The ticket, a line to a row of cells.
+fn ticket() -> Vec<Line<'static>> {
+    let truecolor = logo::truecolor();
+    logo::cells()
+        .map(|row| {
+            Line::from(
+                row.into_iter()
+                    .map(|cell| match cell {
+                        (None, None) => Span::raw(" "),
+                        (Some(top), None) => {
+                            Span::styled("▀", Style::new().fg(ink(top, truecolor)))
+                        }
+                        (None, Some(bottom)) => {
+                            Span::styled("▄", Style::new().fg(ink(bottom, truecolor)))
+                        }
+                        (Some(top), Some(bottom)) => Span::styled(
+                            "▀",
+                            Style::new()
+                                .fg(ink(top, truecolor))
+                                .bg(ink(bottom, truecolor)),
+                        ),
+                    })
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect()
+}
+
+/// The ticket in the middle of `area` with `note` under it, when there is room;
+/// otherwise only the note, at the top.
+fn draw_ticket_with(frame: &mut Frame<'_>, area: Rect, note: &str) {
+    let tall = cells(logo::HEIGHT + 2);
+    if area.height < tall + 2 || usize::from(area.width) < logo::WIDTH + 2 {
+        frame.render_widget(Line::styled(format!(" {note}"), dim()), area);
+        return;
+    }
+    let top = area.y + (area.height - tall) / 2;
+    let left = area.x + (area.width - cells(logo::WIDTH)) / 2;
+    frame.render_widget(
+        Paragraph::new(ticket()),
+        Rect::new(left, top, cells(logo::WIDTH), cells(logo::HEIGHT)),
+    );
+    frame.render_widget(
+        Line::styled(note.to_owned(), dim()).centered(),
+        Rect::new(area.x, top + cells(logo::HEIGHT) + 1, area.width, 1),
+    );
+}
+
 const FOLDER: Color = Color::Blue;
 const MARK: Color = Color::Green;
 const PROBLEM: Color = Color::Red;
@@ -157,11 +223,13 @@ pub(crate) fn draw(app: &mut App, frame: &mut Frame<'_>) {
 }
 
 fn draw_header(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
-    let mut x = area.x;
-    let mut spans = Vec::new();
+    // The bars printed on the site's ticket, as its mark.
+    let mark = " ╱╱╱ ";
+    let mut x = area.x + cells(width_of(mark));
+    let mut spans = vec![Span::styled(mark, bold().fg(accent()))];
     for (tab, label) in [(Tab::Files, " Files "), (Tab::Shares, " Shares ")] {
         let style = if app.tab == tab {
-            bold().fg(ACCENT).add_modifier(Modifier::UNDERLINED)
+            bold().fg(accent()).add_modifier(Modifier::UNDERLINED)
         } else {
             dim()
         };
@@ -265,17 +333,17 @@ fn draw_files(app: &mut App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits)
             list,
         );
     } else if app.browser.rows().iter().all(|row| *row == Row::Parent) {
-        let note = if app.browser.filter().is_empty() {
-            " Empty folder".to_owned()
-        } else {
-            format!(" Nothing here matches “{}”", app.browser.filter())
-        };
         let below = Rect {
             y: list.y + cells(app.browser.rows().len()),
-            height: 1,
+            height: list.height.saturating_sub(cells(app.browser.rows().len())),
             ..list
         };
-        frame.render_widget(Line::styled(note, dim()), below);
+        if app.browser.filter().is_empty() {
+            draw_ticket_with(frame, below, "Empty folder");
+        } else {
+            let note = format!(" Nothing here matches “{}”", app.browser.filter());
+            frame.render_widget(Line::styled(note, dim()), below);
+        }
     }
 
     app.offsets.files = scrolled(app.offsets.files, app.browser.cursor(), height);
@@ -492,7 +560,7 @@ fn draw_shares(app: &mut App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits
         Some(Ok(list)) => list,
     };
     if list.is_empty() {
-        frame.render_widget(Line::styled(" No shares yet", dim()), area);
+        draw_ticket_with(frame, area, "No shares yet");
         return;
     }
     let now = time::OffsetDateTime::now_utc();
@@ -651,7 +719,7 @@ fn dialog(
     frame.render_widget(Clear, outer);
     let block = Block::bordered()
         .border_type(BorderType::Rounded)
-        .border_style(Style::new().fg(ACCENT))
+        .border_style(Style::new().fg(accent()))
         .title(Span::styled(format!(" {title} "), bold()));
     let inner = block.inner(outer);
     frame.render_widget(block, outer);
@@ -679,7 +747,7 @@ fn buttons(frame: &mut Frame<'_>, inner: Rect, list: &[(&str, Button, bool)], hi
         hits.push((Rect::new(x, row.y, width, 1), Hit::Button(*button)));
         x = x.saturating_add(width + 1);
         let style = if *focused {
-            bold().fg(ACCENT).add_modifier(Modifier::REVERSED)
+            bold().fg(accent()).add_modifier(Modifier::REVERSED)
         } else {
             bold()
         };
@@ -733,6 +801,7 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         Modal::Confirm(confirm) => draw_confirm(confirm, frame, area, hits),
         Modal::Menu(menu) => draw_menu(menu, frame, area, hits),
         Modal::Help { scroll } => draw_help(app, *scroll, frame, area, hits),
+        Modal::Welcome => draw_welcome(frame, area, hits),
     }
 }
 
@@ -765,7 +834,7 @@ fn draw_sent(
     frame.render_widget(
         Paragraph::new(Line::styled(
             link.to_owned(),
-            bold().fg(ACCENT).add_modifier(Modifier::UNDERLINED),
+            bold().fg(accent()).add_modifier(Modifier::UNDERLINED),
         ))
         .wrap(Wrap { trim: false }),
         link_area,
@@ -897,7 +966,7 @@ fn draw_prompt(app: &App, prompt: &Prompt, frame: &mut Frame<'_>, area: Rect, hi
     let after: String = shown.chars().skip(prompt.input.caret()).collect();
     frame.render_widget(
         Line::from(vec![
-            Span::styled("› ", Style::new().fg(ACCENT)),
+            Span::styled("› ", Style::new().fg(accent())),
             Span::raw(visible.clone()),
             Span::raw(after),
         ]),
@@ -975,7 +1044,7 @@ fn draw_menu(menu: &Menu, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     frame.render_widget(Clear, outer);
     let block = Block::bordered()
         .border_type(BorderType::Rounded)
-        .border_style(Style::new().fg(ACCENT));
+        .border_style(Style::new().fg(accent()));
     let inner = block.inner(outer);
     frame.render_widget(block, outer);
     hits.push((outer, Hit::Dialog));
@@ -994,6 +1063,48 @@ fn draw_menu(menu: &Menu, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     }
 }
 
+/// What opens first when there is no instance to send to: the ticket, and
+/// how to get one.
+fn draw_welcome(frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let text = vec![
+        Line::styled("tessera", bold().fg(accent())).centered(),
+        Line::styled("Send files from here; the other side gets a link.", dim()).centered(),
+        Line::default(),
+        Line::from(vec![
+            Span::raw("To send, sign in once:  "),
+            Span::styled("tess login share.example.com", bold()),
+        ])
+        .centered(),
+        Line::styled("Until then, browsing and finding files still work.", dim()).centered(),
+    ];
+    let room = area.height >= cells(logo::HEIGHT + text.len() + 6);
+    let height = cells(text.len() + 4) + if room { cells(logo::HEIGHT + 1) } else { 0 };
+    let inner = dialog(frame, area, 64, height, "Welcome", hits);
+    let mut y = inner.y;
+    if room {
+        let left = inner.x + inner.width.saturating_sub(cells(logo::WIDTH)) / 2;
+        frame.render_widget(
+            Paragraph::new(ticket()),
+            Rect::new(
+                left,
+                y,
+                cells(logo::WIDTH).min(inner.width),
+                cells(logo::HEIGHT),
+            ),
+        );
+        y += cells(logo::HEIGHT + 1);
+    }
+    frame.render_widget(
+        Paragraph::new(text),
+        Rect {
+            y,
+            height: inner.bottom().saturating_sub(y + 1),
+            ..inner
+        },
+    );
+    buttons(frame, inner, &[("Browse", Button::Close, true)], hits);
+}
+
 fn draw_form(form: &Form, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     let height = 12 + u16::from(form.error.is_some());
     let inner = dialog(frame, area, 64, height, "Send", hits);
@@ -1005,7 +1116,7 @@ fn draw_form(form: &Form, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     // way, which the field positions below count on.
     let label = |field: Field, text: &'static str| {
         if form.focus == field {
-            Span::styled(format!("› {text:<9}"), bold().fg(ACCENT))
+            Span::styled(format!("› {text:<9}"), bold().fg(accent()))
         } else {
             Span::styled(format!("  {text:<9}"), dim())
         }
@@ -1162,9 +1273,9 @@ fn draw_expires(
     frame.render_widget(
         Line::from(vec![
             label,
-            Span::styled("‹ ", Style::new().fg(ACCENT)),
+            Span::styled("‹ ", Style::new().fg(accent())),
             Span::raw(choice.to_owned()),
-            Span::styled(" ›", Style::new().fg(ACCENT)),
+            Span::styled(" ›", Style::new().fg(accent())),
         ]),
         expires,
     );
@@ -1213,7 +1324,7 @@ fn draw_transfer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) 
         ),
         Line::default(),
         Line::from(vec![
-            Span::styled(filled, Style::new().fg(ACCENT)),
+            Span::styled(filled, Style::new().fg(accent())),
             Span::styled(empty, dim()),
             Span::raw(format!(" {percent:>3}%")),
         ]),
@@ -1224,7 +1335,16 @@ fn draw_transfer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) 
 }
 
 fn draw_help(app: &App, scroll: usize, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
-    let mut lines = Vec::new();
+    let mut lines: Vec<Line<'_>> = ticket().into_iter().map(Line::centered).collect();
+    lines.push(Line::default());
+    lines.push(
+        Line::from(vec![
+            Span::styled("tess ", bold().fg(accent())),
+            Span::styled(env!("CARGO_PKG_VERSION"), dim()),
+        ])
+        .centered(),
+    );
+    lines.push(Line::default());
     for action in Action::ALL {
         let keys: Vec<String> = app.keymap.keys(action).map(|key| key.to_string()).collect();
         if keys.is_empty() {

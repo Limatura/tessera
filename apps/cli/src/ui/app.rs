@@ -274,6 +274,8 @@ pub(crate) enum Modal {
     Help {
         scroll: usize,
     },
+    /// No instance yet: what tessera is, and how to sign in.
+    Welcome,
 }
 
 /// Buttons, wherever they are drawn.
@@ -383,7 +385,7 @@ impl App {
             browser,
             finder: None,
             filtering: false,
-            modal: None,
+            modal: client.is_none().then_some(Modal::Welcome),
             shares: SharesView {
                 stale: true,
                 ..SharesView::default()
@@ -1212,6 +1214,7 @@ impl App {
                 });
             }
             Modal::Got { .. } | Modal::Failed { .. } if close || event.code == KeyCode::Enter => {}
+            Modal::Welcome => {}
             Modal::Note(text) => match event.code {
                 KeyCode::Esc | KeyCode::Enter => {}
                 _ => {
