@@ -18,6 +18,7 @@ pub mod resume;
 pub mod send;
 pub mod shares;
 pub mod style;
+pub mod ui;
 
 /// Everything that can stop a command.
 #[derive(Debug, thiserror::Error)]

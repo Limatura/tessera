@@ -26,9 +26,7 @@ const RESET: &str = "\x1b[0m";
 ///
 /// When `text` is too long for any QR code, which no link is.
 pub fn qr(text: &str) -> Result<String> {
-    let code = QrCode::new(text.as_bytes())
-        .map_err(|error| Error::Usage(format!("cannot draw that as a QR code: {error}")))?;
-    let drawn = code.render::<Dense1x2>().quiet_zone(true).build();
+    let drawn = qr_blocks(text)?;
     let mut out = String::with_capacity(drawn.len() * 2);
     for line in drawn.lines() {
         out.push_str("  ");
@@ -38,6 +36,19 @@ pub fn qr(text: &str) -> Result<String> {
         out.push('\n');
     }
     Ok(out)
+}
+
+/// `text` as a QR code in block characters, two rows of modules to a line,
+/// with its quiet zone and no colour: blocks are the dark modules, so it scans
+/// only when drawn dark on light.
+///
+/// # Errors
+///
+/// When `text` is too long for any QR code, which no link is.
+pub fn qr_blocks(text: &str) -> Result<String> {
+    let code = QrCode::new(text.as_bytes())
+        .map_err(|error| Error::Usage(format!("cannot draw that as a QR code: {error}")))?;
+    Ok(code.render::<Dense1x2>().quiet_zone(true).build())
 }
 
 /// How [`copy`] got the text onto a clipboard.

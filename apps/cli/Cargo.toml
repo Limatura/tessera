@@ -20,12 +20,19 @@ anstyle = "1.0"
 base64ct = { version = "1.8", features = ["alloc"] }
 clap = { version = "4.6", features = ["derive", "env"] }
 clap_complete = "4.6"
+# `tess ui`. `event-stream` so keys and the network wait in one `select!`.
+crossterm = { version = "0.29", features = ["event-stream"] }
 # Where the config file goes: `~/.config` on Linux and macOS alike.
 etcetera = "0.11"
 futures-util = "0.3"
 getrandom = "0.3"
+# The walk behind `tess ui`'s search, skipping what `.gitignore` skips.
+ignore = "0.4.33"
+# Fuzzy matching for that search, as fzf and Helix do it.
+nucleo-matcher = "0.3.1"
 # Only the matrix and its text rendering; no image formats.
 qrcode = { version = "0.14", default-features = false }
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm_0_29", "layout-cache"] }
 # `rustls` for the same reason the server gives: no system OpenSSL to find.
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
 rpassword = "7.5"
@@ -35,6 +42,8 @@ tessera-crypto = { workspace = true }
 thiserror = { workspace = true }
 time = { workspace = true }
 toml = "1.1"
+# How many cells a character takes, for copying text off the screen.
+unicode-width = "0.2"
 tokio = { version = "1.53", features = ["fs", "io-std", "io-util", "macros", "rt-multi-thread", "time"] }
 url = { version = "2", features = ["serde"] }
 
