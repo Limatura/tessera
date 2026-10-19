@@ -10,9 +10,8 @@ name: web
 # marks every app that depends on it, not every app in the repo), so the
 # workflow triggers on every push/PR and lets `--affected` decide per package
 # rather than this file guessing from glob patterns. That is also why a commit
-# touching only `apps/tui` no longer runs `web` work for nothing: it has no
-# `build`/`check-types`/`test` tasks of its own, so `--affected` finds nothing
-# to run for it.
+# touching only a package with no `build`/`check-types`/`test` tasks of its own
+# does not run `web` work for nothing: `--affected` finds nothing to run for it.
 on:
   push:
     branches: [main]

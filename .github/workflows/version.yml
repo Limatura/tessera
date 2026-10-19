@@ -37,7 +37,7 @@ jobs:
         run: |
           expected=$(node -p "require('./apps/server/package.json').version")
           status=0
-          for app in web tui extension; do
+          for app in web extension; do
             v=$(node -p "require('./apps/$app/package.json').version")
             if [ "$v" != "$expected" ]; then
               echo "::error file=apps/$app/package.json::$v, expected $expected (fixed group)"
