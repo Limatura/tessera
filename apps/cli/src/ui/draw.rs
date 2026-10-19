@@ -874,11 +874,12 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             qr,
         } => {
             let copy = app.keymap.hint(Action::Copy).unwrap_or_default();
+            let code = qr.then(|| app.qr_code(link, accent())).flatten();
             draw_sent(
                 frame,
                 area,
                 hits,
-                (link, what, *skipped, *qr),
+                (link, what, *skipped, code.as_deref()),
                 (&copy, app.choice),
             );
         }
@@ -918,7 +919,12 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
                 hits,
             );
         }
-        Modal::SignIn(sign_in) => draw_sign_in(sign_in, app.choice, frame, area, hits),
+        Modal::SignIn(sign_in) => {
+            let code = (!sign_in.link.is_empty())
+                .then(|| app.qr_code(&sign_in.link, accent()))
+                .flatten();
+            draw_sign_in(sign_in, code.as_deref(), app.choice, frame, area, hits);
+        }
     }
 }
 
@@ -940,7 +946,7 @@ fn with_qr(
     hits: &mut Hits,
     (title, width): (&str, u16),
     mut lines: Vec<Line<'static>>,
-    qr: Option<&str>,
+    qr: Option<&super::qr::Drawn>,
 ) -> Rect {
     // Around the text: a border and a column of space on each side, and below
     // it, a blank row, the buttons and the border.
@@ -956,22 +962,13 @@ fn with_qr(
         .max()
         .unwrap_or(0);
     let narrow = width.min(room.0).saturating_sub(SIDES);
-    let drawn = qr.and_then(|link| crate::output::qr_blocks(link).ok());
-    let size = drawn.as_deref().map(|drawn| {
-        (
-            cells(drawn.lines().map(width_of).max().unwrap_or(0)),
-            cells(drawn.lines().count()),
-        )
-    });
-    let Some(((qr_width, qr_height), drawn)) = size.zip(drawn) else {
+    let Some(drawn) = qr else {
         let height = rows(&lines, narrow) + ENDS;
         let inner = dialog(frame, area, width, height, title, hits);
         frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
         return inner;
     };
-    let style = Style::new()
-        .fg(ink(logo::Ink::Print, logo::truecolor()))
-        .bg(ink(logo::Ink::Paper, logo::truecolor()));
+    let (qr_width, qr_height) = (drawn.width, drawn.height);
     let beside = room
         .0
         .saturating_sub(SIDES + 2 + qr_width)
@@ -999,7 +996,7 @@ fn with_qr(
             qr_width,
             qr_height,
         );
-        frame.render_widget(Paragraph::new(drawn).style(style), at);
+        drawn.render(frame, at);
         return inner;
     }
     let text_rows = rows(&lines, narrow);
@@ -1026,7 +1023,7 @@ fn with_qr(
             qr_width,
             qr_height,
         );
-        frame.render_widget(Paragraph::new(drawn).style(style), at);
+        drawn.render(frame, at);
         return inner;
     }
     lines.push(Line::default());
@@ -1044,7 +1041,7 @@ fn draw_sent(
     frame: &mut Frame<'_>,
     area: Rect,
     hits: &mut Hits,
-    (link, what, skipped, qr): (&str, &str, usize, bool),
+    (link, what, skipped, qr): (&str, &str, usize, Option<&super::qr::Drawn>),
     (copy, choice): (&str, usize),
 ) {
     let mut lines = vec![
@@ -1062,14 +1059,14 @@ fn draw_sent(
             dim(),
         ));
     }
-    let inner = with_qr(frame, area, hits, ("Sent", 72), lines, qr.then_some(link));
+    let inner = with_qr(frame, area, hits, ("Sent", 72), lines, qr);
     buttons(
         frame,
         inner,
         &[
             (&format!("Copy link {copy}"), Button::CopyLink, choice == 0),
             (
-                if qr { "Hide QR" } else { "QR code" },
+                if qr.is_some() { "Hide QR" } else { "QR code" },
                 Button::ToggleQr,
                 choice == 1,
             ),
@@ -1451,14 +1448,8 @@ fn draw_share(
 ) {
     let (lines, link) = share_lines(app, share);
     let title = format!("Share {}", share.code);
-    let inner = with_qr(
-        frame,
-        area,
-        hits,
-        (&title, 72),
-        lines,
-        qr.then_some(link.as_str()),
-    );
+    let code = qr.then(|| app.qr_code(&link, accent())).flatten();
+    let inner = with_qr(frame, area, hits, (&title, 72), lines, code.as_deref());
     buttons(
         frame,
         inner,
@@ -1579,6 +1570,7 @@ fn draw_compose(compose: &Compose, frame: &mut Frame<'_>, area: Rect, hits: &mut
 /// same as a QR code for a phone, when there is room.
 fn draw_sign_in(
     sign_in: &SignIn,
+    qr: Option<&super::qr::Drawn>,
     choice: usize,
     frame: &mut Frame<'_>,
     area: Rect,
@@ -1617,7 +1609,7 @@ fn draw_sign_in(
         Line::default(),
         Line::styled(format!("{spinner} Waiting for approval…"), dim()),
     ];
-    let inner = with_qr(frame, area, hits, (&title, 72), lines, Some(&sign_in.link));
+    let inner = with_qr(frame, area, hits, (&title, 72), lines, qr);
     buttons(
         frame,
         inner,

@@ -537,6 +537,11 @@ pub(crate) struct App {
     pub(crate) ui: crate::config::Ui,
     /// This machine's offset from UTC, for expiry times.
     pub(crate) local_offset: time::UtcOffset,
+    /// How the terminal draws pictures, when it said.
+    pub(crate) picker: Option<ratatui_image::picker::Picker>,
+    /// The last QR code drawn, for the link and accent it was drawn for:
+    /// making a picture of one is too slow to do on every frame.
+    qr: RefCell<Option<(String, ratatui::style::Color, super::qr::Drawn)>>,
     pub(crate) status: Option<(String, Tone, Instant)>,
     /// Where things were drawn, last drawn on top.
     pub(crate) hits: Vec<(Rect, Hit)>,
@@ -605,6 +610,8 @@ impl App {
             unreachable: None,
             ui: crate::config::Ui::default(),
             local_offset: time::UtcOffset::UTC,
+            picker: None,
+            qr: RefCell::new(None),
             status: None,
             hits: Vec::new(),
             selection: None,
@@ -1642,6 +1649,28 @@ impl App {
             let result = client.delete_share(&code).await;
             Reply::Deleted { code, result }
         }));
+    }
+
+    /// `link` as a QR code in the accent of the moment, made once.
+    pub(crate) fn qr_code(
+        &self,
+        link: &str,
+        accent: ratatui::style::Color,
+    ) -> Option<std::cell::Ref<'_, super::qr::Drawn>> {
+        let stale = self
+            .qr
+            .borrow()
+            .as_ref()
+            .is_none_or(|(drawn_for, ink, _)| drawn_for != link || *ink != accent);
+        if stale {
+            let drawn =
+                super::qr::Drawn::new(link, accent, self.picker.as_ref(), crate::logo::truecolor());
+            *self.qr.borrow_mut() = drawn.map(|drawn| (link.to_owned(), accent, drawn));
+        }
+        std::cell::Ref::filter_map(self.qr.borrow(), |cached| {
+            cached.as_ref().map(|(_, _, drawn)| drawn)
+        })
+        .ok()
     }
 
     // --- dialogs ---

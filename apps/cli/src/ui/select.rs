@@ -79,7 +79,11 @@ impl Selection {
                     covered -= 1;
                     continue;
                 }
-                let symbol = cell.symbol();
+                let mut symbol = cell.symbol();
+                // A picture: escapes, or the placeholders kitty draws it on.
+                if symbol.contains(['\x1b', '\u{10EEEE}']) {
+                    symbol = " ";
+                }
                 covered = symbol.width().saturating_sub(1);
                 if x >= from {
                     line.push_str(symbol);
