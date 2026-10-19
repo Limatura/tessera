@@ -537,6 +537,10 @@ pub(crate) struct App {
     pub(crate) ui: crate::config::Ui,
     /// This machine's offset from UTC, for expiry times.
     pub(crate) local_offset: time::UtcOffset,
+    /// When the view opened, for what moves by itself.
+    pub(crate) started: Instant,
+    /// When the last "Sent" dialog came up, for its stub to be torn off.
+    pub(crate) sent_at: Option<Instant>,
     /// How the terminal draws pictures, when it said.
     pub(crate) picker: Option<ratatui_image::picker::Picker>,
     /// The last QR code drawn, for the link and accent it was drawn for:
@@ -610,6 +614,8 @@ impl App {
             unreachable: None,
             ui: crate::config::Ui::default(),
             local_offset: time::UtcOffset::UTC,
+            started: Instant::now(),
+            sent_at: None,
             picker: None,
             qr: RefCell::new(None),
             status: None,
@@ -661,6 +667,13 @@ impl App {
             || self.finder.as_ref().is_some_and(Finder::walking)
             || self.status.is_some()
             || self.dragged.is_some()
+            || match self.modal {
+                Some(Modal::Welcome) => true,
+                Some(Modal::Sent { .. }) => self
+                    .sent_at
+                    .is_some_and(|at| at.elapsed() < super::motion::TEARING),
+                _ => false,
+            }
     }
 
     /// Catches up with what happened off screen.
@@ -2070,6 +2083,9 @@ impl App {
             Modal::Confirm(_) => 1,
             _ => 0,
         };
+        if matches!(modal, Modal::Sent { .. }) {
+            self.sent_at = Some(Instant::now());
+        }
         self.modal = Some(modal);
     }
 

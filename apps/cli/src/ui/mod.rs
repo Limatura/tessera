@@ -12,6 +12,7 @@ mod files;
 mod find;
 mod input;
 mod keys;
+mod motion;
 mod qr;
 mod select;
 
