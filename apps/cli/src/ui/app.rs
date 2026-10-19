@@ -714,6 +714,18 @@ impl App {
                 self.finder = None;
                 self.browser.up();
             }
+            Action::Back => {
+                self.finder = None;
+                if !self.browser.back() {
+                    self.say("Nothing to go back to", Tone::Info);
+                }
+            }
+            Action::Forward => {
+                self.finder = None;
+                if !self.browser.forward() {
+                    self.say("Nothing to go forward to", Tone::Info);
+                }
+            }
             // Like Open, except that on a file it does nothing: an arrow key
             // should not send anything.
             Action::Into => match self.browser.current() {

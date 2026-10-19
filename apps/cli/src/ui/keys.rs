@@ -23,6 +23,8 @@ pub(crate) enum Action {
     Open,
     Into,
     Parent,
+    Back,
+    Forward,
     Mark,
     MarkAll,
     Filter,
@@ -43,7 +45,7 @@ pub(crate) enum Action {
 }
 
 impl Action {
-    pub(crate) const ALL: [Self; 28] = [
+    pub(crate) const ALL: [Self; 30] = [
         Self::Up,
         Self::Down,
         Self::PageUp,
@@ -55,6 +57,8 @@ impl Action {
         Self::Open,
         Self::Into,
         Self::Parent,
+        Self::Back,
+        Self::Forward,
         Self::Mark,
         Self::MarkAll,
         Self::Filter,
@@ -88,6 +92,8 @@ impl Action {
             Self::Open => "open",
             Self::Into => "into",
             Self::Parent => "parent",
+            Self::Back => "back",
+            Self::Forward => "forward",
             Self::Mark => "mark",
             Self::MarkAll => "mark_all",
             Self::Filter => "filter",
@@ -122,6 +128,8 @@ impl Action {
             Self::Open => "Open the folder; on a file, send",
             Self::Into => "Into the folder",
             Self::Parent => "Up one folder",
+            Self::Back => "Back to the folder before",
+            Self::Forward => "Forward again",
             Self::Mark => "Mark or unmark",
             Self::MarkAll => "Mark everything listed",
             Self::Filter => "Filter this folder",
@@ -353,6 +361,8 @@ fn defaults(preset: Preset) -> Vec<(Key, Action)> {
         (plain(C::Right), A::Into),
         (plain(C::Left), A::Parent),
         (plain(C::Backspace), A::Parent),
+        (Key::new(C::Left, KeyModifiers::ALT), A::Back),
+        (Key::new(C::Right, KeyModifiers::ALT), A::Forward),
         (letter(' '), A::Mark),
         (plain(C::Delete), A::Delete),
         (plain(C::F(5)), A::Refresh),
@@ -389,6 +399,9 @@ fn defaults(preset: Preset) -> Vec<(Key, Action)> {
             (letter('G'), A::Bottom),
             (letter('l'), A::Into),
             (letter('h'), A::Parent),
+            // As in ranger.
+            (letter('H'), A::Back),
+            (letter('L'), A::Forward),
             (letter('a'), A::MarkAll),
             (letter('/'), A::Filter),
             (letter('f'), A::Find),
