@@ -1,6 +1,6 @@
 //! Drawing the view, and noting where each clickable thing landed.
 
-use std::{fmt::Write as _, time::SystemTime};
+use std::time::SystemTime;
 
 use ratatui::{
     Frame,
@@ -765,12 +765,14 @@ fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
                 Marked::Folder => (files, folders + 1, size),
             },
         );
-        let mut text = format!(" {files} file{} · {}", plural(files), bytes(size));
-        if folders > 0 {
-            // Writing to a `String` cannot fail.
-            write!(text, " + {folders} folder{}", plural(folders)).ok();
+        let mut parts = Vec::new();
+        if files > 0 {
+            parts.push(format!("{files} file{} · {}", plural(files), bytes(size)));
         }
-        Line::styled(format!("{text} marked"), bold().fg(MARK))
+        if folders > 0 {
+            parts.push(format!("{folders} folder{}", plural(folders)));
+        }
+        Line::styled(format!(" {} marked", parts.join(" + ")), bold().fg(MARK))
     } else if app.tab == Tab::Files && app.keymap.type_to_filter {
         Line::styled(" Type to filter · Space marks", dim())
     } else {
@@ -1795,12 +1797,18 @@ fn draw_password(
 ) {
     hits.push((password, Hit::Button(Button::Field(Field::Password))));
     let shown = form.password.shown();
-    let note = if form.password.text().is_empty() {
-        "none"
+    let typed = form.password.text().chars().count();
+    let note = if typed == 0 {
+        "none".to_owned()
+    } else if form.encrypt && typed < tessera_crypto::MIN_PASSWORD_CHARS {
+        format!(
+            "  {typed}/{}: the key comes from it",
+            tessera_crypto::MIN_PASSWORD_CHARS
+        )
     } else if form.encrypt {
-        "  the key comes from it"
+        "  the key comes from it".to_owned()
     } else {
-        "  asked before download"
+        "  asked before download".to_owned()
     };
     frame.render_widget(
         Line::from(vec![

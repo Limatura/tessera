@@ -1,5 +1,5 @@
 //! The config file `tess login` writes: which instance, and the token for it,
-//! and how `tess ui` should behave, which a person writes by hand.
+//! and how the full-screen view should behave, which a person writes by hand.
 //!
 //! TOML, at `$XDG_CONFIG_HOME/tessera/config.toml`, which is
 //! `~/.config/tessera/config.toml` unless set otherwise, on macOS too, and the
@@ -26,7 +26,7 @@ pub struct Config {
     pub server: Option<Url>,
     /// An API token for that instance, and only that one.
     pub token: Option<String>,
-    /// `[ui]`: how `tess ui` behaves.
+    /// `[ui]`: how the full-screen view behaves.
     #[serde(default, skip_serializing_if = "Ui::is_default")]
     pub ui: Ui,
 }

@@ -55,6 +55,8 @@ pub struct Options {
     /// Where to record how far a send of files has got, so running it again
     /// after an interruption carries on. `None` keeps nothing.
     pub resume: Option<PathBuf>,
+    /// Paths under a directory being sent to leave out of it.
+    pub leave_out: Vec<PathBuf>,
 }
 
 /// What a finished send gives back.
@@ -81,7 +83,7 @@ pub struct Entry {
 }
 
 /// The files `paths` names: each file as it is, and each directory as every
-/// file under it, in name order.
+/// file under it but those in `leave_out` or under them, in name order.
 ///
 /// Symbolic links to directories are not followed, so a link back up the tree
 /// cannot make the walk endless. With `skip_empty`, empty files found inside a
@@ -91,7 +93,11 @@ pub struct Entry {
 /// # Errors
 ///
 /// When a path cannot be read, or a directory holds nothing to send.
-pub fn expand(paths: &[PathBuf], skip_empty: bool) -> Result<(Vec<Entry>, usize)> {
+pub fn expand(
+    paths: &[PathBuf],
+    leave_out: &[PathBuf],
+    skip_empty: bool,
+) -> Result<(Vec<Entry>, usize)> {
     let mut entries = Vec::new();
     let mut skipped = 0;
     for path in paths {
@@ -104,7 +110,7 @@ pub fn expand(paths: &[PathBuf], skip_empty: bool) -> Result<(Vec<Entry>, usize)
         }
         let root = file_name(&std::fs::canonicalize(path)?);
         let mut found = Vec::new();
-        walk(path, &root, &mut found)?;
+        walk(path, &root, leave_out, &mut found)?;
         found.sort_by(|a, b| a.name.cmp(&b.name));
         let before = found.len();
         if skip_empty {
@@ -122,14 +128,17 @@ pub fn expand(paths: &[PathBuf], skip_empty: bool) -> Result<(Vec<Entry>, usize)
     Ok((entries, skipped))
 }
 
-fn walk(dir: &Path, prefix: &str, into: &mut Vec<Entry>) -> Result<()> {
+fn walk(dir: &Path, prefix: &str, leave_out: &[PathBuf], into: &mut Vec<Entry>) -> Result<()> {
     for item in std::fs::read_dir(dir)? {
         let item = item?;
         let path = item.path();
+        if leave_out.contains(&path) {
+            continue;
+        }
         let name = format!("{prefix}/{}", item.file_name().to_string_lossy());
         let kind = item.file_type()?;
         if kind.is_dir() {
-            walk(&path, &name, into)?;
+            walk(&path, &name, leave_out, into)?;
         } else if kind.is_file() || (kind.is_symlink() && std::fs::metadata(&path)?.is_file()) {
             into.push(Entry { path, name });
         }
@@ -250,7 +259,7 @@ pub async fn send(
             (share, Sealing::Plain, None)
         }
         Content::Files(paths) => {
-            let (entries, skipped) = expand(&paths, !options.encrypt)?;
+            let (entries, skipped) = expand(&paths, &options.leave_out, !options.encrypt)?;
             skipped_empty = skipped;
             send_files(client, &options, &entries, progress).await?
         }
@@ -341,7 +350,7 @@ pub fn will_resume(client: &Client, paths: &[PathBuf], options: &Options) -> boo
     let Some(dir) = options.resume.as_deref() else {
         return false;
     };
-    let Ok((entries, _)) = expand(paths, !options.encrypt) else {
+    let Ok((entries, _)) = expand(paths, &options.leave_out, !options.encrypt) else {
         return false;
     };
     let paths: Vec<PathBuf> = entries.into_iter().map(|entry| entry.path).collect();
@@ -726,5 +735,24 @@ impl Outgoing {
         };
         self.finished = last;
         Ok(!self.ready.is_empty() || self.sealer.is_some())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_folder_keeps_its_name_without_what_is_left_out() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let photos = dir.path().join("photos");
+        std::fs::create_dir_all(photos.join("raw")).expect("folders");
+        for name in ["a.jpg", "b.jpg", "raw/c.dng"] {
+            std::fs::write(photos.join(name), "x").expect("a file");
+        }
+        let leave_out = [photos.join("b.jpg"), photos.join("raw")];
+        let (entries, _) = expand(std::slice::from_ref(&photos), &leave_out, true).expect("files");
+        let names: Vec<_> = entries.iter().map(|entry| entry.name.as_str()).collect();
+        assert_eq!(names, ["photos/a.jpg"]);
     }
 }

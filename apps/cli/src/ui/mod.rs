@@ -1,4 +1,4 @@
-//! `tess ui`: the same sending and fetching, in a full-screen view for
+//! `tess` on its own: the same sending and fetching, in a full-screen view for
 //! finding files without typing their paths.
 //!
 //! Everything runs on the task that reads the keys: the view draws, then
@@ -27,19 +27,6 @@ use futures_util::StreamExt as _;
 
 use crate::{Result, client::Client, config};
 
-/// How a send starts out, from the flags `tess send` was given.
-#[derive(Debug, Clone, Default)]
-pub struct Defaults {
-    /// Seal before sending.
-    pub encrypt: bool,
-    /// The share's password, or the one its key comes from.
-    pub password: Option<String>,
-    /// How many hours it lasts.
-    pub expires_in_hours: Option<u64>,
-    /// How many times it may be retrieved.
-    pub max_uses: Option<u32>,
-}
-
 /// What the view starts with.
 #[derive(Debug)]
 pub struct Launch {
@@ -47,8 +34,6 @@ pub struct Launch {
     pub dir: PathBuf,
     /// The instance, when there is one to send to.
     pub client: Option<Client>,
-    /// How sends start out.
-    pub defaults: Defaults,
     /// The `[ui]` table of the config file.
     pub settings: config::Ui,
     /// This machine's offset from UTC, read before any thread started.
@@ -79,7 +64,6 @@ pub async fn run(launch: Launch) -> Result<()> {
         launch.settings.mouse,
         browser,
         launch.client,
-        launch.defaults,
         accent,
     );
     app.ui = launch.settings;
