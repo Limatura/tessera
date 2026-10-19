@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 use tessera_cli::{
     Error, Result,
     client::Client,
-    config, get, link, login, output,
+    config, get, link, login, logo, output,
     send::{self, Content, Options},
     shares,
     style::{self, DIM, ERROR, LINK, OK, SPINNER, STRONG},
@@ -257,16 +257,22 @@ fn welcome() -> Result<()> {
         write!(stdout, "{help}")?;
         return Ok(());
     }
-    // The ticket is nothing but colour; without colour it is left out.
-    if std::env::var_os("NO_COLOR").is_none() {
+    // The ticket is nothing but colour; without colour it is left out. Tilted
+    // when the screen holds it and the ten lines under it, flat when only that
+    // fits, and not at all on a smaller screen.
+    let (columns, rows) = crossterm::terminal::size().unwrap_or((80, 24));
+    let picture = [logo::TILTED, logo::FLAT].into_iter().find(|picture| {
+        usize::from(columns) >= picture.width() + 2 && usize::from(rows) >= picture.height() + 12
+    });
+    if let Some(picture) = picture.filter(|_| std::env::var_os("NO_COLOR").is_none()) {
         writeln!(stdout)?;
-        for line in tessera_cli::logo::ansi(2, tessera_cli::logo::truecolor()) {
+        for line in picture.ansi(2, logo::truecolor()) {
             writeln!(stdout, "{line}")?;
         }
     }
     // The site's orange, from the 256 colours every terminal has.
     let brand = anstyle::Style::new().bold().fg_color(Some(
-        anstyle::Ansi256Color(tessera_cli::logo::Ink::Stub.indexed()).into(),
+        anstyle::Ansi256Color(logo::Ink::Stub.indexed()).into(),
     ));
     anstream::println!(
         "\n  {brand}tessera{brand:#} {DIM}· send files from a terminal; the other side gets a \

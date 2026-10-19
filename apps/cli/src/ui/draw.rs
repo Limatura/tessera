@@ -40,7 +40,8 @@ const fn ink(ink: logo::Ink, truecolor: bool) -> Color {
 /// The ticket, a line to a row of cells.
 fn ticket() -> Vec<Line<'static>> {
     let truecolor = logo::truecolor();
-    logo::cells()
+    logo::FLAT
+        .cells()
         .map(|row| {
             Line::from(
                 row.into_iter()
@@ -68,20 +69,25 @@ fn ticket() -> Vec<Line<'static>> {
 /// The ticket in the middle of `area` with `note` under it, when there is room;
 /// otherwise only the note, at the top.
 fn draw_ticket_with(frame: &mut Frame<'_>, area: Rect, note: &str) {
-    let tall = cells(logo::HEIGHT + 2);
-    if area.height < tall + 2 || usize::from(area.width) < logo::WIDTH + 2 {
+    let tall = cells(logo::FLAT.height() + 2);
+    if area.height < tall + 2 || usize::from(area.width) < logo::FLAT.width() + 2 {
         frame.render_widget(Line::styled(format!(" {note}"), dim()), area);
         return;
     }
     let top = area.y + (area.height - tall) / 2;
-    let left = area.x + (area.width - cells(logo::WIDTH)) / 2;
+    let left = area.x + (area.width - cells(logo::FLAT.width())) / 2;
     frame.render_widget(
         Paragraph::new(ticket()),
-        Rect::new(left, top, cells(logo::WIDTH), cells(logo::HEIGHT)),
+        Rect::new(
+            left,
+            top,
+            cells(logo::FLAT.width()),
+            cells(logo::FLAT.height()),
+        ),
     );
     frame.render_widget(
         Line::styled(note.to_owned(), dim()).centered(),
-        Rect::new(area.x, top + cells(logo::HEIGHT) + 1, area.width, 1),
+        Rect::new(area.x, top + cells(logo::FLAT.height()) + 1, area.width, 1),
     );
 }
 
@@ -1077,22 +1083,27 @@ fn draw_welcome(frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         .centered(),
         Line::styled("Until then, browsing and finding files still work.", dim()).centered(),
     ];
-    let room = area.height >= cells(logo::HEIGHT + text.len() + 6);
-    let height = cells(text.len() + 4) + if room { cells(logo::HEIGHT + 1) } else { 0 };
+    let room = area.height >= cells(logo::FLAT.height() + text.len() + 6);
+    let height = cells(text.len() + 4)
+        + if room {
+            cells(logo::FLAT.height() + 1)
+        } else {
+            0
+        };
     let inner = dialog(frame, area, 64, height, "Welcome", hits);
     let mut y = inner.y;
     if room {
-        let left = inner.x + inner.width.saturating_sub(cells(logo::WIDTH)) / 2;
+        let left = inner.x + inner.width.saturating_sub(cells(logo::FLAT.width())) / 2;
         frame.render_widget(
             Paragraph::new(ticket()),
             Rect::new(
                 left,
                 y,
-                cells(logo::WIDTH).min(inner.width),
-                cells(logo::HEIGHT),
+                cells(logo::FLAT.width()).min(inner.width),
+                cells(logo::FLAT.height()),
             ),
         );
-        y += cells(logo::HEIGHT + 1);
+        y += cells(logo::FLAT.height() + 1);
     }
     frame.render_widget(
         Paragraph::new(text),
