@@ -14,7 +14,7 @@ use unicode_width::UnicodeWidthChar as _;
 use super::{
     app::{
         App, Ask, Button, Confirm, Field, Form, Hit, Menu, Modal, Prompt, SETTINGS, SignIn, Tab,
-        Tone, tilde,
+        Tone, Transfer, tilde,
     },
     files::{Marked, Row},
     keys::Action,
@@ -712,6 +712,26 @@ fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             Tone::Problem => Style::new().fg(PROBLEM),
         };
         Line::styled(format!(" {message}"), style)
+    } else if let Some(transfer) = app.transfers.first() {
+        // Under way in the background: the oldest, and how many more.
+        let progress = transfer.progress.borrow();
+        let percent = progress
+            .overall()
+            .saturating_mul(100)
+            .checked_div(progress.all.unwrap_or(progress.total))
+            .unwrap_or(0);
+        let more = app.transfers.len() - 1;
+        let watch = app.keymap.hint(Action::Transfers).unwrap_or_default();
+        let more = if more > 0 {
+            format!(" · {more} more")
+        } else {
+            String::new()
+        };
+        let rest = format!(" {percent}%{more} · {watch}");
+        let room = usize::from(left.width).saturating_sub(width_of(&rest) + 2);
+        let text = format!(" {}{rest}", fit(&transfer.title, room));
+        hits.push((left, Hit::Button(Button::Footer(Action::Transfers))));
+        Line::styled(text, Style::new().fg(accent()))
     } else if app.tab == Tab::Files && app.finder.is_some() {
         Line::styled(" Tab marks · Enter goes there · Esc closes", dim())
     } else if app.tab == Tab::Files && app.browser.marked_count() > 0 {
@@ -819,7 +839,7 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     };
     match modal {
         Modal::Send(form) => draw_form(form, frame, area, hits),
-        Modal::Transfer => draw_transfer(app, frame, area, hits),
+        Modal::Transfers(row) => draw_transfers(app, *row, frame, area, hits),
         Modal::Sent {
             link,
             what,
@@ -1081,13 +1101,21 @@ fn draw_confirm(
             "Delete",
             "Keep",
         ),
-        Confirm::Stop { then_quit } => (
+        Confirm::Stop { which, then_quit } => (
             "Stop",
-            if *then_quit {
-                "Stop the transfer and quit? Sending the same files again picks up where it \
-                 stopped."
-            } else {
-                "Stop the transfer? Sending the same files again picks up where it stopped."
+            match (which, then_quit) {
+                (None, true) => {
+                    "Stop everything under way and quit? Sending the same files \
+                                 again picks up where it stopped."
+                }
+                (None, false) => {
+                    "Stop everything under way? Sending the same files again \
+                                  picks up where it stopped."
+                }
+                (Some(_), _) => {
+                    "Stop this one? Sending the same files again picks up where \
+                                 it stopped."
+                }
             }
             .to_owned(),
             "Stop",
@@ -1552,57 +1580,92 @@ fn draw_expires(
     );
 }
 
-fn draw_transfer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
-    let Some(transfer) = &app.transfer else {
-        return;
-    };
-    let inner = dialog(frame, area, 64, 9, &transfer.title, hits);
+/// How far `transfer` has got: its file, a bar, and bytes and speed.
+fn transfer_lines(transfer: &Transfer, width: usize) -> [Line<'static>; 2] {
     let progress = transfer.progress.borrow();
-    let width = usize::from(inner.width).saturating_sub(18);
-    let (filled, empty) = crate::style::bar(progress.done, progress.total, width);
+    let (filled, empty) = crate::style::bar(progress.done, progress.total, width.saturating_sub(7));
     let percent = progress
         .done
         .saturating_mul(100)
         .checked_div(progress.total)
         .unwrap_or(0);
-    let elapsed = transfer.started.elapsed().as_secs_f64();
     let overall = progress.overall();
-    let rate = if elapsed > 0.5 {
+    let elapsed = transfer.started.elapsed().as_millis().max(1);
+    let rate = if elapsed > 500 {
         // Whole bytes are all a rate needs.
-        let per_second = u64::try_from(
-            (u128::from(overall) * 1000) / transfer.started.elapsed().as_millis().max(1),
-        )
-        .unwrap_or(u64::MAX);
+        let per_second = u64::try_from(u128::from(overall) * 1000 / elapsed).unwrap_or(u64::MAX);
         format!(" · {}/s", bytes(per_second))
     } else {
         String::new()
     };
-    let total_line = match progress.all {
+    let total = match progress.all {
         Some(all) => format!("{} of {}{rate}", bytes(overall), bytes(all)),
         None => format!("{}{rate}", bytes(overall)),
     };
-    let lines = vec![
-        Line::styled(
-            fit(
-                if progress.name.is_empty() {
-                    "Starting…"
-                } else {
-                    &progress.name
-                },
-                usize::from(inner.width),
-            ),
-            bold(),
-        ),
-        Line::default(),
+    let name = if progress.name.is_empty() {
+        "Starting…".to_owned()
+    } else {
+        progress.name.clone()
+    };
+    [
         Line::from(vec![
             Span::styled(filled, Style::new().fg(accent())),
             Span::styled(empty, dim()),
             Span::raw(format!(" {percent:>3}%")),
         ]),
-        Line::styled(total_line, dim()),
-    ];
-    frame.render_widget(Paragraph::new(lines), inner);
-    buttons(frame, inner, &[("Stop", Button::Stop, false)], hits);
+        Line::styled(
+            format!("{} · {total}", fit(&name, width.saturating_sub(30))),
+            dim(),
+        ),
+    ]
+}
+
+/// The transfers under way, each with its progress; the keys pick one to stop.
+fn draw_transfers(app: &App, row: usize, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let shown = app
+        .transfers
+        .len()
+        .min(usize::from(area.height.saturating_sub(6)) / 4)
+        .max(1);
+    let inner = dialog(frame, area, 72, cells(shown * 4 + 3), "Under way", hits);
+    let first = row.saturating_sub(shown - 1);
+    for (index, transfer) in app.transfers.iter().enumerate().skip(first).take(shown) {
+        let y = inner.y + cells((index - first) * 4);
+        let focused = index == row;
+        let pointer = if focused { "› " } else { "  " };
+        let title_style = if focused { bold().fg(accent()) } else { bold() };
+        frame.render_widget(
+            Line::styled(
+                format!(
+                    "{pointer}{}",
+                    fit(&transfer.title, usize::from(inner.width) - 2)
+                ),
+                title_style,
+            ),
+            Rect::new(inner.x, y, inner.width, 1),
+        );
+        let [bar, detail] = transfer_lines(transfer, usize::from(inner.width).saturating_sub(2));
+        frame.render_widget(
+            Paragraph::new(vec![bar, detail]),
+            Rect::new(inner.x + 2, y + 1, inner.width.saturating_sub(2), 2),
+        );
+    }
+    frame.render_widget(
+        Line::styled(
+            "↑↓ picks · Del stops it · Esc hides; they keep going",
+            dim(),
+        ),
+        Rect::new(inner.x, inner.bottom().saturating_sub(2), inner.width, 1),
+    );
+    buttons(
+        frame,
+        inner,
+        &[
+            ("Stop", Button::Stop, app.choice == 0),
+            ("Hide", Button::Close, app.choice == 1),
+        ],
+        hits,
+    );
 }
 
 fn draw_help(app: &App, scroll: usize, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {

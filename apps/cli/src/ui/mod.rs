@@ -101,7 +101,7 @@ pub async fn run(launch: Launch) -> Result<()> {
         let busy = app.busy();
         let step = tokio::select! {
             event = events.next() => Step::Event(event),
-            done = settle(app.transfer.as_mut().map(app::Transfer::job)) => Step::Done(done),
+            (id, done) = app::any_done(&mut app.transfers) => Step::Done(id, done),
             Some(reply) = app.requests.next(), if !app.requests.is_empty() => Step::Reply(reply),
             reply = settle(app.signing.as_mut()) => Step::Signing(reply),
             _ = ticks.tick(), if busy => Step::Tick,
@@ -109,7 +109,7 @@ pub async fn run(launch: Launch) -> Result<()> {
         match step {
             Step::Event(Some(event)) => app.handle(event?),
             Step::Event(None) => break,
-            Step::Done(done) => app.finish(done),
+            Step::Done(id, done) => app.finish(id, done),
             Step::Reply(reply) => app.reply(reply),
             Step::Signing(reply) => {
                 app.signing = None;
@@ -123,7 +123,7 @@ pub async fn run(launch: Launch) -> Result<()> {
 
 enum Step {
     Event(Option<std::io::Result<crossterm::event::Event>>),
-    Done(app::Done),
+    Done(u64, app::Done),
     Reply(app::Reply),
     Signing(app::Reply),
     Tick,
