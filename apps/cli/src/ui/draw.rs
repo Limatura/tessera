@@ -13,8 +13,8 @@ use unicode_width::UnicodeWidthChar as _;
 
 use super::{
     app::{
-        App, Ask, Button, Confirm, Field, Form, Hit, Menu, Modal, Prompt, SETTINGS, Tab, Tone,
-        tilde,
+        App, Ask, Button, Confirm, Field, Form, Hit, Menu, Modal, Prompt, SETTINGS, SignIn, Tab,
+        Tone, tilde,
     },
     files::{Marked, Row},
     keys::Action,
@@ -284,10 +284,10 @@ fn draw_header(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             if client.signed_in() {
                 format!("{host} · signed in ")
             } else {
-                format!("{host} · anonymous ")
+                format!("{host} · not signed in ")
             }
         }
-        None => "no instance · run tess login ".to_owned(),
+        None => "no instance yet ".to_owned(),
     };
     frame.render_widget(Line::styled(instance, dim()).right_aligned(), area);
 }
@@ -852,7 +852,26 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         Modal::Menu(menu) => draw_menu(menu, frame, area, hits),
         Modal::Help { scroll } => draw_help(app, *scroll, frame, area, hits),
         Modal::Settings(row) => draw_settings(app, *row, frame, area, hits),
-        Modal::Welcome => draw_welcome(frame, area, hits),
+        Modal::Welcome => draw_welcome(app.choice, frame, area, hits),
+        Modal::NeedSignIn { title, message } => {
+            let text = format!(
+                "{message}\n\nSigning in opens a link to approve this machine, on any device."
+            );
+            let width = 64.min(area.width);
+            let rows = rows_for(&text, width.saturating_sub(4));
+            let inner = dialog(frame, area, width, rows + 4, title, hits);
+            frame.render_widget(Paragraph::new(text).wrap(Wrap { trim: false }), inner);
+            buttons(
+                frame,
+                inner,
+                &[
+                    ("Sign in", Button::SignIn, app.choice == 0),
+                    ("Close", Button::Close, app.choice == 1),
+                ],
+                hits,
+            );
+        }
+        Modal::SignIn(sign_in) => draw_sign_in(sign_in, app.choice, frame, area, hits),
     }
 }
 
@@ -1002,6 +1021,10 @@ fn draw_prompt(app: &App, prompt: &Prompt, frame: &mut Frame<'_>, area: Rect, hi
             ),
         ),
         Ask::Password { .. } => ("Password", "This share has a password".to_owned()),
+        Ask::Instance => (
+            "Sign in",
+            "The instance's address, like share.example.com".to_owned(),
+        ),
     };
     let height = 7 + u16::from(prompt.error.is_some());
     let inner = dialog(frame, area, 68, height, title, hits);
@@ -1144,6 +1167,14 @@ fn draw_settings(app: &App, row: usize, frame: &mut Frame<'_>, area: Rect, hits:
             "files whose names start with a dot",
         ),
         (
+            "Account",
+            match &app.client {
+                Some(client) if client.signed_in() => "signed in".to_owned(),
+                _ => "sign in".to_owned(),
+            },
+            "approve this machine in a browser",
+        ),
+        (
             "Colour",
             ui.accent.clone().unwrap_or_else(|| "the site's".to_owned()),
             "picking one overrides the site's",
@@ -1179,17 +1210,109 @@ fn draw_settings(app: &App, row: usize, frame: &mut Frame<'_>, area: Rect, hits:
 
 /// What opens first when there is no instance to send to: the ticket, and
 /// how to get one.
-fn draw_welcome(frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+/// A sign-in waiting on a browser: the code to check, where to go, and the
+/// same as a QR code for a phone, when there is room.
+fn draw_sign_in(
+    sign_in: &SignIn,
+    choice: usize,
+    frame: &mut Frame<'_>,
+    area: Rect,
+    hits: &mut Hits,
+) {
+    let title = format!("Sign in to {}", sign_in.host);
+    if sign_in.code.is_empty() {
+        let inner = dialog(frame, area, 60, 5, &title, hits);
+        frame.render_widget(
+            Line::styled(format!("Asking {}…", sign_in.host), dim()),
+            inner,
+        );
+        buttons(frame, inner, &[("Cancel", Button::Close, true)], hits);
+        return;
+    }
+    let width = 72.min(area.width);
+    let link_rows = rows_for(&sign_in.link, width.saturating_sub(12));
+    let drawn = crate::output::qr_blocks(&sign_in.link).ok();
+    let qr_rows = drawn.as_deref().map_or(0, |qr| cells(qr.lines().count()));
+    let without_qr = 9 + link_rows;
+    let show_qr = area.height >= without_qr + qr_rows + 4;
+    let height = without_qr + if show_qr { qr_rows } else { 0 };
+    let inner = dialog(frame, area, width, height, &title, hits);
+    let frames = usize::try_from(sign_in.started.elapsed().as_millis() / 100).unwrap_or(0);
+    let spinner = SPINNER.get(frames % SPINNER.len()).copied().unwrap_or(' ');
+    let lines = vec![
+        Line::styled(
+            "Open the link wherever you are signed in, a phone will do,",
+            dim(),
+        ),
+        Line::styled("and check that it shows the same code:", dim()),
+        Line::default(),
+        Line::from(vec![
+            Span::styled("Code    ", dim()),
+            Span::styled(sign_in.code.clone(), bold().fg(accent())),
+        ]),
+    ];
+    frame.render_widget(Paragraph::new(lines), inner);
+    frame.render_widget(
+        Span::styled("Link    ", dim()),
+        Rect::new(inner.x, inner.y + 4, 8, 1),
+    );
+    frame.render_widget(
+        Paragraph::new(Line::styled(
+            sign_in.link.clone(),
+            Style::new().fg(accent()).add_modifier(Modifier::UNDERLINED),
+        ))
+        .wrap(Wrap { trim: false }),
+        Rect::new(
+            inner.x + 8,
+            inner.y + 4,
+            inner.width.saturating_sub(8),
+            link_rows,
+        ),
+    );
+    let mut y = inner.y + 4 + link_rows + 1;
+    if let Some(drawn) = drawn.filter(|_| show_qr) {
+        let qr_width = cells(drawn.lines().map(width_of).max().unwrap_or(0));
+        frame.render_widget(
+            Paragraph::new(drawn).style(Style::new().fg(Color::Black).bg(Color::White)),
+            Rect::new(
+                inner.x + inner.width.saturating_sub(qr_width) / 2,
+                y,
+                qr_width.min(inner.width),
+                qr_rows,
+            ),
+        );
+        y += qr_rows;
+    }
+    frame.render_widget(
+        Line::styled(format!("{spinner} Waiting for approval…"), dim()),
+        Rect::new(
+            inner.x,
+            y.min(inner.bottom().saturating_sub(1)),
+            inner.width,
+            1,
+        ),
+    );
+    buttons(
+        frame,
+        inner,
+        &[
+            ("Copy link", Button::CopyLink, choice == 0),
+            ("Cancel", Button::Close, choice == 1),
+        ],
+        hits,
+    );
+}
+
+fn draw_welcome(choice: usize, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     let text = vec![
         Line::styled("tessera", bold().fg(accent())).centered(),
         Line::styled("Send files from here; the other side gets a link.", dim()).centered(),
         Line::default(),
-        Line::from(vec![
-            Span::raw("To send, sign in once:  "),
-            Span::styled("tess login share.example.com", bold()),
-        ])
+        Line::styled(
+            "Sign in to send. Browsing and finding files work without.",
+            dim(),
+        )
         .centered(),
-        Line::styled("Until then, browsing and finding files still work.", dim()).centered(),
         Line::default(),
         Line::from(vec![
             Span::styled("From scripts: ", dim()),
@@ -1232,7 +1355,15 @@ fn draw_welcome(frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             ..inner
         },
     );
-    buttons(frame, inner, &[("Browse", Button::Close, true)], hits);
+    buttons(
+        frame,
+        inner,
+        &[
+            ("Sign in", Button::SignIn, choice == 0),
+            ("Browse", Button::Close, choice == 1),
+        ],
+        hits,
+    );
 }
 
 /// Cells the send form's labels take, the pointer and a space after included.
