@@ -38,11 +38,12 @@ pub(crate) enum Action {
     NextTab,
     PreviousTab,
     Help,
+    Settings,
     Quit,
 }
 
 impl Action {
-    pub(crate) const ALL: [Self; 27] = [
+    pub(crate) const ALL: [Self; 28] = [
         Self::Up,
         Self::Down,
         Self::PageUp,
@@ -69,6 +70,7 @@ impl Action {
         Self::NextTab,
         Self::PreviousTab,
         Self::Help,
+        Self::Settings,
         Self::Quit,
     ];
 
@@ -101,6 +103,7 @@ impl Action {
             Self::NextTab => "next_tab",
             Self::PreviousTab => "previous_tab",
             Self::Help => "help",
+            Self::Settings => "settings",
             Self::Quit => "quit",
         }
     }
@@ -134,6 +137,7 @@ impl Action {
             Self::NextTab => "Next tab",
             Self::PreviousTab => "Previous tab",
             Self::Help => "Keys",
+            Self::Settings => "Keys, mouse, colour",
             Self::Quit => "Quit",
         }
     }
@@ -355,6 +359,7 @@ fn defaults(preset: Preset) -> Vec<(Key, Action)> {
         (plain(C::Tab), A::NextTab),
         (plain(C::BackTab), A::PreviousTab),
         (plain(C::F(1)), A::Help),
+        (plain(C::F(3)), A::Settings),
         (ctrl('c'), A::Quit),
     ];
     match preset {

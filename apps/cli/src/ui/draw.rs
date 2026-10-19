@@ -12,7 +12,10 @@ use ratatui::{
 use unicode_width::UnicodeWidthChar as _;
 
 use super::{
-    app::{App, Ask, Button, Confirm, Field, Form, Hit, Menu, Modal, Prompt, Tab, Tone, tilde},
+    app::{
+        App, Ask, Button, Confirm, Field, Form, Hit, Menu, Modal, Prompt, SETTINGS, Tab, Tone,
+        tilde,
+    },
     files::{Marked, Row},
     keys::Action,
 };
@@ -643,6 +646,7 @@ fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             ("Send", Action::Send),
             ("Find", Action::Find),
             ("Download", Action::Get),
+            ("Settings", Action::Settings),
             ("Keys", Action::Help),
         ],
         Tab::Shares => &[
@@ -799,10 +803,16 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             qr,
         } => {
             let copy = app.keymap.hint(Action::Copy).unwrap_or_default();
-            draw_sent(frame, area, hits, (link, what, *skipped, *qr), &copy);
+            draw_sent(
+                frame,
+                area,
+                hits,
+                (link, what, *skipped, *qr),
+                (&copy, app.choice),
+            );
         }
         Modal::Got { dir, files } => draw_got(frame, area, hits, dir, files),
-        Modal::Note(text) => draw_note(frame, area, hits, text),
+        Modal::Note(text) => draw_note(frame, area, hits, text, app.choice),
         Modal::Failed { title, message } => {
             let width = 64.min(area.width);
             let rows = rows_for(message, width.saturating_sub(4));
@@ -814,9 +824,10 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             buttons(frame, inner, &[("Close", Button::Close, true)], hits);
         }
         Modal::Prompt(prompt) => draw_prompt(app, prompt, frame, area, hits),
-        Modal::Confirm(confirm) => draw_confirm(confirm, frame, area, hits),
+        Modal::Confirm(confirm) => draw_confirm(confirm, app.choice, frame, area, hits),
         Modal::Menu(menu) => draw_menu(menu, frame, area, hits),
         Modal::Help { scroll } => draw_help(app, *scroll, frame, area, hits),
+        Modal::Settings(row) => draw_settings(app, *row, frame, area, hits),
         Modal::Welcome => draw_welcome(frame, area, hits),
     }
 }
@@ -826,7 +837,7 @@ fn draw_sent(
     area: Rect,
     hits: &mut Hits,
     (link, what, skipped, qr): (&str, &str, usize, bool),
-    copy: &str,
+    (copy, choice): (&str, usize),
 ) {
     let width = 72.min(area.width);
     let link_rows = rows_for(link, width.saturating_sub(4));
@@ -888,13 +899,13 @@ fn draw_sent(
         frame,
         inner,
         &[
-            (&format!("Copy link {copy}"), Button::CopyLink, true),
+            (&format!("Copy link {copy}"), Button::CopyLink, choice == 0),
             (
                 if qr { "Hide QR" } else { "QR code" },
                 Button::ToggleQr,
-                false,
+                choice == 1,
             ),
-            ("Close", Button::Close, false),
+            ("Close", Button::Close, choice == 2),
         ],
         hits,
     );
@@ -931,7 +942,7 @@ fn draw_got(
     buttons(frame, inner, &[("Close", Button::Close, true)], hits);
 }
 
-fn draw_note(frame: &mut Frame<'_>, area: Rect, hits: &mut Hits, text: &str) {
+fn draw_note(frame: &mut Frame<'_>, area: Rect, hits: &mut Hits, text: &str, choice: usize) {
     let width = 72.min(area.width);
     let rows = rows_for(text, width.saturating_sub(4)).min(area.height.saturating_sub(8));
     let inner = dialog(frame, area, width, rows + 4, "Note", hits);
@@ -946,8 +957,8 @@ fn draw_note(frame: &mut Frame<'_>, area: Rect, hits: &mut Hits, text: &str) {
         frame,
         inner,
         &[
-            ("Copy", Button::CopyLink, true),
-            ("Close", Button::Close, false),
+            ("Copy", Button::CopyLink, choice == 0),
+            ("Close", Button::Close, choice == 1),
         ],
         hits,
     );
@@ -1009,7 +1020,13 @@ fn draw_prompt(app: &App, prompt: &Prompt, frame: &mut Frame<'_>, area: Rect, hi
     );
 }
 
-fn draw_confirm(confirm: &Confirm, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+fn draw_confirm(
+    confirm: &Confirm,
+    choice: usize,
+    frame: &mut Frame<'_>,
+    area: Rect,
+    hits: &mut Hits,
+) {
     let (title, text, yes, no) = match confirm {
         Confirm::Delete { code, name } => (
             "Delete",
@@ -1037,8 +1054,8 @@ fn draw_confirm(confirm: &Confirm, frame: &mut Frame<'_>, area: Rect, hits: &mut
         frame,
         inner,
         &[
-            (&format!("{yes} y"), Button::Yes, false),
-            (&format!("{no} n"), Button::No, true),
+            (&format!("{yes} y"), Button::Yes, choice == 0),
+            (&format!("{no} n"), Button::No, choice == 1),
         ],
         hits,
     );
@@ -1077,6 +1094,63 @@ fn draw_menu(menu: &Menu, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         };
         frame.render_widget(Line::styled(format!(" {label} "), style), row);
     }
+}
+
+/// The `[ui]` table, a row to a setting, changed with the arrows.
+fn draw_settings(app: &App, row: usize, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let ui = &app.ui;
+    let rows = [
+        (
+            "Keys",
+            match ui.keys {
+                crate::config::Preset::Standard => "standard",
+                crate::config::Preset::Vim => "vim",
+            }
+            .to_owned(),
+            "hjkl and letters, or arrows and Ctrl",
+        ),
+        (
+            "Mouse",
+            if ui.mouse { "on" } else { "off" }.to_owned(),
+            "off: the terminal selects text itself",
+        ),
+        (
+            "Dotfiles",
+            if ui.show_hidden { "shown" } else { "hidden" }.to_owned(),
+            "files whose names start with a dot",
+        ),
+        (
+            "Colour",
+            ui.accent.clone().unwrap_or_else(|| "the site's".to_owned()),
+            "picking one overrides the site's",
+        ),
+    ];
+    let config = crate::config::default_path()
+        .map(|path| tilde(&path))
+        .unwrap_or_default();
+    let inner = dialog(frame, area, 70, cells(rows.len() + 6), "Settings", hits);
+    for (index, (label, value, note)) in rows.into_iter().enumerate() {
+        let line_area = Rect::new(inner.x, inner.y + cells(index), inner.width, 1);
+        hits.push((line_area, Hit::Button(Button::Setting(index))));
+        let focused = index == row;
+        let pointer = if focused { "› " } else { "  " };
+        let label_style = if focused { bold().fg(accent()) } else { dim() };
+        frame.render_widget(
+            Line::from(vec![
+                Span::styled(format!("{pointer}{label:<10}"), label_style),
+                Span::styled("‹ ", Style::new().fg(accent())),
+                Span::styled(format!("{value:<10}"), bold()),
+                Span::styled(" ›", Style::new().fg(accent())),
+                Span::styled(format!("  {note}"), dim()),
+            ]),
+            line_area,
+        );
+    }
+    frame.render_widget(
+        Line::styled(format!("↑↓ picks · ←→ changes · saved to {config}"), dim()),
+        Rect::new(inner.x, inner.y + cells(SETTINGS + 1), inner.width, 1),
+    );
+    buttons(frame, inner, &[("Close", Button::Close, true)], hits);
 }
 
 /// What opens first when there is no instance to send to: the ticket, and
@@ -1126,6 +1200,9 @@ fn draw_welcome(frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     buttons(frame, inner, &[("Browse", Button::Close, true)], hits);
 }
 
+/// Cells the send form's labels take, the pointer and a space after included.
+const LABEL: u16 = 12;
+
 fn draw_form(form: &Form, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     let height = 12 + u16::from(form.error.is_some());
     let inner = dialog(frame, area, 64, height, "Send", hits);
@@ -1133,13 +1210,13 @@ fn draw_form(form: &Form, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         Line::styled(fit(&form.summary, usize::from(inner.width)), bold()),
         Rect { height: 1, ..inner },
     );
-    // The pointer shows where the keys go; the label keeps to 11 cells either
+    // The pointer shows where the keys go; the label keeps to LABEL cells either
     // way, which the field positions below count on.
     let label = |field: Field, text: &'static str| {
         if form.focus == field {
-            Span::styled(format!("› {text:<9}"), bold().fg(accent()))
+            Span::styled(format!("› {text:<10}"), bold().fg(accent()))
         } else {
-            Span::styled(format!("  {text:<9}"), dim())
+            Span::styled(format!("  {text:<10}"), dim())
         }
     };
     let row = |offset: u16| Rect {
@@ -1202,7 +1279,7 @@ fn draw_form(form: &Form, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
     );
     if form.focus == Field::Uses {
         frame.set_cursor_position(Position::new(
-            uses.x + 11 + cells(form.uses.caret()),
+            uses.x + LABEL + cells(form.uses.caret()),
             uses.y,
         ));
     }
@@ -1264,7 +1341,7 @@ fn draw_password(
     if form.focus == Field::Password {
         let before: String = shown.chars().take(form.password.caret()).collect();
         frame.set_cursor_position(Position::new(
-            password.x + 11 + cells(width_of(&before)),
+            password.x + LABEL + cells(width_of(&before)),
             password.y,
         ));
     }
@@ -1284,16 +1361,16 @@ fn draw_expires(
         .map_or("", |(_, label)| label.as_str());
     hits.push((
         Rect {
-            width: 13,
+            width: LABEL + 2,
             ..expires
         },
         Hit::Button(Button::Field(Field::Expires)),
     ));
     hits.push((
-        Rect::new(expires.x + 11, expires.y, 2, 1),
+        Rect::new(expires.x + LABEL, expires.y, 2, 1),
         Hit::Button(Button::ExpiresPrevious),
     ));
-    let next_at = expires.x + 13 + cells(width_of(choice)) + 1;
+    let next_at = expires.x + LABEL + 2 + cells(width_of(choice)) + 1;
     hits.push((
         Rect::new(next_at, expires.y, 2, 1),
         Hit::Button(Button::ExpiresNext),

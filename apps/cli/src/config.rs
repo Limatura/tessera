@@ -47,6 +47,7 @@ pub struct Ui {
     pub accent: Option<String>,
     /// Keys for actions, by action name, replacing the preset's keys for that
     /// action: `send = "ctrl-s"`, or several, `up = ["k", "up"]`.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub bindings: BTreeMap<String, Keys>,
 }
 

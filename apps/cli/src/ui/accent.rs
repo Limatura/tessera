@@ -16,6 +16,17 @@ const ACCENTS: [(&str, (u8, u8, u8), u8); 7] = [
     ("blue", (0x5b, 0x91, 0xff), 69),
 ];
 
+/// Every accent's name, in the site's order.
+pub(crate) const NAMES: [&str; 7] = [
+    ACCENTS[0].0,
+    ACCENTS[1].0,
+    ACCENTS[2].0,
+    ACCENTS[3].0,
+    ACCENTS[4].0,
+    ACCENTS[5].0,
+    ACCENTS[6].0,
+];
+
 /// The accent called `name`, drawn as this terminal can.
 pub(crate) fn named(name: &str, truecolor: bool) -> Option<Color> {
     ACCENTS
