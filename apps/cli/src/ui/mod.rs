@@ -103,6 +103,7 @@ pub async fn run(launch: Launch) -> Result<()> {
             event = events.next() => Step::Event(event),
             done = settle(app.transfer.as_mut().map(app::Transfer::job)) => Step::Done(done),
             Some(reply) = app.requests.next(), if !app.requests.is_empty() => Step::Reply(reply),
+            reply = settle(app.signing.as_mut()) => Step::Signing(reply),
             _ = ticks.tick(), if busy => Step::Tick,
         };
         match step {
@@ -110,6 +111,10 @@ pub async fn run(launch: Launch) -> Result<()> {
             Step::Event(None) => break,
             Step::Done(done) => app.finish(done),
             Step::Reply(reply) => app.reply(reply),
+            Step::Signing(reply) => {
+                app.signing = None;
+                app.signing_reply(reply);
+            }
             Step::Tick => {}
         }
     }
@@ -120,6 +125,7 @@ enum Step {
     Event(Option<std::io::Result<crossterm::event::Event>>),
     Done(app::Done),
     Reply(app::Reply),
+    Signing(app::Reply),
     Tick,
 }
 

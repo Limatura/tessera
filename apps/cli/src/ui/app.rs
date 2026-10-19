@@ -27,9 +27,9 @@ use super::{
 };
 use crate::{
     Error, Result,
-    client::{Capabilities, Client, OwnShare},
+    client::{Capabilities, Client, DeviceSignIn, OwnShare},
     get::{self, Fetched},
-    link, output, resume,
+    link, login, output, resume,
     send::{self, Content, Options, Sent},
 };
 
@@ -120,6 +120,16 @@ pub(crate) enum Done {
 
 /// How a request about the account's shares ended.
 pub(crate) enum Reply {
+    /// The instance gave a code to approve, or would not.
+    SignInStarted {
+        client: Client,
+        started: Result<DeviceSignIn>,
+    },
+    /// The code was approved: the token and the account's name.
+    SignedIn {
+        server: url::Url,
+        result: Result<(String, String)>,
+    },
     /// The instance's capabilities, and the accent the account chose.
     Looks {
         capabilities: Result<Capabilities>,
@@ -231,7 +241,11 @@ pub(crate) struct Prompt {
 pub(crate) enum Ask {
     GoTo,
     Link,
-    Password { link: String },
+    /// The address of an instance to sign in to.
+    Instance,
+    Password {
+        link: String,
+    },
 }
 
 #[derive(Debug)]
@@ -293,6 +307,23 @@ pub(crate) enum Modal {
     Settings(usize),
     /// No instance yet: what tessera is, and how to sign in.
     Welcome,
+    /// Something wants an account: why, with a way to sign in.
+    NeedSignIn {
+        title: String,
+        message: String,
+    },
+    /// Signing in: the code to check and where to approve it.
+    SignIn(SignIn),
+}
+
+/// A sign-in waiting to be approved in a browser.
+#[derive(Debug)]
+pub(crate) struct SignIn {
+    pub(crate) host: String,
+    /// The code the approval page should show; empty until the instance gave one.
+    pub(crate) code: String,
+    pub(crate) link: String,
+    pub(crate) started: Instant,
 }
 
 /// Buttons, wherever they are drawn.
@@ -311,6 +342,7 @@ pub(crate) enum Button {
     MenuItem(usize),
     /// A row of the settings, clicked to change it.
     Setting(usize),
+    SignIn,
     Footer(Action),
 }
 
@@ -360,6 +392,9 @@ pub(crate) struct App {
     pub(crate) transfer: Option<Transfer>,
     /// Requests about the account and the instance, answered in any order.
     pub(crate) requests: FuturesUnordered<Job<Reply>>,
+    /// A sign-in under way, apart from the other requests so that closing its
+    /// dialog can drop it.
+    pub(crate) signing: Option<Job<Reply>>,
     /// What the instance allows, once it has said.
     pub(crate) capabilities: Option<Capabilities>,
     /// The config file named an accent, which wins over the site's.
@@ -431,6 +466,7 @@ impl App {
             defaults,
             transfer: None,
             requests: FuturesUnordered::new(),
+            signing: None,
             capabilities: None,
             accent_chosen: false,
             site_accent: None,
@@ -474,6 +510,7 @@ impl App {
     pub(crate) fn busy(&self) -> bool {
         self.transfer.is_some()
             || !self.requests.is_empty()
+            || self.signing.is_some()
             || self.finder.as_ref().is_some_and(Finder::walking)
             || self.status.is_some()
             || self.dragged.is_some()
@@ -805,6 +842,9 @@ impl App {
             (Action::Copy, Some((code, _))) => self.run(Command::CopyShare(code)),
             (Action::Delete, Some((code, name))) => self.run(Command::DeleteShare { code, name }),
             (Action::Refresh, _) => self.load_shares(),
+            (Action::Open, None) if !self.client.as_ref().is_some_and(Client::signed_in) => {
+                self.sign_in();
+            }
             _ => {}
         }
     }
@@ -931,29 +971,22 @@ impl App {
 
     fn open_form(&mut self, paths: Vec<PathBuf>, from_marks: bool) {
         let Some(client) = &self.client else {
-            self.modal = Some(Modal::Failed {
+            self.show(Modal::NeedSignIn {
                 title: "No instance to send to".to_owned(),
-                message: "Run `tess login share.example.com` first, or start with --server."
-                    .to_owned(),
+                message: "Sign in to the instance to send to, or start with --server.".to_owned(),
             });
             return;
         };
         let capabilities = self.capabilities.as_ref();
         if !client.signed_in() && capabilities.is_some_and(|can| !can.anonymous_upload) {
-            let server = client.server();
-            let host = server.host_str().unwrap_or("this instance").to_owned();
-            // A host alone means HTTPS to `tess login`; anything else is spelled out.
-            let named = if server.scheme() == "https" {
-                host.clone()
-            } else {
-                server.as_str().trim_end_matches('/').to_owned()
-            };
-            self.modal = Some(Modal::Failed {
+            let host = client
+                .server()
+                .host_str()
+                .unwrap_or("this instance")
+                .to_owned();
+            self.show(Modal::NeedSignIn {
                 title: "Sign in to send".to_owned(),
-                message: format!(
-                    "{host} takes uploads from accounts only. Run `tess login {named}`, then \
-                     open tess ui again."
-                ),
+                message: format!("{host} takes uploads from accounts only."),
             });
             return;
         }
@@ -1243,11 +1276,10 @@ impl App {
         let Some(client) = self.client.clone().filter(Client::signed_in) else {
             self.shares.list = Some(Err(match &self.client {
                 Some(client) => format!(
-                    "Not signed in to {}. Run `tess login {}` to list your shares here.",
-                    client.server(),
-                    client.server()
+                    "Not signed in to {}. Press Enter to sign in and list your shares here.",
+                    client.server().host_str().unwrap_or("this instance")
                 ),
-                None => "No instance. Run `tess login https://your.instance` first.".to_owned(),
+                None => "No instance yet. Press Enter to sign in to one.".to_owned(),
             }));
             self.shares.stale = false;
             return;
@@ -1260,6 +1292,9 @@ impl App {
 
     pub(crate) fn reply(&mut self, reply: Reply) {
         match reply {
+            signing @ (Reply::SignInStarted { .. } | Reply::SignedIn { .. }) => {
+                self.signing_reply(signing);
+            }
             Reply::Looks {
                 capabilities,
                 chosen,
@@ -1357,7 +1392,14 @@ impl App {
                 });
             }
             Modal::Got { .. } | Modal::Failed { .. } if close || event.code == KeyCode::Enter => {}
-            Modal::Welcome => {}
+            Modal::Welcome | Modal::NeedSignIn { .. } if close => {}
+            Modal::SignIn(_) if close => self.signing = None,
+            Modal::SignIn(sign_in) => {
+                if action == Some(Action::Copy) || key.typed() == Some('c') {
+                    self.copy(&sign_in.link);
+                }
+                self.modal = Some(Modal::SignIn(sign_in));
+            }
             Modal::Note(text) => {
                 if close {
                     return;
@@ -1432,6 +1474,12 @@ impl App {
                 self.browser.toggle_hidden();
                 self.ui.show_hidden = self.browser.show_hidden();
             }
+            4 => {
+                // Saved by the sign-in itself, once approved.
+                self.modal = None;
+                self.sign_in();
+                return;
+            }
             _ => {
                 // The site's own first, then each accent by name.
                 let names = super::accent::NAMES;
@@ -1463,6 +1511,118 @@ impl App {
         if let Err(error) = save_ui(&self.ui) {
             self.say(format!("Not saved: {error}"), Tone::Problem);
         }
+    }
+
+    /// Signs in to the instance in use, or asks which when there is none.
+    pub(crate) fn sign_in(&mut self) {
+        match self.client.as_ref().map(|client| client.server().clone()) {
+            Some(server) => self.start_sign_in(server),
+            None => self.ask(Ask::Instance, ""),
+        }
+    }
+
+    /// Asks `server` for a code to approve in a browser.
+    fn start_sign_in(&mut self, server: url::Url) {
+        let client = match Client::new(server, None) {
+            Ok(client) => client,
+            Err(error) => {
+                self.show(Modal::Failed {
+                    title: "Not signed in".to_owned(),
+                    message: error.to_string(),
+                });
+                return;
+            }
+        };
+        self.show(Modal::SignIn(SignIn {
+            host: client
+                .server()
+                .host_str()
+                .unwrap_or("the instance")
+                .to_owned(),
+            code: String::new(),
+            link: String::new(),
+            started: Instant::now(),
+        }));
+        self.signing = Some(Box::pin(async move {
+            let started = client.start_device_sign_in(&login::client_name()).await;
+            Reply::SignInStarted { client, started }
+        }));
+    }
+
+    /// Takes a step of a sign-in: a code to show, then a token to keep.
+    pub(crate) fn signing_reply(&mut self, reply: Reply) {
+        match reply {
+            Reply::SignInStarted {
+                client,
+                started: Ok(started),
+            } => {
+                let link = login::approval_url(&client, &started)
+                    .map(|url| url.to_string())
+                    .unwrap_or_default();
+                if let Some(Modal::SignIn(sign_in)) = &mut self.modal {
+                    sign_in.code.clone_from(&started.user_code);
+                    sign_in.link = link;
+                }
+                self.signing = Some(Box::pin(async move {
+                    let server = client.server().clone();
+                    let result = async {
+                        let token = login::wait_for_approval(&client, &started).await?;
+                        let account = Client::new(server.clone(), Some(token.clone()))?
+                            .account()
+                            .await?;
+                        Ok((token, account.username))
+                    }
+                    .await;
+                    Reply::SignedIn { server, result }
+                }));
+            }
+            Reply::SignInStarted {
+                started: Err(error),
+                ..
+            }
+            | Reply::SignedIn {
+                result: Err(error), ..
+            } => {
+                self.show(Modal::Failed {
+                    title: "Not signed in".to_owned(),
+                    message: error.to_string(),
+                });
+            }
+            Reply::SignedIn {
+                server,
+                result: Ok((token, username)),
+            } => self.signed_in(server, token, &username),
+            other => self.reply(other),
+        }
+    }
+
+    /// Keeps the token as `tess login` does, and goes on as the account.
+    fn signed_in(&mut self, server: url::Url, token: String, username: &str) {
+        let host = server.host_str().unwrap_or("the instance").to_owned();
+        if let Err(error) = save_sign_in(&server, &token) {
+            self.say(format!("Signed in, but not saved: {error}"), Tone::Problem);
+        } else {
+            self.say(format!("Signed in to {host} as {username}"), Tone::Done);
+        }
+        if matches!(self.modal, Some(Modal::SignIn(_))) {
+            self.modal = None;
+        }
+        let Ok(client) = Client::new(server, Some(token)) else {
+            return;
+        };
+        self.client = Some(client.clone());
+        self.shares.stale = true;
+        if self.tab == Tab::Shares {
+            self.load_shares();
+        }
+        self.requests.push(Box::pin(async move {
+            let capabilities = client.capabilities().await;
+            let chosen = client.chosen_accent().await.ok().flatten();
+            Reply::Looks {
+                capabilities,
+                chosen,
+            }
+        }));
     }
 
     /// Opens `modal` with the keys on its default button: the harmless one for
@@ -1544,6 +1704,9 @@ impl App {
         let text = prompt.input.text().trim().to_owned();
         let outcome = match &prompt.ask {
             Ask::GoTo => self.go_to(&text),
+            Ask::Instance => link::instance(&text)
+                .map(|server| self.start_sign_in(server))
+                .map_err(|error| error.to_string()),
             Ask::Link => self
                 .start_get(&text, None)
                 .map_err(|error| error.to_string()),
@@ -1794,6 +1957,12 @@ impl App {
                 self.modal = Some(Modal::Settings(row));
                 self.change_setting(row, 1);
             }
+            (Button::SignIn, _) => self.sign_in(),
+            (Button::CopyLink, Some(Modal::SignIn(sign_in))) => {
+                self.copy(&sign_in.link);
+                self.modal = Some(Modal::SignIn(sign_in));
+            }
+            (Button::Close, Some(Modal::SignIn(_))) => self.signing = None,
             (Button::MenuItem(index), Some(Modal::Menu(menu))) => {
                 if let Some((_, command)) = menu.items.into_iter().nth(index) {
                     self.run(command);
@@ -1934,7 +2103,16 @@ impl Form {
 }
 
 /// Rows in the settings.
-pub(crate) const SETTINGS: usize = 4;
+pub(crate) const SETTINGS: usize = 5;
+
+/// Saves `server` and its token as the defaults, as `tess login` does.
+fn save_sign_in(server: &url::Url, token: &str) -> Result<()> {
+    let path = crate::config::default_path()?;
+    let mut config = crate::config::load(&path)?;
+    config.server = Some(server.clone());
+    config.token = Some(token.to_owned());
+    crate::config::save(&path, &config)
+}
 
 /// Writes `ui` over the `[ui]` table of the config file, keeping the rest.
 fn save_ui(ui: &crate::config::Ui) -> Result<()> {
@@ -1949,8 +2127,9 @@ fn save_ui(ui: &crate::config::Ui) -> Result<()> {
 pub(crate) const fn buttons_of(modal: &Modal) -> &'static [Button] {
     match modal {
         Modal::Sent { .. } => &[Button::CopyLink, Button::ToggleQr, Button::Close],
-        Modal::Note(_) => &[Button::CopyLink, Button::Close],
+        Modal::Note(_) | Modal::SignIn(_) => &[Button::CopyLink, Button::Close],
         Modal::Confirm(_) => &[Button::Yes, Button::No],
+        Modal::Welcome | Modal::NeedSignIn { .. } => &[Button::SignIn, Button::Close],
         _ => &[],
     }
 }
