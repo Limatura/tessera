@@ -916,6 +916,13 @@ impl App {
             KeyCode::Esc => return FormOutcome::Cancel,
             KeyCode::Tab | KeyCode::Down => form.focus = form.focus.step(1),
             KeyCode::BackTab | KeyCode::Up => form.focus = form.focus.step(-1),
+            // On the switch, Enter flips it, as Space and the arrows do:
+            // reaching it with the arrows and pressing Enter should not send.
+            KeyCode::Enter | KeyCode::Char(' ') | KeyCode::Left | KeyCode::Right
+                if form.focus == Field::Encrypt =>
+            {
+                form.encrypt = !form.encrypt;
+            }
             KeyCode::Enter => {
                 return if form.focus == Field::Cancel {
                     FormOutcome::Cancel
@@ -925,7 +932,6 @@ impl App {
             }
             KeyCode::Left if form.focus == Field::Expires => form.cycle(-1),
             KeyCode::Right if form.focus == Field::Expires => form.cycle(1),
-            KeyCode::Char(' ') if form.focus == Field::Encrypt => form.encrypt = !form.encrypt,
             code => match form.focus {
                 Field::Password => {
                     if !form.password.edit(code)

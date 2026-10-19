@@ -1001,13 +1001,14 @@ fn draw_form(form: &Form, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         Line::styled(fit(&form.summary, usize::from(inner.width)), bold()),
         Rect { height: 1, ..inner },
     );
+    // The pointer shows where the keys go; the label keeps to 11 cells either
+    // way, which the field positions below count on.
     let label = |field: Field, text: &'static str| {
-        let style = if form.focus == field {
-            bold().fg(ACCENT)
+        if form.focus == field {
+            Span::styled(format!("› {text:<9}"), bold().fg(ACCENT))
         } else {
-            dim()
-        };
-        Span::styled(format!("{text:<11}"), style)
+            Span::styled(format!("  {text:<9}"), dim())
+        }
     };
     let row = |offset: u16| Rect {
         y: inner.y + offset,
@@ -1074,7 +1075,7 @@ fn draw_form(form: &Form, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         );
     }
     frame.render_widget(
-        Line::styled("Tab moves · ←/→ changes the expiry · Enter sends", dim()),
+        Line::styled("↑↓ moves · Space or ←→ changes · Enter sends", dim()),
         row(6 + 1 + u16::from(form.error.is_some())),
     );
     buttons(

@@ -64,6 +64,29 @@ pub fn parse(input: &str, server: Option<&Url>) -> Result<Target> {
     Ok(Target { server, code, key })
 }
 
+/// An instance as a person names it: a whole URL, or only its host, which
+/// means HTTPS.
+///
+/// # Errors
+///
+/// When it is neither.
+pub fn instance(text: &str) -> Result<Url> {
+    let text = text.trim();
+    let written = if text.contains("://") {
+        text.to_owned()
+    } else {
+        format!("https://{text}")
+    };
+    Url::parse(&written)
+        .ok()
+        .filter(|url| matches!(url.scheme(), "http" | "https") && url.host().is_some())
+        .ok_or_else(|| {
+            Error::Usage(format!(
+                "`{text}` is not an instance; give its address, like share.example.com"
+            ))
+        })
+}
+
 /// The link to a share, with its key after `#` when there is one to carry.
 #[must_use]
 pub fn to_share(server: &Url, code: &str, key: Option<&ShareKey>) -> String {
@@ -77,6 +100,23 @@ pub fn to_share(server: &Url, code: &str, key: Option<&ShareKey>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_instance_can_be_named_by_its_host() {
+        let read = |text| instance(text).expect(text).to_string();
+        assert_eq!(read("share.example.com"), "https://share.example.com/");
+        assert_eq!(
+            read("share.example.com:8443"),
+            "https://share.example.com:8443/"
+        );
+        assert_eq!(read("http://localhost:3000"), "http://localhost:3000/");
+        assert_eq!(
+            read(" https://share.example.com/ "),
+            "https://share.example.com/"
+        );
+        assert!(instance("ftp://share.example.com").is_err());
+        assert!(instance("").is_err());
+    }
 
     const KEY: &str = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc";
 
