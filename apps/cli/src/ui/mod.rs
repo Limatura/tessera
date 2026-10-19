@@ -5,6 +5,7 @@
 //! waits on whichever comes first of a key, the transfer, a request about the
 //! account's shares, or a tick while something moves on its own.
 
+mod accent;
 mod app;
 mod draw;
 mod files;
@@ -59,6 +60,13 @@ pub struct Launch {
 /// When `[ui.bindings]` does not read, or the terminal cannot be drawn on.
 pub async fn run(launch: Launch) -> Result<()> {
     let keymap = keys::Keymap::new(launch.settings.keys, &launch.settings.bindings)?;
+    let accent = match &launch.settings.accent {
+        Some(name) => {
+            accent::check(name)?;
+            accent::named(name, crate::logo::truecolor())
+        }
+        None => None,
+    };
     let browser = files::Browser::new(launch.dir, launch.settings.show_hidden);
     let mut app = app::App::new(
         keymap,
@@ -66,6 +74,7 @@ pub async fn run(launch: Launch) -> Result<()> {
         browser,
         launch.client,
         launch.defaults,
+        accent,
     );
 
     let (mut terminal, _screen) = Screen::enter(app.mouse)?;
@@ -89,7 +98,7 @@ pub async fn run(launch: Launch) -> Result<()> {
         let step = tokio::select! {
             event = events.next() => Step::Event(event),
             done = settle(app.transfer.as_mut().map(app::Transfer::job)) => Step::Done(done),
-            reply = settle(app.request.as_mut()) => Step::Reply(reply),
+            Some(reply) = app.requests.next(), if !app.requests.is_empty() => Step::Reply(reply),
             _ = ticks.tick(), if busy => Step::Tick,
         };
         match step {

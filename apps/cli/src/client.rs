@@ -544,6 +544,59 @@ impl Client {
     }
 }
 
+/// What an instance allows and how it looks, as much as `tess ui` reads.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Capabilities {
+    /// Whether shares may be sealed end to end here.
+    pub encryption: bool,
+    /// Whether someone not signed in may upload.
+    pub anonymous_upload: bool,
+    /// How long a share lasts when not told, in hours; `None` for no limit.
+    pub default_expiry_hours: Option<u64>,
+    /// The longest a share may last, in hours; `None` for no limit.
+    pub max_expiry_hours: Option<u64>,
+    /// The site's look. Missing from servers before 0.3.
+    #[serde(default)]
+    pub appearance: Appearance,
+}
+
+/// A look, as names. Only the accent is read: a terminal keeps its own
+/// background, so the site's neutral palette and light or dark have no say.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Appearance {
+    /// `violet`, `rose`, `orange`, `amber`, `green`, `teal` or `blue`.
+    pub accent: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Preferences {
+    #[serde(default)]
+    appearance: Appearance,
+}
+
+impl Client {
+    /// What this instance allows, and its look. Asked of anyone.
+    ///
+    /// # Errors
+    ///
+    /// When the request fails.
+    pub async fn capabilities(&self) -> Result<Capabilities> {
+        let request = self.request(reqwest::Method::GET, self.url("/api/v1/capabilities")?);
+        Ok(accepted(request.send().await?).await?.json().await?)
+    }
+
+    /// The accent the signed-in account picked on the site, if it picked one.
+    ///
+    /// # Errors
+    ///
+    /// When there is no token, or the request fails.
+    pub async fn chosen_accent(&self) -> Result<Option<String>> {
+        let request = self.request(reqwest::Method::GET, self.url("/api/v1/me/preferences")?);
+        let preferences: Preferences = accepted(request.send().await?).await?.json().await?;
+        Ok(preferences.appearance.accent)
+    }
+}
+
 /// The response, or the refusal it carries.
 async fn accepted(response: Response) -> Result<Response> {
     let status = response.status();

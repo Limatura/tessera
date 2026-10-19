@@ -372,6 +372,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reads log lines, newest first, a page at a time.
+         * @description # Errors
+         *
+         *     `400` for a time, cursor or level that does not parse, `401` when nothing
+         *     was signed in, `403` without `logs:read` or with an API token.
+         */
+        get: operations["read_logs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/logs/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists the days there are log files for, newest first.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` without `logs:read` or with an API
+         *     token, `404` when this instance has no administration.
+         */
+        get: operations["list_log_files"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/logs/files/{date}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Downloads one day's file.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` without `logs:read` or with an API
+         *     token, `404` when there is no file for that day or it is not a date.
+         */
+        get: operations["download_log_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/logs/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Streams log lines as they are written.
+         * @description `entry` events carry one line each, with the line's `id` as the event id.
+         *     A `lagged` event says the stream fell behind and missed some; read them
+         *     with `GET /admin/logs`. Lines from before the stream opened are not sent.
+         *
+         *     # Errors
+         *
+         *     `400` for a level that does not parse, `401` when nothing was signed in,
+         *     `403` without `logs:read` or with an API token.
+         */
+        get: operations["stream_logs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/permissions": {
         parameters: {
             query?: never;
@@ -2923,6 +3019,12 @@ export interface components {
              */
             anonymous_upload: boolean;
             /**
+             * @description The look a visitor gets before choosing one: `mode`, `theme` and
+             *     `accent`, named as in `GET /me/preferences`, always all three. For a
+             *     client that draws its own screen, such as `tess ui`, to match the site.
+             */
+            appearance: Record<string, never>;
+            /**
              * @description Number of characters in a retrieval code on this instance
              *     (`share.code_length`), so the page that collects one can draw the right
              *     number of boxes. Codes already issued keep the length they had, so this
@@ -3381,6 +3483,34 @@ export interface components {
              */
             scopes_supported: string[];
         };
+        /** @description One line of a log file, as written and as served. */
+        Entry: {
+            /**
+             * @description The line's own fields, and those of the spans it was logged inside,
+             *     such as the request's `method`, `path` and `request_id`.
+             */
+            fields: Record<string, never>;
+            /**
+             * @description Where the line starts: its day and byte offset in that day's file.
+             *     Stable, so it doubles as a cursor.
+             * @example 2026-10-19:48213
+             */
+            id: string;
+            /** @description How severe it is. */
+            level: components["schemas"]["LogLevel"];
+            /** @description What happened. */
+            message: string;
+            /**
+             * @description The module that logged it.
+             * @example tessera_server::scan
+             */
+            target: string;
+            /**
+             * @description When it was logged, RFC 3339 in UTC.
+             * @example 2026-10-19T03:12:09.381Z
+             */
+            time: string;
+        };
         /** @description The JSON body returned for every non-2xx response. */
         ErrorBody: {
             /** @description Stable identifier the client can branch on. */
@@ -3490,6 +3620,37 @@ export interface components {
              * @description How many it has created.
              */
             used: number;
+        };
+        /** @description One day's file. */
+        LogFile: {
+            /**
+             * @description The day it holds, in UTC.
+             * @example 2026-10-19
+             */
+            date: string;
+            /**
+             * Format: int64
+             * @description How large it is.
+             */
+            size_bytes: number;
+        };
+        /**
+         * @description How severe a log line is, least first.
+         * @enum {string}
+         */
+        LogLevel: "trace" | "debug" | "info" | "warn" | "error";
+        /** @description Lines from `GET /admin/logs`, newest first. */
+        LogPage: {
+            /** @description The lines. */
+            data: components["schemas"]["Entry"][];
+            /**
+             * @description Pass back as `cursor` for older lines. `null` when there are none.
+             *
+             *     A page can be short, or even empty, and still have a cursor: a query
+             *     stops reading after a fixed amount so a rare match costs several
+             *     requests rather than one very long one.
+             */
+            next_cursor?: string | null;
         };
         /** @description Body of `POST /auth/login/mfa`. */
         LoginCodeRequest: {
@@ -5743,6 +5904,206 @@ export interface operations {
             };
             /** @description No invite has that id */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    read_logs: {
+        parameters: {
+            query?: {
+                /** @description Nothing logged before this, RFC 3339. */
+                since?: string;
+                /** @description Nothing logged after this, RFC 3339. */
+                until?: string;
+                /** @description The least severe level wanted: `warn` is warnings and errors. */
+                level?: components["schemas"]["LogLevel"];
+                /** @description Text the message or a field value contains, ignoring case. */
+                q?: string;
+                /** @description How many lines, 200 when omitted, at most 1000. */
+                limit?: number;
+                /** @description `next_cursor` from the previous page. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of lines */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogPage"];
+                };
+            };
+            /** @description A parameter does not parse */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read the log, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_log_files: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The days kept */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogFile"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read the log, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    download_log_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The day, `YYYY-MM-DD` in UTC */
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The day's lines, one JSON object each */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-ndjson": string;
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read the log, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No file for that day */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    stream_logs: {
+        parameters: {
+            query?: {
+                /** @description The least severe level wanted. */
+                level?: components["schemas"]["LogLevel"];
+                /** @description Text the message or a field value contains, ignoring case. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `entry` events, each a line; `lagged` events, each a count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Entry"];
+                };
+            };
+            /** @description A parameter does not parse */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read the log, or authenticated with an API token */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

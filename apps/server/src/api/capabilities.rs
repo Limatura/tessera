@@ -2,7 +2,7 @@
 
 use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
-use tessera_core::Permission;
+use tessera_core::{Appearance, Permission};
 use utoipa::ToSchema;
 
 use crate::{
@@ -177,6 +177,12 @@ pub struct Capabilities {
     /// mismatch with the contract it was generated from.
     #[schema(example = "0.1.0")]
     pub version: String,
+
+    /// The look a visitor gets before choosing one: `mode`, `theme` and
+    /// `accent`, named as in `GET /me/preferences`, always all three. For a
+    /// client that draws its own screen, such as `tess ui`, to match the site.
+    #[schema(value_type = Object, example = json!({"mode": "system", "theme": "default", "accent": "orange"}))]
+    pub appearance: Appearance,
 }
 
 /// Seconds in an hour, for reporting durations in the unit the API takes them
@@ -235,6 +241,11 @@ impl Capabilities {
             max_upload_bytes: u64::try_from(config.server.max_body_bytes).unwrap_or(u64::MAX),
             storage_remaining_bytes: None,
             version: crate::VERSION.to_owned(),
+            appearance: Appearance {
+                mode: Some(config.appearance.mode),
+                theme: Some(config.appearance.theme),
+                accent: Some(config.appearance.accent),
+            },
         }
     }
 }
