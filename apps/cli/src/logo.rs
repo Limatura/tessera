@@ -83,6 +83,12 @@ impl Picture {
         self.0.first().map_or(0, |row| row.len())
     }
 
+    /// Pixels down.
+    #[must_use]
+    pub const fn pixel_rows(self) -> usize {
+        self.0.len()
+    }
+
     /// Cells down: two pixels to a cell.
     #[must_use]
     pub const fn height(self) -> usize {

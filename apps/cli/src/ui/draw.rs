@@ -18,6 +18,7 @@ use super::{
     },
     files::{Marked, Row},
     keys::Action,
+    motion,
 };
 use crate::{
     logo,
@@ -41,42 +42,9 @@ pub(crate) fn set_accent(color: Color) {
     ACCENT.with(|cell| cell.set(color));
 }
 
-const fn ink(ink: logo::Ink, truecolor: bool) -> Color {
-    if truecolor {
-        let (red, green, blue) = ink.rgb();
-        Color::Rgb(red, green, blue)
-    } else {
-        Color::Indexed(ink.indexed())
-    }
-}
-
 /// The ticket, a line to a row of cells.
 fn ticket(picture: logo::Picture) -> Vec<Line<'static>> {
-    let truecolor = logo::truecolor();
-    picture
-        .cells()
-        .map(|row| {
-            Line::from(
-                row.into_iter()
-                    .map(|cell| match cell {
-                        (None, None) => Span::raw(" "),
-                        (Some(top), None) => {
-                            Span::styled("▀", Style::new().fg(ink(top, truecolor)))
-                        }
-                        (None, Some(bottom)) => {
-                            Span::styled("▄", Style::new().fg(ink(bottom, truecolor)))
-                        }
-                        (Some(top), Some(bottom)) => Span::styled(
-                            "▀",
-                            Style::new()
-                                .fg(ink(top, truecolor))
-                                .bg(ink(bottom, truecolor)),
-                        ),
-                    })
-                    .collect::<Vec<_>>(),
-            )
-        })
-        .collect()
+    motion::still(picture, logo::truecolor())
 }
 
 /// The ticket in the middle of `area` with `note` under it, when there is room;
@@ -103,6 +71,9 @@ fn draw_ticket_with(frame: &mut Frame<'_>, area: Rect, note: &str) {
         Rect::new(area.x, top + cells(logo::FLAT.height()) + 1, area.width, 1),
     );
 }
+
+/// Cells a small ticket crosses while something is under way.
+const TRACK: usize = 8;
 
 const FOLDER: Color = Color::Blue;
 const MARK: Color = Color::Green;
@@ -751,10 +722,17 @@ fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             String::new()
         };
         let rest = format!(" {percent}%{more} · {watch}");
-        let room = usize::from(left.width).saturating_sub(width_of(&rest) + 2);
+        let room = usize::from(left.width).saturating_sub(width_of(&rest) + 2 + TRACK + 1);
         let text = format!(" {}{rest}", fit(&transfer.title, room));
         hits.push((left, Hit::Button(Button::Footer(Action::Transfers))));
-        Line::styled(text, Style::new().fg(accent()))
+        let mut spans = vec![Span::raw(" ")];
+        spans.extend(motion::in_transit(
+            app.started.elapsed(),
+            TRACK,
+            logo::truecolor(),
+        ));
+        spans.push(Span::styled(text, Style::new().fg(accent())));
+        Line::from(spans)
     } else if app.tab == Tab::Files && app.finder.is_some() {
         Line::styled(" Tab marks · Enter goes there · Esc closes", dim())
     } else if app.tab == Tab::Files && app.browser.marked_count() > 0 {
@@ -880,7 +858,11 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
                 area,
                 hits,
                 (link, what, *skipped, code.as_deref()),
-                (&copy, app.choice),
+                (
+                    &copy,
+                    app.choice,
+                    app.sent_at.map(|at| at.elapsed()).unwrap_or_default(),
+                ),
             );
         }
         Modal::Got { dir, files } => draw_got(frame, area, hits, dir, files),
@@ -900,7 +882,7 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         Modal::Menu(menu) => draw_menu(menu, frame, area, hits),
         Modal::Help { scroll } => draw_help(app, *scroll, frame, area, hits),
         Modal::Settings(row) => draw_settings(app, *row, frame, area, hits),
-        Modal::Welcome => draw_welcome(app.choice, frame, area, hits),
+        Modal::Welcome => draw_welcome(app, frame, area, hits),
         Modal::NeedSignIn { title, message } => {
             let text = format!(
                 "{message}\n\nSigning in opens a link to approve this machine, on any device."
@@ -1042,7 +1024,7 @@ fn draw_sent(
     area: Rect,
     hits: &mut Hits,
     (link, what, skipped, qr): (&str, &str, usize, Option<&super::qr::Drawn>),
-    (copy, choice): (&str, usize),
+    (copy, choice, torn): (&str, usize, std::time::Duration),
 ) {
     let mut lines = vec![
         Line::styled(what.to_owned(), dim()),
@@ -1059,6 +1041,8 @@ fn draw_sent(
             dim(),
         ));
     }
+    lines.push(Line::default());
+    lines.extend(motion::torn(torn, logo::truecolor()));
     let inner = with_qr(frame, area, hits, ("Sent", 72), lines, qr);
     buttons(
         frame,
@@ -1586,8 +1570,6 @@ fn draw_sign_in(
         buttons(frame, inner, &[("Cancel", Button::Close, true)], hits);
         return;
     }
-    let frames = usize::try_from(sign_in.started.elapsed().as_millis() / 100).unwrap_or(0);
-    let spinner = SPINNER.get(frames % SPINNER.len()).copied().unwrap_or(' ');
     let lines = vec![
         Line::styled(
             "Open the link wherever you are signed in, a phone will do, and check that it \
@@ -1607,7 +1589,11 @@ fn draw_sign_in(
             ),
         ]),
         Line::default(),
-        Line::styled(format!("{spinner} Waiting for approval…"), dim()),
+        Line::from({
+            let mut spans = motion::in_transit(sign_in.started.elapsed(), TRACK, logo::truecolor());
+            spans.push(Span::styled(" Waiting for approval…", dim()));
+            spans
+        }),
     ];
     let inner = with_qr(frame, area, hits, (&title, 72), lines, qr);
     buttons(
@@ -1621,7 +1607,8 @@ fn draw_sign_in(
     );
 }
 
-fn draw_welcome(choice: usize, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+fn draw_welcome(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
+    let choice = app.choice;
     let text = vec![
         Line::styled("tessera", bold().fg(accent())).centered(),
         Line::styled("Send files from here; the other side gets a link.", dim()).centered(),
@@ -1655,7 +1642,11 @@ fn draw_welcome(choice: usize, frame: &mut Frame<'_>, area: Rect, hits: &mut Hit
     if let Some(picture) = picture {
         let left = inner.x + inner.width.saturating_sub(cells(picture.width())) / 2;
         frame.render_widget(
-            Paragraph::new(ticket(picture)),
+            Paragraph::new(motion::shining(
+                picture,
+                app.started.elapsed(),
+                logo::truecolor(),
+            )),
             Rect::new(
                 left,
                 y,
