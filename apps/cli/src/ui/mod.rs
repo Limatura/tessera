@@ -51,6 +51,8 @@ pub struct Launch {
     pub defaults: Defaults,
     /// The `[ui]` table of the config file.
     pub settings: config::Ui,
+    /// This machine's offset from UTC, read before any thread started.
+    pub local_offset: time::UtcOffset,
 }
 
 /// Runs the view until it is quit.
@@ -77,6 +79,7 @@ pub async fn run(launch: Launch) -> Result<()> {
         accent,
     );
     app.ui = launch.settings;
+    app.local_offset = launch.local_offset;
 
     let (mut terminal, _screen) = Screen::enter(app.mouse)?;
     let mut events = EventStream::new();

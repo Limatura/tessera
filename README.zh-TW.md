@@ -137,10 +137,10 @@ tess get https://share.example.com/s/P8D72PSF
 echo "hello" | tess send -
 tess ls
 tess rm P8D72PSF
-tess ui
+tess
 ```
 
-`tess ui` 會開啟全螢幕畫面，不用打路徑就能找檔案、傳送，也能管理自己的分享。`tess send` 不帶檔案時也會開啟它。
+只打 `tess` 會開啟全螢幕畫面，不用打路徑就能找檔案、傳送，也能管理自己的分享。
 
 加上 `--encrypt` 會在內容離開你的電腦前先加密，金鑰是連結 `#` 後面那段，伺服器永遠看不到。
 

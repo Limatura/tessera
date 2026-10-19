@@ -259,7 +259,7 @@ impl fmt::Display for Key {
             KeyCode::Tab => f.write_str("Tab"),
             KeyCode::BackTab => f.write_str("Shift-Tab"),
             KeyCode::Backspace => f.write_str("Backspace"),
-            KeyCode::Delete => f.write_str("Delete"),
+            KeyCode::Delete => f.write_str("Del"),
             KeyCode::Insert => f.write_str("Insert"),
             KeyCode::Home => f.write_str("Home"),
             KeyCode::End => f.write_str("End"),

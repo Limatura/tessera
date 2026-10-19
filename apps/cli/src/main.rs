@@ -20,7 +20,12 @@ use url::Url;
 
 /// Send and fetch Tessera shares.
 #[derive(Debug, Parser)]
-#[command(name = "tess", version, about)]
+#[command(
+    name = "tess",
+    version,
+    about,
+    after_help = "Run tess on its own, on a terminal, to pick files in a full-screen view."
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
@@ -29,7 +34,7 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Command {
     /// Upload files, or a note from standard input, and print the link.
-    /// Without any, on a terminal, pick them in `tess ui`.
+    /// Without any, on a terminal, pick them in the full-screen view.
     Send {
         /// The files to put in one share; a directory sends every file under
         /// it, keeping their paths. `-` reads a note from standard input.
@@ -97,7 +102,8 @@ enum Command {
         #[arg(long, env = "TESSERA_TOKEN", hide_env_values = true)]
         token: Option<String>,
     },
-    /// Browse folders to pick what to send, and your shares, full screen.
+    /// The full-screen view that `tess` on its own opens, here starting in
+    /// another folder.
     Ui {
         /// The folder to start in.
         #[arg(default_value = ".")]
@@ -133,12 +139,27 @@ enum Command {
     },
 }
 
-#[tokio::main]
-async fn main() -> ExitCode {
-    let done = match Cli::parse().command {
-        Some(command) => run(command).await,
-        None => by_itself().await,
-    };
+/// This machine's offset from UTC, for showing times as its clock does.
+static LOCAL_OFFSET: std::sync::OnceLock<time::UtcOffset> = std::sync::OnceLock::new();
+
+fn main() -> ExitCode {
+    // Read before the runtime starts any thread: on Unix the offset can only
+    // be read safely, and is only read at all, while there is one thread.
+    LOCAL_OFFSET
+        .get_or_init(|| time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC));
+    let cli = Cli::parse();
+    let done = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .map_err(Error::from)
+        .and_then(|runtime| {
+            runtime.block_on(async {
+                match cli.command {
+                    Some(command) => run(command).await,
+                    None => by_itself().await,
+                }
+            })
+        });
     match done {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
@@ -311,6 +332,7 @@ async fn browse(
         client,
         defaults,
         settings: saved.ui,
+        local_offset: LOCAL_OFFSET.get().copied().unwrap_or(time::UtcOffset::UTC),
     })
     .await
 }

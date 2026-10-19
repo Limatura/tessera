@@ -368,6 +368,8 @@ pub(crate) struct App {
     site_accent: Option<ratatui::style::Color>,
     /// The `[ui]` table as loaded, which the settings change and save.
     pub(crate) ui: crate::config::Ui,
+    /// This machine's offset from UTC, for expiry times.
+    pub(crate) local_offset: time::UtcOffset,
     pub(crate) status: Option<(String, Tone, Instant)>,
     /// Where things were drawn, last drawn on top.
     pub(crate) hits: Vec<(Rect, Hit)>,
@@ -433,6 +435,7 @@ impl App {
             accent_chosen: false,
             site_accent: None,
             ui: crate::config::Ui::default(),
+            local_offset: time::UtcOffset::UTC,
             status: None,
             hits: Vec::new(),
             selection: None,

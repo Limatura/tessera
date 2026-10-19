@@ -137,10 +137,10 @@ tess get https://share.example.com/s/P8D72PSF
 echo "hello" | tess send -
 tess ls
 tess rm P8D72PSF
-tess ui
+tess
 ```
 
-`tess ui` 会打开全屏界面，不用输入路径就能找文件、发送，也能管理自己的分享。`tess send` 不带文件时也会打开它。
+只输入 `tess` 会打开全屏界面，不用输入路径就能找文件、发送，也能管理自己的分享。
 
 加上 `--encrypt` 会在内容离开你的电脑之前先加密，密钥是链接中 `#` 后面的部分，服务器永远看不到。
 

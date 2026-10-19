@@ -189,6 +189,25 @@ fn ago(when: SystemTime) -> String {
     }
 }
 
+/// An expiry as this machine's clock reads it, `2026-10-26 09:56`; nothing
+/// for a share that never expires.
+fn when(expires_at: Option<&str>, offset: time::UtcOffset) -> String {
+    use time::format_description::well_known::Rfc3339;
+
+    let Some(at) = expires_at.and_then(|at| time::OffsetDateTime::parse(at, &Rfc3339).ok()) else {
+        return String::new();
+    };
+    let at = at.to_offset(offset);
+    format!(
+        "{}-{:02}-{:02} {:02}:{:02}",
+        at.year(),
+        u8::from(at.month()),
+        at.day(),
+        at.hour(),
+        at.minute()
+    )
+}
+
 /// Rows `offset` must move to so `cursor` is among `height` rows.
 const fn scrolled(offset: usize, cursor: usize, height: usize) -> usize {
     if height == 0 {
@@ -592,7 +611,7 @@ fn draw_shares(app: &mut App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits
     frame.render_widget(
         Line::styled(
             format!(
-                " {:<code_width$}  {:<8} {:>5}  NAME",
+                " {:<code_width$}  {:<25} {:>5}  NAME",
                 "CODE", "EXPIRES", "LEFT"
             ),
             dim(),
@@ -621,9 +640,13 @@ fn draw_shares(app: &mut App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits
             .map_or_else(|| "-".to_owned(), |left| left.to_string());
         let line = Line::from(vec![
             Span::styled(format!(" {:<code_width$}  ", share.code), bold()),
+            Span::raw(format!(
+                "{:<16}",
+                when(share.expires_at.as_deref(), app.local_offset)
+            )),
             Span::styled(
                 format!(
-                    "{:<8} {left:>5}  ",
+                    "  {:<7} {left:>5}  ",
                     crate::shares::expires(share.expires_at.as_deref(), now)
                 ),
                 dim(),
@@ -653,6 +676,7 @@ fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             ("Copy", Action::Copy),
             ("Delete", Action::Delete),
             ("Reload", Action::Refresh),
+            ("Settings", Action::Settings),
             ("Keys", Action::Help),
         ],
     };
@@ -1518,6 +1542,20 @@ mod tests {
         assert_eq!(fit("quarterly-report.pdf", 10), "quarterly…");
         assert_eq!(fit("報告書.pdf", 5), "報告…");
         assert_eq!(fit_left("/home/me/projects/tessera", 12), "…cts/tessera");
+    }
+
+    #[test]
+    fn an_expiry_reads_as_the_local_clock_does() {
+        let taipei = time::UtcOffset::from_hms(8, 0, 0).expect("an offset");
+        assert_eq!(
+            when(Some("2026-10-26T01:56:00Z"), taipei),
+            "2026-10-26 09:56"
+        );
+        assert_eq!(
+            when(Some("2026-10-25T23:30:00Z"), taipei),
+            "2026-10-26 07:30"
+        );
+        assert_eq!(when(None, taipei), "");
     }
 
     #[test]

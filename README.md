@@ -137,10 +137,10 @@ tess get https://share.example.com/s/P8D72PSF
 echo "hello" | tess send -
 tess ls
 tess rm P8D72PSF
-tess ui
+tess
 ```
 
-`tess ui` opens a full-screen view to find files and send them without typing paths, and to manage your shares. `tess send` with no files opens it too.
+`tess` on its own opens a full-screen view to find files and send them without typing paths, and to manage your shares.
 
 `--encrypt` seals the content before it leaves your machine; the key is the part of the link after `#`, which the server never sees.
 
