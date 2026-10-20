@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 
 import { MermaidDiagram } from "@/components/mermaid/mermaid-diagram";
 import { SvgImage } from "@/components/svg-image";
+import { copyText } from "@/lib/copy-text";
 import * as m from "@/paraglide/messages";
 
 const MAX_PREVIEW_BYTES = 200_000;
@@ -82,7 +83,9 @@ export function TextPreview({
     if (state.status !== "ready") {
       return;
     }
-    await navigator.clipboard.writeText(state.code);
+    if (!(await copyText(state.code))) {
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };

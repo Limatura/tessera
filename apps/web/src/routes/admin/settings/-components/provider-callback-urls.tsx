@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@tessera/ui/components/button";
 import { useState } from "react";
 
+import { copyText } from "@/lib/copy-text";
 import * as m from "@/paraglide/messages";
 
 import { SettingsNotice } from "./form-fields";
@@ -97,13 +98,10 @@ function CopyableUrl({
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
+    // On failure the address is still on screen to select and copy.
+    if (await copyText(url)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Not https, or clipboard permission denied. The address is still on
-      // screen to select and copy, so no error.
     }
   };
 

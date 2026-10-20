@@ -21,6 +21,7 @@ import type { FormEvent } from "react";
 
 import { useCreateInvite } from "@/hooks/admin/use-invites";
 import { apiErrorMessage } from "@/lib/api-error";
+import { copyText } from "@/lib/copy-text";
 import * as m from "@/paraglide/messages";
 
 type ErrorBody = components["schemas"]["ErrorBody"];
@@ -281,14 +282,4 @@ function registerLink(code: string): string {
   const url = new URL("/register", window.location.origin);
   url.searchParams.set("invite", code);
   return url.toString();
-}
-
-/** `false` when not on https or the user denied clipboard permission. */
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
 }

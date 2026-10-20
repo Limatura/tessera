@@ -2,6 +2,7 @@ import { IconCheck, IconCopy, IconDownload } from "@tabler/icons-react";
 import { Button } from "@tessera/ui/components/button";
 import { useState } from "react";
 
+import { copyText } from "@/lib/copy-text";
 import * as m from "@/paraglide/messages";
 
 const COPIED_FEEDBACK_MS = 2000;
@@ -15,7 +16,9 @@ export function RecoveryCodes({ codes }: { codes: string[] }) {
   const text = codes.join("\n");
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(text);
+    if (!(await copyText(text))) {
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
   };

@@ -23,6 +23,7 @@ import { useState } from "react";
 
 import { useCreateToken } from "@/hooks/use-tokens";
 import { apiErrorMessage } from "@/lib/api-error";
+import { copyText } from "@/lib/copy-text";
 import * as m from "@/paraglide/messages";
 
 type CreatedToken = components["schemas"]["CreatedTokenResponse"];
@@ -240,7 +241,9 @@ function SecretStep({
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(secret);
+    if (!(await copyText(secret))) {
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
   };

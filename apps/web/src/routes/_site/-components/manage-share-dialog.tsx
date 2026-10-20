@@ -17,6 +17,7 @@ import { AnimatedQRCode } from "@/components/animated-qr-code";
 import { useManagedShare } from "@/hooks/use-managed-share";
 import { useShare } from "@/hooks/use-share";
 import { apiErrorMessage } from "@/lib/api-error";
+import { copyText } from "@/lib/copy-text";
 import { uploader } from "@/lib/uploader";
 import * as m from "@/paraglide/messages";
 import { useShareStore } from "@/stores/share";
@@ -358,7 +359,9 @@ function ShareHeader({ share }: { share: ManagedShare }) {
   const shareNative = useShareStore((state) => state.share);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(share.shortUrl);
+    if (!(await copyText(share.shortUrl))) {
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
