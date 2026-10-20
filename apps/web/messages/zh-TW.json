@@ -222,6 +222,8 @@
   "shares_error": "分享載入失敗",
   "shares_loading": "載入中…",
   "shares_col_code": "取件碼",
+  "shares_col_name": "名稱",
+  "shares_name_more_files": "{name} 等 {count} 個檔案",
   "shares_col_kind": "類型",
   "shares_kind_text": "文字",
   "shares_kind_file": "檔案",
