@@ -195,8 +195,9 @@ jobs:
   # Opens a pull request on microsoft/winget-pkgs for this version. The package
   # has to be in winget already: the first version goes in by hand from
   # `contrib/winget` (see the README there), this only follows it. Needs a
-  # `WINGET_TOKEN` secret, a classic PAT with `public_repo`, from an account
-  # that has forked winget-pkgs. A release without the secret skips the job.
+  # `WINGET_TOKEN` secret, a classic PAT (not fine-grained) with `public_repo`
+  # and `workflow` scopes, from the account that holds the winget-pkgs fork,
+  # named in `fork-user`. A release without the secret skips the job.
   winget:
     name: winget
     needs: github-release
@@ -216,6 +217,7 @@ jobs:
         uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
         with:
           identifier: Limatura.Tess
+          fork-user: sao-coding
           version: ${{ inputs.version }}
           release-tag: v${{ inputs.version }}
           installers-regex: 'tess-windows-x86_64\.zip$'

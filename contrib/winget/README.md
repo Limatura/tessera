@@ -8,5 +8,5 @@ The three manifests here are the first version, for submitting by hand once. Aft
 
 1. Check the manifests: `winget validate contrib/winget` and `winget install --manifest contrib/winget` on a Windows machine (`winget settings --enable LocalManifestFiles` first).
 2. Copy the three files to `manifests/l/Limatura/Tess/0.1.0/` in a fork of winget-pkgs and open a pull request. Moderators review it; it can take days.
-3. Once it is merged, create a classic personal access token with `public_repo` on an account that has forked winget-pkgs, and save it as the `WINGET_TOKEN` repository secret. Without the secret the `winget` job in `release.yml` does nothing.
+3. Once it is merged, create a classic personal access token (fine-grained ones are not supported) with the `public_repo` and `workflow` scopes on the account that holds the winget-pkgs fork (`sao-coding`, set as `fork-user` in `release.yml`), and save it as the `WINGET_TOKEN` repository secret. Without the secret the `winget` job in `release.yml` does nothing.
 4. Add `winget install Limatura.Tess` to the README and the release notes.
