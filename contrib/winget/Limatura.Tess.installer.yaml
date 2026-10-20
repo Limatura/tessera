@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
 PackageIdentifier: Limatura.Tess
 PackageVersion: 0.1.0
 InstallerType: zip
@@ -14,4 +14,4 @@ Installers:
     InstallerUrl: https://github.com/Limatura/tessera/releases/download/v0.1.0/tess-windows-x86_64.zip
     InstallerSha256: 67A4373ACF5ABB75C422EB510C53858596EA850C8AE358AB4D5AEFD5E39A8444
 ManifestType: installer
-ManifestVersion: 1.9.0
+ManifestVersion: 1.12.0
