@@ -72,17 +72,20 @@ https://github.com/user-attachments/assets/f1c95b78-8561-4184-9616-c57e3fa3bc5a
 
 ## 快速开始
 
-使用 Docker，在本仓库的克隆中执行：
+使用 Docker：
 
 ```bash
-docker compose up -d
+docker run -d --name tessera --restart unless-stopped \
+  -p 12923:12923 -v tessera-data:/data ghcr.io/limatura/tessera
 ```
 
 然后打开 <http://localhost:12923>。首次启动时，服务器会创建一个管理员账号，并把密码打印在日志里，只打印一次：
 
 ```bash
-docker compose logs tessera | grep password
+docker logs tessera | grep password
 ```
+
+在本仓库的克隆中执行 `docker compose up -d` 效果相同，配置保存在 `docker-compose.yml` 里。
 
 开放到公网之前，请先阅读[公共实例的示例配置](tessera.public.env.example)。匿名上传默认开启，没有设置容量上限的话，任何能访问这台服务器的人都能把磁盘写满。
 

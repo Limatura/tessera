@@ -72,17 +72,20 @@ Without a browser, the same settings are available from the command line: `tesse
 
 ## Quick start
 
-With Docker, from a clone of this repository:
+With Docker:
 
 ```bash
-docker compose up -d
+docker run -d --name tessera --restart unless-stopped \
+  -p 12923:12923 -v tessera-data:/data ghcr.io/limatura/tessera
 ```
 
 Then open <http://localhost:12923>. On first start the server creates an administrator account and prints its password in the log, once:
 
 ```bash
-docker compose logs tessera | grep password
+docker logs tessera | grep password
 ```
+
+From a clone of this repository, `docker compose up -d` does the same, with the settings kept in `docker-compose.yml`.
 
 Before you put it on the internet, read the [public deployment example](tessera.public.env.example). Anonymous uploads are on by default, and without a storage limit anyone who can reach the server can fill its disk.
 
