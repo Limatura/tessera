@@ -76,11 +76,12 @@ const HAVE_FUTURE_DATA = 3;
 const AUDIO_CHECK_AFTER_SECONDS = 1.5;
 
 /**
- * The state of a `<video>`, read from the element on each of its events rather
- * than mirrored by hand, so it cannot drift from what is actually playing.
+ * The state of a `<video>` or `<audio>`, read from the element on each of its
+ * events rather than mirrored by hand, so it cannot drift from what is
+ * actually playing.
  */
 export function useMediaState(
-  videoRef: React.RefObject<HTMLVideoElement | null>
+  videoRef: React.RefObject<HTMLMediaElement | null>
 ) {
   const [state, setState] = useState<MediaState>(INITIAL);
   // Sticky per source, cleared by `emptied` when a new one loads: the
@@ -105,7 +106,11 @@ export function useMediaState(
       if (event?.type === "play") {
         started.current = true;
       }
-      if (event?.type === "loadedmetadata" && !hasPicture(video)) {
+      if (
+        event?.type === "loadedmetadata" &&
+        video instanceof HTMLVideoElement &&
+        !hasPicture(video)
+      ) {
         failed.current = true;
       }
       // Time actually played, not the position: a seek straight to the middle
@@ -116,7 +121,7 @@ export function useMediaState(
       ) {
         audioChecked.current = true;
         silent.current =
-          hasDecodedAudio(video as HTMLVideoElement & DecodeCounters) === false;
+          hasDecodedAudio(video as HTMLMediaElement & DecodeCounters) === false;
       }
       setState(read(video, started.current, failed.current, silent.current));
     };
@@ -225,7 +230,7 @@ export function useMediaState(
 
   const togglePictureInPicture = useCallback(async () => {
     const video = videoRef.current;
-    if (!video) {
+    if (!(video instanceof HTMLVideoElement)) {
       return;
     }
     try {
@@ -251,7 +256,7 @@ export function useMediaState(
 }
 
 function read(
-  video: HTMLVideoElement,
+  video: HTMLMediaElement,
   started: boolean,
   failed: boolean,
   silent: boolean
@@ -265,7 +270,9 @@ function read(
   }
   return {
     aspect:
-      video.videoWidth > 0 && video.videoHeight > 0
+      video instanceof HTMLVideoElement &&
+      video.videoWidth > 0 &&
+      video.videoHeight > 0
         ? video.videoWidth / video.videoHeight
         : null,
     buffered,
@@ -286,7 +293,7 @@ function read(
   };
 }
 
-function playedSeconds(video: HTMLVideoElement) {
+function playedSeconds(video: HTMLMediaElement) {
   let total = 0;
   for (let index = 0; index < video.played.length; index += 1) {
     total += video.played.end(index) - video.played.start(index);

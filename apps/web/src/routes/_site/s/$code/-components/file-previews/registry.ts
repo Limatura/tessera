@@ -1,3 +1,4 @@
+import { AudioPreview } from "@/routes/_site/s/$code/-components/file-previews/audio-preview";
 import { ImagePreview } from "@/routes/_site/s/$code/-components/file-previews/image-preview";
 import { SvgPreview } from "@/routes/_site/s/$code/-components/file-previews/svg-preview";
 import type { FilePreviewComponent } from "@/routes/_site/s/$code/-components/file-previews/types";
@@ -10,7 +11,7 @@ interface FilePreviewRegistryEntry {
 
 /**
  * One entry per previewable file type, keyed by extension. To support a new
- * kind of file (PDF, audio, ...), add a component next to `image-preview.tsx`
+ * kind of file (PDF, ...), add a component next to `image-preview.tsx`
  * and register it here; nothing else on the share page needs to change.
  *
  * The download endpoint always serves `Content-Disposition: attachment`,
@@ -36,6 +37,22 @@ const REGISTRY: readonly FilePreviewRegistryEntry[] = [
   {
     Component: VideoPreview,
     extensions: ["mp4", "m4v", "webm", "mov", "mkv", "ogv"],
+  },
+  // `ogg` is usually audio; an Ogg video in it still plays here, without the
+  // picture.
+  {
+    Component: AudioPreview,
+    extensions: [
+      "mp3",
+      "m4a",
+      "aac",
+      "wav",
+      "flac",
+      "ogg",
+      "oga",
+      "opus",
+      "weba",
+    ],
   },
 ];
 
