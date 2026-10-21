@@ -10,7 +10,7 @@ name: binaries
 #   tessera-extension-firefox.zip
 #
 # The names carry no version, so `releases/latest/download/<name>` always works,
-# which is what `scripts/install.sh` and `scripts/install.ps1` rely on.
+# which is what `scripts/install.sh` relies on.
 #
 # Each platform builds on its own runner rather than cross-compiling from one:
 # the C in aws-lc and SQLite then meets a compiler made for that target. Linux
@@ -29,7 +29,6 @@ on:
       - ".github/workflows/binaries.yml"
       - "apps/extension/**"
       - "scripts/install.sh"
-      - "scripts/install.ps1"
 
 permissions:
   contents: read
@@ -189,42 +188,3 @@ jobs:
           name: dist-${{ matrix.platform }}
           path: dist/*
           retention-days: ${{ inputs.version && 7 || 1 }}
-
-  # Runs the Windows install script against the archive just built, served from
-  # a local directory, so the script is exercised before a release depends on it.
-  install-ps1:
-    name: install.ps1
-    needs: build
-    runs-on: windows-2025
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.version && format('v{0}', inputs.version) || '' }}
-          persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: dist-windows-x86_64
-          path: served
-      - name: Install from the local archive
-        shell: pwsh
-        run: |
-          $hash = (Get-FileHash -Algorithm SHA256 served/tess-windows-x86_64.zip).Hash.ToLower()
-          "$hash  tess-windows-x86_64.zip" | Set-Content -Encoding ascii served/SHA256SUMS
-          $server = Start-Process -PassThru -WindowStyle Hidden python -ArgumentList '-m', 'http.server', '8000', '--bind', '127.0.0.1', '--directory', 'served'
-          Start-Sleep -Seconds 2
-          try {
-            $env:TESS_DOWNLOAD_BASE = 'http://127.0.0.1:8000'
-            $env:TESS_INSTALL_DIR = Join-Path $env:RUNNER_TEMP 'tess-install'
-            ./scripts/install.ps1
-            & "$env:TESS_INSTALL_DIR/tess.exe" --version
-            # A second run replaces the first.
-            ./scripts/install.ps1
-            # A wrong checksum is refused.
-            "$('0' * 64)  tess-windows-x86_64.zip" | Set-Content -Encoding ascii served/SHA256SUMS
-            $refused = $false
-            try { ./scripts/install.ps1 } catch { $refused = $_.Exception.Message -match 'checksum' }
-            if (-not $refused) { throw 'a bad checksum was not refused' }
-          } finally {
-            Stop-Process -Id $server.Id -Force
-          }

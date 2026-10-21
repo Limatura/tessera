@@ -122,19 +122,13 @@ Files go to a local directory unless you add another backend in the admin panel.
 
 ## Command-line client
 
-Install `tess` for Linux, macOS or Windows. Builds are also on the [releases page](https://github.com/Limatura/tessera/releases), and `cargo install --path apps/cli` builds it from source.
+Install `tess` for Linux or macOS. Windows builds are on the [releases page](https://github.com/Limatura/tessera/releases), and `cargo install --path apps/cli` builds it from source.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Limatura/tessera/main/scripts/install.sh | sh
 ```
 
-On Windows, in PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/Limatura/tessera/main/scripts/install.ps1 | iex
-```
-
-Until there is a stable release, add `-s -- --version <version>` with the release you want; in PowerShell, set `$env:TESS_VERSION = '<version>'` first.
+Until there is a stable release, add `-s -- --version <version>` with the release you want.
 
 ```bash
 tess login https://share.example.com
