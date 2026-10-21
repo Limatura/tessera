@@ -60,6 +60,16 @@ jobs:
       # instead of quietly resolving from the store.
       - run: pnpm install --frozen-lockfile
 
+      # `rust.yml` checks openapi.json against the server; this checks the
+      # client types against openapi.json, the half that `tsc` cannot catch.
+      - name: Fail if the client types drifted
+        run: |
+          pnpm web:api:generate
+          if ! git diff --exit-code -- packages/api/src/schema.d.ts; then
+            echo "::error::packages/api/src/schema.d.ts is out of date. Run 'pnpm web:api:generate' and commit the result."
+            exit 1
+          fi
+
       # `--affected` asks turbo's own package graph which packages actually
       # changed — direct edits or a changed internal dependency — instead of
       # this file's own guess at which globs matter. On `pull_request` it
