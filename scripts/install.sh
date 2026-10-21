@@ -6,8 +6,7 @@
 #
 # Without --version it installs the latest release that is not a pre-release.
 # The archive is checked against the release's SHA256SUMS before anything is
-# installed. Linux and macOS; on Windows, download tess-windows-x86_64.zip from
-# the release page.
+# installed. Linux and macOS; on Windows, use install.ps1.
 set -eu
 
 repo=${TESS_REPO:-Limatura/tessera}
