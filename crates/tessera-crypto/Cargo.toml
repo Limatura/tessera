@@ -33,7 +33,7 @@ wasm = ["dep:wasm-bindgen"]
 
 [dev-dependencies]
 proptest = "1.11"
-rstest = "0.26"
+rstest = "0.27"
 
 [lints]
 workspace = true
