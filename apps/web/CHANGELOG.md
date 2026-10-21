@@ -1,5 +1,11 @@
 # web
 
+## 0.3.0
+
+### Patch Changes
+
+- [#104](https://github.com/Limatura/tessera/pull/104) [`2da4a90`](https://github.com/Limatura/tessera/commit/2da4a90cf3422188f56d4e84690745ef5d64115c) Thanks [@sao-coding](https://github.com/sao-coding)! - My shares now shows each share's file name or title, with the code beneath it, so a share can be found without remembering its code. On phones the card's top half puts the kind and code on one line with the time left on the right. The account and My shares pages get a "Back to home" button, and the code tab's language picker shows the language's name (JavaScript) instead of its internal value (javascript).
+
 ## 0.2.0
 
 ### Minor Changes
