@@ -8,7 +8,7 @@ allowBuilds:
   esbuild: true
   sharp: true
 catalog:
-  dotenv: ^17.4.2
+  dotenv: ^18.0.8
   "@base-ui/react": ^1.7.0
   "@tabler/icons-react": ^3.20.0
   input-otp: ^1.4.2
