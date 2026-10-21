@@ -10,7 +10,7 @@
  * missing from `HTMLVideoElement`'s type, so they are optional.
  */
 export interface DecodeCounters {
-  videoWidth: number;
+  videoWidth?: number;
   /** Chromium: bytes of audio decoded so far. */
   webkitAudioDecodedByteCount?: number;
   /** Firefox: whether the element has audio it can play. */
@@ -21,7 +21,7 @@ export interface DecodeCounters {
 
 /** Whether there is a picture to show. Read after `loadedmetadata`. */
 export function hasPicture(video: DecodeCounters): boolean {
-  return video.videoWidth > 0;
+  return (video.videoWidth ?? 0) > 0;
 }
 
 /**

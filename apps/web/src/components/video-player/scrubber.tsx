@@ -21,7 +21,32 @@ interface ScrubberProps {
   /** Layers drawn under the fill, inside the track (what is buffered). */
   children?: React.ReactNode;
   className?: string;
+  /**
+   * `overlay` (the default) is drawn on a dark picture; `surface` sits on the
+   * page's own background and takes its colours.
+   */
+  tone?: ScrubberTone;
 }
+
+export type ScrubberTone = "overlay" | "surface";
+
+const TONES: Record<
+  ScrubberTone,
+  { ring: string; track: string; hover: string; handle: string }
+> = {
+  overlay: {
+    handle: "bg-white",
+    hover: "bg-white/25",
+    ring: "focus-visible:ring-white/70",
+    track: "bg-white/25",
+  },
+  surface: {
+    handle: "bg-foreground",
+    hover: "bg-foreground/15",
+    ring: "focus-visible:ring-ring",
+    track: "bg-foreground/15",
+  },
+};
 
 /**
  * A horizontal slider drawn for the player: thin on the picture, thicker and
@@ -39,6 +64,7 @@ export function Scrubber({
   onScrubStart,
   smooth = false,
   step,
+  tone = "overlay",
   value,
   valueText,
 }: ScrubberProps) {
@@ -102,6 +128,7 @@ export function Scrubber({
     onChange(next);
   };
 
+  const colors = TONES[tone];
   const easing =
     smooth && !dragging ? "duration-250 ease-linear" : "duration-0";
 
@@ -114,7 +141,8 @@ export function Scrubber({
       aria-valuenow={value}
       aria-valuetext={valueText}
       className={cn(
-        "group/scrubber relative flex h-5 cursor-pointer touch-none select-none items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-white/70 data-disabled:pointer-events-none data-disabled:opacity-50",
+        "group/scrubber relative flex h-5 cursor-pointer touch-none select-none items-center rounded-sm outline-none focus-visible:ring-2 data-disabled:pointer-events-none data-disabled:opacity-50",
+        colors.ring,
         className
       )}
       data-disabled={disabled || undefined}
@@ -134,11 +162,16 @@ export function Scrubber({
       role="slider"
       tabIndex={disabled ? -1 : 0}
     >
-      <div className="relative h-1 w-full overflow-hidden rounded-xs bg-white/25 transition-[height] duration-150 group-focus-visible/scrubber:h-1.5 group-hover/scrubber:h-1.5 group-data-dragging/scrubber:h-1.5">
+      <div
+        className={cn(
+          "relative h-1 w-full overflow-hidden rounded-xs transition-[height] duration-150 group-focus-visible/scrubber:h-1.5 group-hover/scrubber:h-1.5 group-data-dragging/scrubber:h-1.5",
+          colors.track
+        )}
+      >
         {children}
         {hover !== null && (
           <div
-            className="absolute inset-y-0 left-0 bg-white/25"
+            className={cn("absolute inset-y-0 left-0", colors.hover)}
             style={{ width: `${hover * 100}%` }}
           />
         )}
@@ -152,7 +185,8 @@ export function Scrubber({
       </div>
       <div
         className={cn(
-          "pointer-events-none absolute top-1/2 h-3.5 w-1 -translate-x-1/2 -translate-y-1/2 rounded-xs bg-white opacity-0 transition-[left,opacity] group-focus-visible/scrubber:opacity-100 group-hover/scrubber:opacity-100 group-data-dragging/scrubber:opacity-100",
+          "pointer-events-none absolute top-1/2 h-3.5 w-1 -translate-x-1/2 -translate-y-1/2 rounded-xs opacity-0 transition-[left,opacity] group-focus-visible/scrubber:opacity-100 group-hover/scrubber:opacity-100 group-data-dragging/scrubber:opacity-100",
+          colors.handle,
           easing
         )}
         style={{ left: `${ratio * 100}%` }}
