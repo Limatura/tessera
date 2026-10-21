@@ -25,6 +25,7 @@ import { AnimatedQRCode } from "@/components/animated-qr-code";
 import { ScanStatus } from "@/components/scan/scan-status";
 import { useManagedShare } from "@/hooks/use-managed-share";
 import { apiErrorMessage } from "@/lib/api-error";
+import { copyText } from "@/lib/copy-text";
 import { uploader } from "@/lib/uploader";
 import * as m from "@/paraglide/messages";
 import { useRecentSharesStore } from "@/stores/recent-shares";
@@ -122,7 +123,9 @@ export function UploadResult({
   };
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(result.shortUrl);
+    if (!(await copyText(result.shortUrl))) {
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
