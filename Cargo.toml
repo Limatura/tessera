@@ -163,9 +163,20 @@ opt-level = 3
 # Speed over size, unlike release: the module is tens of kilobytes either way,
 # and encryption sits between the file and the network. `panic` is abort
 # because nothing on `wasm32-unknown-unknown` can catch an unwind.
+#
+# It spells out release's settings instead of inheriting them: inheriting would
+# bring the per-crate settings above along, which changes the module and the
+# bindings `wasm-bindgen` writes for it.
 [profile.wasm]
-inherits = "release"
+inherits = "dev"
 opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+incremental = false
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
 panic = "abort"
 
 [profile.bench]
