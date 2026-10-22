@@ -406,7 +406,10 @@ async fn download(
                 text.language.as_deref(),
             )),
         ),
-        _ => ("application/octet-stream", content_disposition(&content)),
+        _ => (
+            media_type(&content, share.encryption.is_some()),
+            content_disposition(&content),
+        ),
     };
     let disposition = HeaderValue::from_str(&disposition)
         .unwrap_or_else(|_| HeaderValue::from_static("attachment"));
@@ -505,15 +508,15 @@ async fn redirect_to_store(
     // A range this cannot read is left for `serve`, which answers `416`.
     let requested = requested_bytes(headers, file.size_bytes)?;
 
-    // Same filename and opaque content type this server would send, signed into
-    // the URL so the store returns them. The hardening headers `serve` adds
-    // cannot be carried this way; an opaque-typed attachment is what stops the
-    // browser rendering it.
+    // Same filename and content type this server would send, signed into the
+    // URL so the store returns them. The hardening headers `serve` adds cannot
+    // be carried this way; an attachment typed as nothing a browser renders is
+    // what stops it rendering it.
     let options = object_store::signer::SignedUrlOptions::new().with_query([
         ("response-content-disposition", content_disposition(content)),
         (
             "response-content-type",
-            "application/octet-stream".to_owned(),
+            media_type(content, share.encryption.is_some()).to_owned(),
         ),
     ]);
     let location = signed_get(state, piece, &options).await?;
@@ -793,7 +796,7 @@ async fn redirect_to_store(
 /// about.
 ///
 /// Grouped, not passed loose, because they are decided together. A download
-/// says `attachment` and an opaque type, a note says `inline` and
+/// says `attachment` and a type no browser renders, a note says `inline` and
 /// plain text, and neither route mixes them.
 struct Labels {
     /// The `Content-Type` to send, never the one the uploader claimed.
@@ -1037,6 +1040,38 @@ enum Payload {
 /// and that produces a different identifier.
 fn etag_for(share: &Share, content: &Content) -> String {
     format!("\"{}-{}\"", share.id, content.size_bytes())
+}
+
+/// The `Content-Type` a download goes out with.
+///
+/// `application/octet-stream`, except for one unencrypted video, which gets its
+/// type from the stored name's extension. Chrome and Firefox play an opaque
+/// stream anyway, but Safari, iOS and Chromecast receivers want the real type.
+///
+/// Never the type the uploader claimed, and nothing on this list is something a
+/// browser runs. A page renamed to `.mp4` just fails to play, and `nosniff`
+/// with `attachment` still keep it from being rendered.
+fn media_type(content: &Content, encrypted: bool) -> &'static str {
+    const OPAQUE: &str = "application/octet-stream";
+    if encrypted {
+        return OPAQUE;
+    }
+    let Some(extension) = content
+        .single_file()
+        .and_then(|file| last_component(file.filename.as_deref()))
+        .and_then(|name| name.rsplit_once('.'))
+        .map(|(_, extension)| extension.to_ascii_lowercase())
+    else {
+        return OPAQUE;
+    };
+    match extension.as_str() {
+        "mp4" | "m4v" => "video/mp4",
+        "webm" => "video/webm",
+        "mov" => "video/quicktime",
+        "mkv" => "video/x-matroska",
+        "ogv" => "video/ogg",
+        _ => OPAQUE,
+    }
 }
 
 /// `Content-Disposition`, with the RFC 5987 form so non-ASCII names survive.
@@ -1527,6 +1562,44 @@ mod tests {
         );
         assert_eq!(text_name(Some(" / "), "ab12cd", None), "ab12cd.txt");
         assert_eq!(text_name(Some("  "), "ab12cd", None), "ab12cd.txt");
+    }
+
+    #[test]
+    fn one_plain_video_is_served_as_video() {
+        assert_eq!(media_type(&named(Some("trip.MP4")), false), "video/mp4");
+        assert_eq!(
+            media_type(&named(Some("a/b/clip.webm")), false),
+            "video/webm"
+        );
+        assert_eq!(
+            media_type(&named(Some("clip.mov")), false),
+            "video/quicktime"
+        );
+        assert_eq!(
+            media_type(&named(Some("clip.mkv")), false),
+            "video/x-matroska"
+        );
+        assert_eq!(media_type(&named(Some("clip.ogv")), false), "video/ogg");
+        assert_eq!(media_type(&named(Some("clip.m4v")), false), "video/mp4");
+    }
+
+    #[test]
+    fn everything_else_stays_opaque() {
+        const OPAQUE: &str = "application/octet-stream";
+        // Sealed bytes are not a video, whatever the name says.
+        assert_eq!(media_type(&named(Some("trip.mp4")), true), OPAQUE);
+        for name in ["page.html", "image.svg", "mp4", ".mp4.", "trip.mp4.exe"] {
+            assert_eq!(media_type(&named(Some(name)), false), OPAQUE, "{name}");
+        }
+        assert_eq!(media_type(&named(None), false), OPAQUE);
+        // Two files leave as an archive.
+        let mut files = Vec::new();
+        for name in ["a.mp4", "b.mp4"] {
+            if let Content::Files(one) = named(Some(name)) {
+                files.extend(one);
+            }
+        }
+        assert_eq!(media_type(&Content::Files(files), false), OPAQUE);
     }
 
     #[test]

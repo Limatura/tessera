@@ -793,6 +793,48 @@ async fn retrieval_never_echoes_the_uploaders_media_type() {
     );
 }
 
+/// Safari, iOS and Chromecast receivers want a video's real type to play it.
+/// It comes from the name, not the uploader's claim, and the rest of the
+/// hardening stays.
+#[tokio::test]
+async fn one_video_downloads_with_its_type_and_the_same_hardening() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=trip.mp4", b"\0\0\0\x18ftypmp42").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let response = expect_status(
+        app.send(
+            Request::builder()
+                .uri(format!("/s/{code}/download"))
+                .header(header::RANGE, "bytes=0-3"),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::PARTIAL_CONTENT,
+    )
+    .await;
+    let headers = response.headers();
+    assert_eq!(
+        headers
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok()),
+        Some("video/mp4")
+    );
+    assert_eq!(
+        headers
+            .get(header::X_CONTENT_TYPE_OPTIONS)
+            .and_then(|v| v.to_str().ok()),
+        Some("nosniff")
+    );
+    assert!(
+        headers
+            .get(header::CONTENT_DISPOSITION)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.starts_with("attachment;")),
+        "a file must never render inline"
+    );
+}
+
 /// A stale `If-Range` must produce the entire object, not a slice of a different
 /// one, or a resumed download stitches two files together and nothing reports
 /// an error.

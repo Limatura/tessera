@@ -514,8 +514,8 @@ fn the_compression_predicate_skips_opaque_media_types() {
         predicate.should_compress(&response)
     };
 
-    // The download route's type is fixed at `application/octet-stream` whatever
-    // was uploaded, so that one entry covers every download.
+    // The download route sends `application/octet-stream`, a `video/` type for
+    // one video, or an archive's type, so these cover every download.
     for opaque in [
         "application/octet-stream",
         "application/zip",
