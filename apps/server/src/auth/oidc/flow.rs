@@ -19,7 +19,6 @@
 //! protection when a code leaks through a redirect chain, a proxy log or
 //! browser history, and it costs one hash.
 
-use argon2::password_hash::rand_core::{OsRng, RngCore as _};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use sha2::{Digest as _, Sha256};
 use url::Url;
@@ -99,7 +98,7 @@ impl Pkce {
 #[must_use]
 pub fn random_token() -> String {
     let mut bytes = [0_u8; RANDOM_BYTES];
-    OsRng.fill_bytes(&mut bytes);
+    crate::auth::secret::fill_random(&mut bytes);
     URL_SAFE_NO_PAD.encode(bytes)
 }
 

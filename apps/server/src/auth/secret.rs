@@ -16,7 +16,6 @@
 
 use std::fmt;
 
-use argon2::password_hash::rand_core::{OsRng, RngCore as _};
 use sha2::{Digest as _, Sha256};
 use subtle::ConstantTimeEq as _;
 
@@ -117,15 +116,22 @@ impl Eq for Secret {}
 /// Exposed because a retrieval code needs raw bytes, not a hex string,
 /// and should come from the same source as everything else secret here: one
 /// place decides where randomness comes from.
+///
+/// # Panics
+///
+/// If the operating system has no random bytes to give, as the `OsRng` it
+/// replaces did.
+#[expect(
+    clippy::expect_used,
+    reason = "a system that cannot produce random bytes cannot issue a secret safely"
+)]
 pub fn fill_random(bytes: &mut [u8]) {
-    OsRng.fill_bytes(bytes);
+    getrandom::fill(bytes).expect("the operating system's random source failed");
 }
 
 fn random_hex() -> String {
     let mut bytes = [0_u8; SECRET_BYTES];
-    // `OsRng` reads the operating system's CSPRNG directly, the same source the
-    // password salt uses, through a crate already in the tree.
-    OsRng.fill_bytes(&mut bytes);
+    fill_random(&mut bytes);
     hex(&bytes)
 }
 
