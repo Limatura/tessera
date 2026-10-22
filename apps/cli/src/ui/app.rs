@@ -1400,6 +1400,10 @@ impl App {
             max_uses,
             resume: resume::default_dir().ok(),
             leave_out,
+            keep_metadata: self
+                .capabilities
+                .as_ref()
+                .is_some_and(|can| !can.strip_metadata),
         };
         let progress = Rc::new(RefCell::new(Progress {
             all: Some(form.total),

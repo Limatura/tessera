@@ -118,6 +118,10 @@ pub struct Capabilities {
     #[schema(example = 8760_u64)]
     pub max_expiry_hours: Option<u64>,
 
+    /// Whether an upload removes a photo's metadata unless the uploader says
+    /// otherwise. The client does the removing; see `share.strip_metadata`.
+    pub strip_metadata: bool,
+
     /// Whether registering sends a confirmation link instead of creating the
     /// account outright.
     ///
@@ -227,6 +231,7 @@ impl Capabilities {
             share_password_min_length: gate::CHOOSING.min_length,
             default_expiry_hours: hours(config.share.default_expiry()),
             max_expiry_hours: hours(config.share.max_expiry()),
+            strip_metadata: config.share.strip_metadata,
             registration_requires_confirmation: config.mail.is_configured(),
             password_reset: config.mail.is_configured(),
             access_log: config.share.access_log.enabled,

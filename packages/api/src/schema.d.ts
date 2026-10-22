@@ -3122,6 +3122,11 @@ export interface components {
              */
             storage_remaining_bytes?: number | null;
             /**
+             * @description Whether an upload removes a photo's metadata unless the uploader says
+             *     otherwise. The client does the removing; see `share.strip_metadata`.
+             */
+            strip_metadata: boolean;
+            /**
              * @description Version of the running server, for a client that wants to warn about a
              *     mismatch with the contract it was generated from.
              * @example 0.1.0

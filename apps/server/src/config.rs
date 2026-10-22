@@ -1194,6 +1194,15 @@ pub struct ShareConfig {
     /// Longest lifetime a share may be given, in hours. `0` means no ceiling.
     pub max_expiry_hours: u64,
 
+    /// Whether uploading starts out removing a photo's metadata, its location
+    /// above all.
+    ///
+    /// The client removes it before the upload, the web app and `tess` alike:
+    /// the server never sees an end-to-end encrypted file, nor one sent
+    /// straight to a bucket. So this is where the uploader starts, not a rule.
+    /// Someone sharing where a photo was taken on purpose can keep it.
+    pub strip_metadata: bool,
+
     /// How long a finished share is kept before it is removed, in hours.
     ///
     /// A share that expired or was used up is kept a while, so following its
@@ -1870,6 +1879,7 @@ impl Default for ShareConfig {
             // 30 days, far above the default. This is the longest anyone may
             // *ask* for, not what they get by default.
             max_expiry_hours: 24 * 30,
+            strip_metadata: true,
             upload_session_ttl_hours: 24,
             retain_after_death_hours: 24 * 7,
         }

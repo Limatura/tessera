@@ -769,6 +769,10 @@
               "null"
             ]
           },
+          "strip_metadata": {
+            "description": "Whether an upload removes a photo's metadata unless the uploader says\notherwise. The client does the removing; see `share.strip_metadata`.",
+            "type": "boolean"
+          },
           "version": {
             "description": "Version of the running server, for a client that wants to warn about a\nmismatch with the contract it was generated from.",
             "example": "0.1.0",
@@ -788,6 +792,7 @@
           "account_password_requires_symbol",
           "account_password_breach_check",
           "share_password_min_length",
+          "strip_metadata",
           "registration_requires_confirmation",
           "password_reset",
           "access_log",

@@ -110,12 +110,14 @@ COPY crates/tessera-core/Cargo.toml crates/tessera-core/
 # its manifest names, and only the server is built, so none of their
 # dependencies are compiled here.
 COPY crates/tessera-crypto/Cargo.toml crates/tessera-crypto/
+COPY crates/tessera-metadata/Cargo.toml crates/tessera-metadata/
 COPY apps/cli/Cargo.toml apps/cli/
 COPY apps/dev/Cargo.toml apps/dev/
 COPY apps/server/Cargo.toml apps/server/
-RUN mkdir -p crates/tessera-core/src crates/tessera-crypto/src apps/cli/src apps/dev/src apps/server/src/bin apps/server/benches \
+RUN mkdir -p crates/tessera-core/src crates/tessera-crypto/src crates/tessera-metadata/src apps/cli/src apps/dev/src apps/server/src/bin apps/server/benches \
   && echo '//! stub' > crates/tessera-core/src/lib.rs \
   && echo '//! stub' > crates/tessera-crypto/src/lib.rs \
+  && echo '//! stub' > crates/tessera-metadata/src/lib.rs \
   && echo '//! stub' > apps/cli/src/lib.rs \
   && printf '//! stub\nfn main() {}\n' > apps/cli/src/main.rs \
   && printf '//! stub\nfn main() {}\n' > apps/dev/src/main.rs \
@@ -125,7 +127,7 @@ RUN mkdir -p crates/tessera-core/src crates/tessera-crypto/src apps/cli/src apps
   && printf '//! stub\nfn main() {}\n' > apps/server/benches/api.rs \
   && printf '//! stub\nfn main() {}\n' > apps/server/build.rs \
   && cargo build --release --locked -p tessera-server --bins \
-  && rm -rf crates/tessera-core/src crates/tessera-crypto/src apps/server/src apps/server/build.rs
+  && rm -rf crates/tessera-core/src crates/tessera-crypto/src crates/tessera-metadata/src apps/server/src apps/server/build.rs
 
 # Real sources. `apps/web` is copied for its `index.html`, which build.rs reads;
 # the bundle itself arrives from the stage above rather than from the context,

@@ -67,6 +67,11 @@ enum Command {
         /// machine the terminal runs on, if the terminal allows it.
         #[arg(long)]
         copy: bool,
+        /// Send photos with their metadata, where they were taken among it.
+        /// Unless the instance says otherwise, JPEG, PNG and WebP photos are
+        /// sent without it.
+        #[arg(long)]
+        keep_metadata: bool,
     },
     /// Download a share, from its link or from its code with --server.
     Get {
@@ -156,6 +161,16 @@ fn main() -> ExitCode {
     }
 }
 
+/// Whether the instance sends photos with their metadata unless told
+/// otherwise. One that cannot be asked, or predates the setting, does not.
+async fn keeps_metadata(client: &Client, content: &Content) -> bool {
+    matches!(content, Content::Files(_))
+        && client
+            .capabilities()
+            .await
+            .is_ok_and(|can| !can.strip_metadata)
+}
+
 async fn run(command: Command) -> Result<()> {
     match command {
         Command::Send {
@@ -168,6 +183,7 @@ async fn run(command: Command) -> Result<()> {
             max_uses,
             qr,
             copy,
+            keep_metadata,
         } => {
             if paths.is_empty() {
                 return Err(Error::Usage(
@@ -195,6 +211,7 @@ async fn run(command: Command) -> Result<()> {
                 None
             };
             let client = sending_client(server, token)?;
+            let keep_metadata = keep_metadata || keeps_metadata(&client, &content).await;
             let options = Options {
                 encrypt,
                 password,
@@ -202,6 +219,7 @@ async fn run(command: Command) -> Result<()> {
                 max_uses,
                 resume: Some(tessera_cli::resume::default_dir()?),
                 leave_out: Vec::new(),
+                keep_metadata,
             };
             if let Content::Files(paths) = &content
                 && send::will_resume(&client, paths, &options)

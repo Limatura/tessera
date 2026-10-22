@@ -1,7 +1,9 @@
 //! Sending files, or a note, and handing back the link.
 
 use std::{
+    io::Read as _,
     path::{Path, PathBuf},
+    sync::Arc,
     time::Duration,
 };
 
@@ -57,6 +59,9 @@ pub struct Options {
     pub resume: Option<PathBuf>,
     /// Paths under a directory being sent to leave out of it.
     pub leave_out: Vec<PathBuf>,
+    /// Send photos with their metadata (where they were taken, the camera, the
+    /// time) instead of removing it first.
+    pub keep_metadata: bool,
 }
 
 /// What a finished send gives back.
@@ -451,10 +456,17 @@ async fn send_files(
         if index < state.done {
             continue;
         }
+        // One file at a time, so a folder of photos is never all in memory.
+        let source = if options.keep_metadata {
+            Source::File
+        } else {
+            cleaned(entry, fingerprint)?
+        };
         let share = upload_file(
             client,
             &sealing,
             entry,
+            &source,
             fingerprint,
             &mut state,
             job.as_ref(),
@@ -484,6 +496,7 @@ async fn upload_file(
     client: &Client,
     sealing: &Sealing,
     entry: &Entry,
+    source: &Source,
     fingerprint: &Fingerprint,
     state: &mut State,
     job: Option<&Job>,
@@ -491,15 +504,16 @@ async fn upload_file(
 ) -> Result<Share> {
     let path = entry.path.as_path();
     let name = entry.name.clone();
+    let length = source.len().unwrap_or(fingerprint.len);
     let declared = match sealing.key() {
-        Some(_) => tessera_crypto::sealed_len(fingerprint.len)
+        Some(_) => tessera_crypto::sealed_len(length)
             .ok_or_else(|| Error::Usage(format!("`{name}` is too large to seal")))?,
-        None if fingerprint.len == 0 => {
+        None if length == 0 => {
             return Err(Error::Usage(format!(
                 "`{name}` is empty; there is nothing to send"
             )));
         }
-        None => fingerprint.len,
+        None => length,
     };
 
     // An upload the server still has picks up at what it holds. One it has
@@ -511,6 +525,7 @@ async fn upload_file(
                     client,
                     sealing,
                     path,
+                    source,
                     fingerprint,
                     &name,
                     declared,
@@ -561,6 +576,7 @@ async fn upload_file(
         client,
         sealing,
         path,
+        source,
         fingerprint,
         &name,
         declared,
@@ -581,6 +597,7 @@ async fn send_parts(
     client: &Client,
     sealing: &Sealing,
     path: &Path,
+    source: &Source,
     fingerprint: &Fingerprint,
     name: &str,
     declared: u64,
@@ -591,7 +608,7 @@ async fn send_parts(
     let Current { upload, nonce } = current;
     let nonce = *nonce;
     let part = usize::try_from(upload.part_size).unwrap_or(usize::MAX);
-    let mut outgoing = Outgoing::open(path, sealing.key(), nonce, fingerprint).await?;
+    let mut outgoing = Outgoing::open(path, source, sealing.key(), nonce, fingerprint).await?;
     outgoing.skip(offset).await?;
     progress(name, offset, declared);
     let mut attempt = 0;
@@ -614,7 +631,7 @@ async fn send_parts(
                 offset = resume_at(client, upload).await?;
                 // Sealed again from the start: the same key, nonce and content
                 // give the same bytes, so what the server already has lines up.
-                outgoing = Outgoing::open(path, sealing.key(), nonce, fingerprint).await?;
+                outgoing = Outgoing::open(path, source, sealing.key(), nonce, fingerprint).await?;
                 outgoing.skip(offset).await?;
             }
             Err(error) => return Err(error),
@@ -635,9 +652,81 @@ const fn worth_retrying(error: &Error) -> bool {
     }
 }
 
+/// Where a file's bytes come from.
+#[derive(Debug)]
+enum Source {
+    /// The file itself, read as it is sent.
+    File,
+    /// The file without its metadata, read once and held in memory.
+    Cleaned(Arc<[u8]>),
+}
+
+impl Source {
+    /// How many bytes it holds, when that is not the file's own length.
+    fn len(&self) -> Option<u64> {
+        match self {
+            Self::File => None,
+            Self::Cleaned(bytes) => u64::try_from(bytes.len()).ok(),
+        }
+    }
+}
+
+/// What to send of a file: the file, or a photo without its metadata.
+///
+/// Only photos are read whole, and only when they have something to remove.
+///
+/// # Errors
+///
+/// When the file cannot be read, has changed since it was listed, or looks
+/// like a photo whose metadata cannot be found reliably. That one is refused
+/// instead of sent as it is: the person sending it was told it would be
+/// cleaned.
+fn cleaned(entry: &Entry, expected: &Fingerprint) -> Result<Source> {
+    let mut file = std::fs::File::open(&entry.path)?;
+    let mut head = [0; 12];
+    let read = file.read(&mut head)?;
+    if !tessera_metadata::handles(head.get(..read).unwrap_or_default()) {
+        return Ok(Source::File);
+    }
+    let image = std::fs::read(&entry.path)?;
+    if Fingerprint::of(&std::fs::metadata(&entry.path)?) != *expected {
+        return Err(Error::Usage(format!(
+            "`{}` changed while it was being sent",
+            entry.path.display()
+        )));
+    }
+    match tessera_metadata::strip(&image) {
+        Ok(Some(clean)) => Ok(Source::Cleaned(clean.into())),
+        Ok(None) => Ok(Source::File),
+        Err(error) => Err(Error::Usage(format!(
+            "`{}`: {error}, so its metadata could not be removed. Send it with --keep-metadata \
+             to send it as it is",
+            entry.name
+        ))),
+    }
+}
+
+/// Bytes as they are read: from the file, or from memory.
+enum Reader {
+    File(tokio::fs::File),
+    Memory(std::io::Cursor<Arc<[u8]>>),
+}
+
+impl Reader {
+    async fn read_exact(&mut self, into: &mut [u8]) -> Result<()> {
+        match self {
+            Self::File(file) => {
+                file.read_exact(into).await?;
+            }
+            Self::Memory(cursor) => std::io::Read::read_exact(cursor, into)?,
+        }
+        Ok(())
+    }
+}
+
 /// A file as the bytes an upload sends: sealed, or as it is.
 struct Outgoing {
-    file: tokio::fs::File,
+    file: Reader,
     remaining: u64,
     sealer: Option<Sealer>,
     header: Option<[u8; HEADER_LEN]>,
@@ -649,17 +738,28 @@ struct Outgoing {
 impl Outgoing {
     async fn open(
         path: &Path,
+        source: &Source,
         key: Option<&ShareKey>,
         nonce: [u8; NONCE_LEN],
         expected: &Fingerprint,
     ) -> Result<Self> {
-        let file = tokio::fs::File::open(path).await?;
-        if Fingerprint::of(&file.metadata().await?) != *expected {
-            return Err(Error::Usage(format!(
-                "`{}` changed while it was being sent",
-                path.display()
-            )));
-        }
+        let (file, remaining) = match source {
+            // Checked against the file when it was read.
+            Source::Cleaned(bytes) => (
+                Reader::Memory(std::io::Cursor::new(Arc::clone(bytes))),
+                source.len().unwrap_or_default(),
+            ),
+            Source::File => {
+                let file = tokio::fs::File::open(path).await?;
+                if Fingerprint::of(&file.metadata().await?) != *expected {
+                    return Err(Error::Usage(format!(
+                        "`{}` changed while it was being sent",
+                        path.display()
+                    )));
+                }
+                (Reader::File(file), expected.len)
+            }
+        };
         let (sealer, header) = match key {
             Some(key) => {
                 let (sealer, header) = Sealer::new(key, nonce);
@@ -669,7 +769,7 @@ impl Outgoing {
         };
         Ok(Self {
             file,
-            remaining: expected.len,
+            remaining,
             sealer,
             header,
             finished: false,

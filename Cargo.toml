@@ -19,6 +19,7 @@ publish = false
 # dependency, the classic source of "works in core, breaks in server".
 tessera-core = { path = "crates/tessera-core" }
 tessera-crypto = { path = "crates/tessera-crypto" }
+tessera-metadata = { path = "crates/tessera-metadata" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
