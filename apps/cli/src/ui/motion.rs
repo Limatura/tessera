@@ -13,26 +13,28 @@ use ratatui::{
 
 use crate::logo::{Ink, Picture};
 
-/// A small ticket laid flat, 28 pixels by 12. The stub is the orange, its
-/// edge with the rest zigzagging a pixel either way as a tear does.
-const SMALL: [&str; 12] = [
-    ".cccccccccccccccccccooooooo.",
-    "cccccccccccccccccccooooooooo",
-    "ccccccccccccccccccccoooooooo",
-    "cccccdddccdddcddcccooooooooo",
-    "cccccdddccdddcddccccoooooooo",
-    "ccccdddccdddcddccccooooooooo",
-    "ccccdddccdddcddcccccoooooooo",
-    "cccdddccdddcddcccccooooooooo",
-    "cccdddccdddcddccccccoooooooo",
-    "cccccccccccccccccccooooooooo",
-    "ccccccccccccccccccccoooooooo",
-    ".ccccccccccccccccccoooooooo.",
+/// A small ticket laid flat, 30 pixels by 14, drawn as the logo is: rounded
+/// corners, a bite out of either end, the brand's slanted bars, and between
+/// paper and stub a line of holes for it to tear along.
+const SMALL: [&str; 14] = [
+    ".ccccccccccccccccccccoooooooo.",
+    "ccccccccccccccccccccc.oooooooo",
+    "ccccccccccccccccccccc.oooooooo",
+    "cccccccccccccccccccccooooooooo",
+    "ccccccdddccdddccdddccooooooooo",
+    ".cccccdddccdddccdddcc.ooooooo.",
+    "..cccdddccdddccdddccc.oooooo..",
+    "..cccdddccdddccdddcccooooooo..",
+    ".cccdddccdddccdddccccoooooooo.",
+    "ccccdddccdddccdddcccc.oooooooo",
+    "ccccccccccccccccccccc.oooooooo",
+    "cccccccccccccccccccccooooooooo",
+    "cccccccccccccccccccccooooooooo",
+    ".cccccccccccccccccccc.ooooooo.",
 ];
 
-/// How far the stub falls when torn: pixels across and down, and how many
-/// more across its bottom goes than its top, so it lands leaning.
-const TEAR: (usize, usize, usize) = (5, 3, 2);
+/// How far the stub is pulled when torn: pixels across and down.
+const TEAR: (usize, usize) = (5, 3);
 
 /// Pixels, each an ink or nothing, drawn two to a cell.
 struct Canvas {
@@ -144,15 +146,22 @@ fn eased(elapsed: Duration, delay: Duration, length: Duration) -> f32 {
     1.0 - (1.0 - done) * (1.0 - done)
 }
 
-/// How long [`torn`] moves for; after that it holds still.
-pub(crate) const TEARING: Duration = Duration::from_millis(700);
+/// When the stub has been pulled clear of the ticket and starts to fall.
+const PULLED: Duration = Duration::from_millis(700);
+
+/// How long [`torn`] moves for; after that it holds still, the stub gone.
+pub(crate) const TEARING: Duration = Duration::from_millis(1150);
 
 /// The small ticket, `elapsed` into having its stub torn off: whole for a
-/// moment, then the stub pulled away to the right, falling and leaning a
-/// little, where it stays.
+/// moment, then the stub pulled away to the right and down, and dropped,
+/// falling faster as it goes until it is out of sight.
 pub(crate) fn torn(elapsed: Duration, truecolor: bool) -> Vec<Line<'static>> {
     const WHOLE: Duration = Duration::from_millis(250);
-    let done = eased(elapsed, WHOLE, TEARING.saturating_sub(WHOLE));
+    let pulled = eased(elapsed, WHOLE, PULLED.saturating_sub(WHOLE));
+    let falling = fallen(elapsed, PULLED, TEARING.saturating_sub(PULLED));
+    let width = SMALL.first().map_or(0, |row| row.len());
+    let height = SMALL.len();
+    let canvas_height = (height + TEAR.1).next_multiple_of(2);
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
@@ -160,23 +169,95 @@ pub(crate) fn torn(elapsed: Duration, truecolor: bool) -> Vec<Line<'static>> {
         clippy::as_conversions,
         reason = "a few pixels, from a fraction between 0 and 1"
     )]
-    let part = |far: usize| (far as f32 * done).round() as usize;
-    let width = SMALL.first().map_or(0, |row| row.len());
-    let height = SMALL.len();
-    let mut canvas = Canvas::new(
-        width + TEAR.0 + TEAR.2 + 1,
-        (height + TEAR.1).next_multiple_of(2),
-    );
+    let part = |far: usize, done: f32| (far as f32 * done).round() as usize;
+    let mut canvas = Canvas::new(width + TEAR.0 + 1, canvas_height);
     canvas.paint(
         &SMALL,
         |x, y, ink| {
             if ink == Ink::Stub {
-                let lean = part(TEAR.2 * y / height.saturating_sub(1).max(1));
-                (x + part(TEAR.0) + lean, y + part(TEAR.1))
+                // Dropped, it drifts on a pixel as it falls.
+                let across = part(TEAR.0, pulled) + part(1, falling);
+                let down = part(TEAR.1, pulled) + part(canvas_height, falling);
+                (x + across, y + down)
             } else {
                 (x, y)
             }
         },
+        |ink| colour(ink, truecolor),
+    );
+    canvas.lines()
+}
+
+/// How far along `elapsed` is of a fall that waits `delay` and then takes
+/// `length`, from 0 to 1, gathering speed.
+fn fallen(elapsed: Duration, delay: Duration, length: Duration) -> f32 {
+    let done = elapsed.saturating_sub(delay).as_secs_f32() / length.as_secs_f32();
+    let done = done.clamp(0.0, 1.0);
+    done * done
+}
+
+/// How much of `text` has been typed out `elapsed` after the stub was torn:
+/// none at first, then a character at a time, all of it before long.
+pub(crate) fn typed(text: &str, elapsed: Duration) -> String {
+    const FROM: Duration = Duration::from_millis(400);
+    const FOR: Duration = Duration::from_millis(450);
+    let done = elapsed.saturating_sub(FROM).as_secs_f32() / FOR.as_secs_f32();
+    let count = text.chars().count();
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss,
+        clippy::as_conversions,
+        reason = "a character count, from a fraction between 0 and 1"
+    )]
+    let shown = (count as f32 * done.clamp(0.0, 1.0)).ceil() as usize;
+    text.chars().take(shown).collect()
+}
+
+/// How much of a QR code has been printed `elapsed` after the stub was torn,
+/// from 0 to 1, row by row as a ticket machine would.
+pub(crate) fn printed(elapsed: Duration) -> f32 {
+    const FROM: Duration = Duration::from_millis(600);
+    const FOR: Duration = Duration::from_millis(550);
+    (elapsed.saturating_sub(FROM).as_secs_f32() / FOR.as_secs_f32()).clamp(0.0, 1.0)
+}
+
+/// How long the dialog for something sent keeps moving: the tear, the link
+/// typed out and the code printed, with a frame or two to spare so that the
+/// last one drawn shows them finished.
+pub(crate) const SENT_MOVES: Duration = Duration::from_millis(1400);
+
+/// The small ticket riding along `width` cells as far as `done` says, from 0
+/// to 1, or back and forth when there is no telling how far. It bobs a pixel
+/// as it goes.
+pub(crate) fn riding(
+    done: Option<f32>,
+    elapsed: Duration,
+    width: usize,
+    truecolor: bool,
+) -> Vec<Line<'static>> {
+    const LAPS_A_SECOND: f32 = 0.4;
+    let length = SMALL.first().map_or(0, |row| row.len());
+    let travel = width.saturating_sub(length);
+    let along = done.unwrap_or_else(|| {
+        // Out and back: a triangle, from 0 to 1 and down again.
+        let lap = (elapsed.as_secs_f32() * LAPS_A_SECOND).fract() * 2.0;
+        if lap > 1.0 { 2.0 - lap } else { lap }
+    });
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss,
+        clippy::as_conversions,
+        reason = "a cell position, from a fraction between 0 and 1"
+    )]
+    let x = (travel as f32 * along.clamp(0.0, 1.0)).round() as usize;
+    let moving = done.is_none_or(|done| done < 1.0);
+    let bob = usize::from(moving && (elapsed.as_millis() / 160) % 2 == 1);
+    let mut canvas = Canvas::new(width, (SMALL.len() + 1).next_multiple_of(2));
+    canvas.paint(
+        &SMALL,
+        |column, row, _| (column + x, row + bob),
         |ink| colour(ink, truecolor),
     );
     canvas.lines()
@@ -287,21 +368,58 @@ mod tests {
             .collect()
     }
 
+    fn has_stub(lines: &[Line<'_>]) -> bool {
+        let stub = colour(Ink::Stub, true);
+        lines
+            .iter()
+            .flat_map(|line| &line.spans)
+            .any(|span| span.style.fg == Some(stub) || span.style.bg == Some(stub))
+    }
+
     #[test]
-    fn the_stub_starts_attached_and_ends_apart() {
+    fn the_stub_starts_attached_and_ends_out_of_sight() {
         let whole = text(&torn(Duration::ZERO, true));
-        // Whole, the room the stub falls into is empty.
-        let room = TEAR.0 + TEAR.2;
+        // Whole, the room the stub is pulled into is empty.
+        let room = TEAR.0 + 1;
         assert!(whole.iter().all(|row| row.ends_with(&" ".repeat(room))));
-        // Torn, a gap of a few cells opens along the tear.
-        let apart = text(&torn(TEARING * 2, true));
+        // Pulled clear, a gap of a few cells opens along the tear.
+        let apart = text(&torn(PULLED, true));
         let row: Vec<char> = apart.get(2).expect("a row").chars().collect();
         assert!(
-            row.get(20..23)
+            row.get(21..25)
                 .is_some_and(|gap| gap.iter().all(|c| *c == ' ')),
             "{row:?}"
         );
+        assert!(has_stub(&torn(PULLED, true)));
+        // Fallen, it is gone, and the ticket holds still.
+        assert!(!has_stub(&torn(TEARING, true)));
         assert_eq!(torn(TEARING * 2, true), torn(TEARING * 5, true));
+    }
+
+    #[test]
+    fn the_link_is_typed_out_and_the_code_printed() {
+        let link = "https://share.example.com/s/P8D72PSF";
+        assert_eq!(typed(link, Duration::ZERO), "");
+        let midway = typed(link, Duration::from_millis(600));
+        assert!(!midway.is_empty() && midway.len() < link.len(), "{midway}");
+        assert_eq!(typed(link, SENT_MOVES), link);
+        assert!(printed(Duration::ZERO) <= 0.0);
+        assert!(printed(SENT_MOVES) >= 1.0);
+    }
+
+    #[test]
+    fn the_riding_ticket_goes_as_far_as_the_transfer() {
+        let start = text(&riding(Some(0.0), Duration::ZERO, 60, true));
+        let end = text(&riding(Some(1.0), Duration::ZERO, 60, true));
+        assert!(start.iter().all(|row| row.chars().count() == 60));
+        // At the start the ticket is on the left; at the end, on the right.
+        assert!(start.iter().any(|row| !row.starts_with(' ')));
+        assert!(
+            end.iter()
+                .all(|row| row.starts_with(&" ".repeat(60 - SMALL[0].len())))
+        );
+        // A screen too narrow for the ride still gets the ticket, clipped.
+        assert!(!text(&riding(None, Duration::ZERO, 10, true)).is_empty());
     }
 
     #[test]

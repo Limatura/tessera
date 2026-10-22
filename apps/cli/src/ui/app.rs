@@ -84,7 +84,7 @@ impl Progress {
 
 /// A send or a download under way, in the background.
 pub(crate) struct Transfer {
-    id: u64,
+    pub(crate) id: u64,
     /// What it is doing: `Sending report.pdf · 2.1 MB`, `Downloading AB12`.
     pub(crate) title: String,
     pub(crate) progress: Rc<RefCell<Progress>>,
@@ -402,6 +402,8 @@ pub(crate) enum Modal {
     Compose(Compose),
     /// The transfers under way; the one the keys are on.
     Transfers(usize),
+    /// One transfer, from the moment it starts until it ends or is hidden.
+    Sending(u64),
     Sent {
         link: String,
         what: String,
@@ -671,7 +673,7 @@ impl App {
                 Some(Modal::Welcome) => true,
                 Some(Modal::Sent { .. }) => self
                     .sent_at
-                    .is_some_and(|at| at.elapsed() < super::motion::TEARING),
+                    .is_some_and(|at| at.elapsed() < super::motion::SENT_MOVES),
                 _ => false,
             }
     }
@@ -682,6 +684,12 @@ impl App {
             && let Some(next) = self.waiting.pop_front()
         {
             self.show(next);
+        }
+        // A transfer stopped meanwhile has nothing left to show.
+        if let Some(Modal::Sending(id)) = self.modal
+            && !self.transfers.iter().any(|transfer| transfer.id == id)
+        {
+            self.modal = None;
         }
         // A list of transfers with none left has nothing to show.
         if let Some(Modal::Transfers(row)) = &mut self.modal {
@@ -1428,7 +1436,8 @@ impl App {
         );
     }
 
-    /// Starts `job` in the background and says how to watch it.
+    /// Starts `job`, shown as it goes until the dialog is hidden; the view
+    /// stays usable either way.
     fn begin(
         &mut self,
         title: String,
@@ -1445,6 +1454,26 @@ impl App {
             sending,
             job,
         });
+        if self.modal.is_none() {
+            self.show(Modal::Sending(self.next_transfer));
+        } else {
+            self.hidden();
+        }
+    }
+
+    /// Hides the dialog of transfer `id`, or asks before stopping it.
+    fn sending_button(&mut self, button: Button, id: u64) {
+        if button == Button::Close {
+            return self.hidden();
+        }
+        self.modal = Some(Modal::Sending(id));
+        if let Some(row) = self.transfers.iter().position(|transfer| transfer.id == id) {
+            self.stop_at(row);
+        }
+    }
+
+    /// Says where a transfer went once its dialog is out of the way.
+    fn hidden(&mut self) {
         let watch = self.keymap.hint(Action::Transfers).unwrap_or_default();
         self.say(
             format!("Working in the background; {watch} shows how far it has got"),
@@ -1494,6 +1523,10 @@ impl App {
 
     /// Takes the end of a transfer.
     pub(crate) fn finish(&mut self, id: u64, done: Done) {
+        // Watched to the end, what came of it takes the dialog's place.
+        if matches!(self.modal, Some(Modal::Sending(open)) if open == id) {
+            self.modal = None;
+        }
         let ended = self
             .transfers
             .iter()
@@ -1512,7 +1545,7 @@ impl App {
                     link: sent.link,
                     what,
                     skipped: sent.skipped_empty,
-                    qr: false,
+                    qr: true,
                 });
             }
             Done::Sent(Err(error)) => {
@@ -1708,6 +1741,11 @@ impl App {
             },
             Modal::Compose(compose) => self.compose_key(compose, event, key, action),
             Modal::Transfers(_) if close || action == Some(Action::Transfers) => {}
+            Modal::Sending(_) if close => self.hidden(),
+            Modal::Sending(_) if action == Some(Action::Transfers) => {
+                self.show(Modal::Transfers(0));
+            }
+            Modal::Sending(id) => self.modal = Some(Modal::Sending(id)),
             Modal::Transfers(row) => self.transfers_key(row, event.code),
             Modal::Sent {
                 link,
@@ -2416,6 +2454,9 @@ impl App {
                 self.modal = Some(Modal::Transfers(row));
                 self.stop_at(row);
             }
+            (Button::Stop | Button::Close, Some(Modal::Sending(id))) => {
+                self.sending_button(button, id);
+            }
             (Button::Yes, Some(Modal::Confirm(confirm))) => self.confirmed(confirm),
             (Button::Ok, Some(Modal::Prompt(prompt))) => self.answer(prompt),
             (Button::Setting(row), Some(Modal::Settings(_))) => {
@@ -2648,6 +2689,7 @@ pub(crate) const fn buttons_of(modal: &Modal) -> &'static [Button] {
         Modal::Note(_) | Modal::SignIn(_) => &[Button::CopyLink, Button::Close],
         Modal::Confirm(_) => &[Button::Yes, Button::No],
         Modal::Transfers(_) => &[Button::Stop, Button::Close],
+        Modal::Sending(_) => &[Button::Close, Button::Stop],
         Modal::Share { .. } => &[
             Button::CopyLink,
             Button::ToggleQr,
