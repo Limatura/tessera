@@ -145,6 +145,10 @@ tess
 
 `tess` on its own opens a full-screen view to find files and send them without typing paths, and to manage your shares.
 
+<p align="center">
+  <img src="docs/images/tess.gif" alt="Marking a folder and a file in tess, sending them, and getting the link and a QR code" width="80%" />
+</p>
+
 `--encrypt` seals the content before it leaves your machine; the key is the part of the link after `#`, which the server never sees.
 
 No CLI at hand? `curl` will do, and prints the link:
