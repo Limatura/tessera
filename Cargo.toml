@@ -134,6 +134,29 @@ empty_structs_with_brackets = "warn"
 rest_pat_in_fully_bound_structs = "warn"
 try_err = "warn"
 
+# Debug builds, tests included, still optimise the few crates the tests spend
+# their time in. nextest runs every test in its own process, and each server
+# test builds the app afresh, which decompresses the link-preview fonts
+# (`wuff`, `brotli-decompressor`): 0.6 s a test unoptimised. Signing in and
+# sealing are the rest: one Argon2 hash at the default cost takes a third of a
+# second, and sealing runs at 4 MB/s.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
+[profile.dev.package.chacha20]
+opt-level = 3
+[profile.dev.package.poly1305]
+opt-level = 3
+[profile.dev.package.sha2]
+opt-level = 3
+[profile.dev.package.tessera-crypto]
+opt-level = 3
+[profile.dev.package.wuff]
+opt-level = 3
+[profile.dev.package.brotli-decompressor]
+opt-level = 3
+
 [profile.release]
 # Single-binary distribution: optimise for size and startup, not compile time.
 # `panic` stays at "unwind": tower-http's CatchPanicLayer can only turn a
