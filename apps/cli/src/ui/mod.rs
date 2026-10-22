@@ -30,7 +30,7 @@ use crossterm::{
     execute,
 };
 use futures_util::StreamExt as _;
-use ratatui_image::picker::{Picker, cap_parser::QueryStdioOptions};
+use ratatui_image::picker::{Picker, ProtocolType, cap_parser::QueryStdioOptions};
 
 use crate::{Result, client::Client, config};
 
@@ -63,16 +63,21 @@ fn pictures() -> Option<Picker> {
         kitty_compression: true,
         ..QueryStdioOptions::default()
     };
-    Picker::from_query_stdio_with_options(options)
-        .ok()
-        .or_else(|| {
+    let picker = Picker::from_query_stdio_with_options(options)
+        .inspect_err(|_| {
             // Its reader still waits on the keys for an answer that ends with
             // the reply to a status request. Asking for one again, plainly,
             // lets it finish instead of keeping the keys pressed meanwhile.
             let mut out = stdout();
             out.write_all(b"\x1b[5n").and_then(|()| out.flush()).ok();
-            None
         })
+        .ok()?;
+    // ratatui-image takes VS Code's terminal at its name for iTerm2 pictures,
+    // which it draws only with `terminal.integrated.enableImages`, off unless
+    // turned on. Turned on, it answers for sixel itself.
+    let guessed = picker.protocol_type() == ProtocolType::Iterm2
+        && std::env::var("TERM_PROGRAM").is_ok_and(|program| program.contains("vscode"));
+    (!guessed).then_some(picker)
 }
 
 /// Runs the view until it is quit.

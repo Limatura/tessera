@@ -674,14 +674,31 @@ fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             ("Keys", Action::Help),
         ],
     };
+    let texts: Vec<(String, Action)> = actions
+        .iter()
+        .map(|(label, action)| {
+            let hint = app.keymap.hint(*action).unwrap_or_default();
+            (format!(" {label} {hint} "), *action)
+        })
+        .collect();
+    // Room first for what the left says, then for as many buttons as fit
+    // beside it: the first and the last, which opens the list of keys,
+    // stay; those between go from the right.
+    let (wanted, _) = footer_note(app, usize::MAX);
+    let wanted = wanted.width();
+    let mut shown = texts;
+    let taken = |shown: &[(String, Action)]| -> usize {
+        shown.iter().map(|(text, _)| width_of(text) + 1).sum()
+    };
+    while shown.len() > 2 && taken(&shown) + wanted > usize::from(area.width) {
+        shown.remove(shown.len() - 2);
+    }
     let mut spans = Vec::new();
     let mut width = 0;
     let mut placed = Vec::new();
-    for (label, action) in actions {
-        let hint = app.keymap.hint(*action).unwrap_or_default();
-        let text = format!(" {label} {hint} ");
+    for (text, action) in shown {
         let text_width = width_of(&text);
-        placed.push((width, text_width, *action));
+        placed.push((width, text_width, action));
         width += text_width + 1;
         spans.push(Span::styled(text, cursor().add_modifier(Modifier::DIM)));
         spans.push(Span::raw(" "));
@@ -699,13 +716,24 @@ fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         width: area.width.saturating_sub(cells(width)),
         ..area
     };
-    let line = if let Some((message, tone, _)) = &app.status {
+    let (line, transfer) = footer_note(app, usize::from(left.width));
+    if transfer {
+        hits.push((left, Hit::Button(Button::Footer(Action::Transfers))));
+    }
+    frame.render_widget(line, left);
+}
+
+/// What the left of the footer says, in `width` cells: a message, the oldest
+/// transfer under way, or what is marked. True when it is a transfer, which a
+/// click opens the list of.
+fn footer_note(app: &App, width: usize) -> (Line<'static>, bool) {
+    if let Some((message, tone, _)) = &app.status {
         let style = match tone {
             Tone::Info => Style::new(),
             Tone::Done => Style::new().fg(MARK),
             Tone::Problem => Style::new().fg(PROBLEM),
         };
-        Line::styled(format!(" {message}"), style)
+        (Line::styled(format!(" {message}"), style), false)
     } else if let Some(transfer) = app.transfers.first() {
         // Under way in the background: the oldest, and how many more.
         let progress = transfer.progress.borrow();
@@ -722,9 +750,8 @@ fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             String::new()
         };
         let rest = format!(" {percent}%{more} · {watch}");
-        let room = usize::from(left.width).saturating_sub(width_of(&rest) + 2 + TRACK + 1);
+        let room = width.saturating_sub(width_of(&rest) + 2 + TRACK + 1);
         let text = format!(" {}{rest}", fit(&transfer.title, room));
-        hits.push((left, Hit::Button(Button::Footer(Action::Transfers))));
         let mut spans = vec![Span::raw(" ")];
         spans.extend(motion::in_transit(
             app.started.elapsed(),
@@ -732,9 +759,12 @@ fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
             logo::truecolor(),
         ));
         spans.push(Span::styled(text, Style::new().fg(accent())));
-        Line::from(spans)
+        (Line::from(spans), true)
     } else if app.tab == Tab::Files && app.finder.is_some() {
-        Line::styled(" Tab marks · Enter goes there · Esc closes", dim())
+        (
+            Line::styled(" Tab marks · Enter goes there · Esc closes", dim()),
+            false,
+        )
     } else if app.tab == Tab::Files && app.browser.marked_count() > 0 {
         let (files, folders, size) = app.browser.marked().fold(
             (0_usize, 0_usize, 0_u64),
@@ -750,13 +780,15 @@ fn draw_footer(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         if folders > 0 {
             parts.push(format!("{folders} folder{}", plural(folders)));
         }
-        Line::styled(format!(" {} marked", parts.join(" + ")), bold().fg(MARK))
+        (
+            Line::styled(format!(" {} marked", parts.join(" + ")), bold().fg(MARK)),
+            false,
+        )
     } else if app.tab == Tab::Files && app.keymap.type_to_filter {
-        Line::styled(" Type to filter · Space marks", dim())
+        (Line::styled(" Type to filter · Space marks", dim()), false)
     } else {
-        Line::default()
-    };
-    frame.render_widget(line, left);
+        (Line::default(), false)
+    }
 }
 
 const fn plural(count: usize) -> &'static str {
@@ -845,6 +877,11 @@ fn draw_modal(app: &App, frame: &mut Frame<'_>, area: Rect, hits: &mut Hits) {
         Modal::Compose(compose) => draw_compose(compose, frame, area, hits),
         Modal::Share { share, qr } => draw_share(app, share, *qr, frame, area, hits),
         Modal::Transfers(row) => draw_transfers(app, *row, frame, area, hits),
+        Modal::Sending(id) => {
+            if let Some(transfer) = app.transfers.iter().find(|transfer| transfer.id == *id) {
+                draw_sending(app, transfer, frame, area, hits);
+            }
+        }
         Modal::Sent {
             link,
             what,
@@ -928,7 +965,7 @@ fn with_qr(
     hits: &mut Hits,
     (title, width): (&str, u16),
     mut lines: Vec<Line<'static>>,
-    qr: Option<&super::qr::Drawn>,
+    qr: Option<(&super::qr::Drawn, f32)>,
 ) -> Rect {
     // Around the text: a border and a column of space on each side, and below
     // it, a blank row, the buttons and the border.
@@ -944,7 +981,7 @@ fn with_qr(
         .max()
         .unwrap_or(0);
     let narrow = width.min(room.0).saturating_sub(SIDES);
-    let Some(drawn) = qr else {
+    let Some((drawn, printed)) = qr else {
         let height = rows(&lines, narrow) + ENDS;
         let inner = dialog(frame, area, width, height, title, hits);
         frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
@@ -978,7 +1015,7 @@ fn with_qr(
             qr_width,
             qr_height,
         );
-        drawn.render(frame, at);
+        drawn.render(frame, at, printed);
         return inner;
     }
     let text_rows = rows(&lines, narrow);
@@ -1005,7 +1042,7 @@ fn with_qr(
             qr_width,
             qr_height,
         );
-        drawn.render(frame, at);
+        drawn.render(frame, at, printed);
         return inner;
     }
     lines.push(Line::default());
@@ -1026,13 +1063,19 @@ fn draw_sent(
     (link, what, skipped, qr): (&str, &str, usize, Option<&super::qr::Drawn>),
     (copy, choice, torn): (&str, usize, std::time::Duration),
 ) {
+    let typed = motion::typed(link, torn);
     let mut lines = vec![
         Line::styled(what.to_owned(), dim()),
         Line::default(),
-        Line::styled(
-            link.to_owned(),
-            bold().fg(accent()).add_modifier(Modifier::UNDERLINED),
-        ),
+        // The rest of the link held open as space, so that typing it out
+        // does not widen the dialog as it goes.
+        Line::from(vec![
+            Span::styled(
+                typed.clone(),
+                bold().fg(accent()).add_modifier(Modifier::UNDERLINED),
+            ),
+            Span::raw(" ".repeat(width_of(link).saturating_sub(width_of(&typed)))),
+        ]),
     ];
     if skipped > 0 {
         lines.push(Line::default());
@@ -1043,7 +1086,15 @@ fn draw_sent(
     }
     lines.push(Line::default());
     lines.extend(motion::torn(torn, logo::truecolor()));
-    let inner = with_qr(frame, area, hits, ("Sent", 72), lines, qr);
+    let printed = motion::printed(torn);
+    let inner = with_qr(
+        frame,
+        area,
+        hits,
+        ("Sent", 72),
+        lines,
+        qr.map(|qr| (qr, printed)),
+    );
     buttons(
         frame,
         inner,
@@ -1433,7 +1484,14 @@ fn draw_share(
     let (lines, link) = share_lines(app, share);
     let title = format!("Share {}", share.code);
     let code = qr.then(|| app.qr_code(&link, accent())).flatten();
-    let inner = with_qr(frame, area, hits, (&title, 72), lines, code.as_deref());
+    let inner = with_qr(
+        frame,
+        area,
+        hits,
+        (&title, 72),
+        lines,
+        code.as_deref().map(|code| (code, 1.0)),
+    );
     buttons(
         frame,
         inner,
@@ -1595,7 +1653,14 @@ fn draw_sign_in(
             spans
         }),
     ];
-    let inner = with_qr(frame, area, hits, (&title, 72), lines, qr);
+    let inner = with_qr(
+        frame,
+        area,
+        hits,
+        (&title, 72),
+        lines,
+        qr.map(|qr| (qr, 1.0)),
+    );
     buttons(
         frame,
         inner,
@@ -1905,6 +1970,80 @@ fn transfer_lines(transfer: &Transfer, width: usize) -> [Line<'static>; 2] {
             dim(),
         ),
     ]
+}
+
+/// One transfer as it goes: the small ticket riding a track as far as it
+/// has got, and under it how much, how fast and what is going now.
+fn draw_sending(
+    app: &App,
+    transfer: &Transfer,
+    frame: &mut Frame<'_>,
+    area: Rect,
+    hits: &mut Hits,
+) {
+    let (verb, what) = transfer
+        .title
+        .split_once(' ')
+        .unwrap_or((&transfer.title, ""));
+    let inner = dialog(frame, area, 72, 16, verb, hits);
+    let width = usize::from(inner.width);
+    let done = {
+        let progress = transfer.progress.borrow();
+        progress.all.filter(|all| *all > 0).map(|all| {
+            #[expect(
+                clippy::cast_precision_loss,
+                clippy::as_conversions,
+                reason = "a fraction for drawing, where a few bits of a byte count are no loss"
+            )]
+            let fraction = progress.overall() as f32 / all as f32;
+            fraction
+        })
+    };
+    let mut lines = vec![Line::styled(fit(what, width), dim()), Line::default()];
+    lines.extend(motion::riding(
+        done,
+        transfer.started.elapsed(),
+        width,
+        logo::truecolor(),
+    ));
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss,
+        clippy::as_conversions,
+        reason = "a cell count, from a fraction between 0 and 1"
+    )]
+    let passed = done.map_or(0, |done| {
+        (width as f32 * done.clamp(0.0, 1.0)).round() as usize
+    });
+    lines.push(Line::from(vec![
+        Span::styled("━".repeat(passed), Style::new().fg(accent())),
+        Span::styled("─".repeat(width.saturating_sub(passed)), dim()),
+    ]));
+    let [_, detail] = transfer_lines(transfer, width);
+    let percent = done.map_or_else(String::new, |done| {
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            clippy::as_conversions,
+            reason = "a percentage, from a fraction between 0 and 1"
+        )]
+        let percent = (done.clamp(0.0, 1.0) * 100.0) as u8;
+        format!("{percent}%  ")
+    });
+    let mut detail_spans = vec![Span::styled(percent, bold().fg(accent()))];
+    detail_spans.extend(detail.spans);
+    lines.push(Line::from(detail_spans));
+    frame.render_widget(Paragraph::new(lines), inner);
+    buttons(
+        frame,
+        inner,
+        &[
+            ("Hide", Button::Close, app.choice == 0),
+            ("Stop", Button::Stop, app.choice == 1),
+        ],
+        hits,
+    );
 }
 
 /// The transfers under way, each with its progress; the keys pick one to stop.

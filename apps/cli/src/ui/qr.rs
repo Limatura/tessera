@@ -62,16 +62,34 @@ impl Drawn {
         })
     }
 
-    /// Draws it with its top left corner at `at`.
-    pub(crate) fn render(&self, frame: &mut Frame<'_>, at: Rect) {
+    /// The code at `at`, `printed` of the way through coming out of a ticket
+    /// machine, from 0 to 1: half blocks a row at a time, a picture whole
+    /// once it is done.
+    pub(crate) fn render(&self, frame: &mut Frame<'_>, at: Rect, printed: f32) {
         let area = Rect {
             width: self.width.min(at.width),
             height: self.height.min(at.height),
             ..at
         };
         match &self.art {
-            Art::Blocks(lines) => frame.render_widget(Paragraph::new(lines.clone()), area),
-            Art::Picture(protocol) => frame.render_widget(Image::new(protocol), area),
+            Art::Blocks(lines) => {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    clippy::cast_precision_loss,
+                    clippy::as_conversions,
+                    reason = "a row count, from a fraction between 0 and 1"
+                )]
+                let rows = (lines.len() as f32 * printed.clamp(0.0, 1.0)).ceil() as usize;
+                frame.render_widget(
+                    Paragraph::new(lines.iter().take(rows).cloned().collect::<Vec<_>>()),
+                    area,
+                );
+            }
+            Art::Picture(protocol) if printed >= 1.0 => {
+                frame.render_widget(Image::new(protocol), area);
+            }
+            Art::Picture(_) => {}
         }
     }
 }
