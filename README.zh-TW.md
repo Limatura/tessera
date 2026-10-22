@@ -145,6 +145,10 @@ tess
 
 只打 `tess` 會開啟全螢幕畫面，不用打路徑就能找檔案、傳送，也能管理自己的分享。
 
+<p align="center">
+  <img src="docs/images/tess.gif" alt="在 tess 裡勾選資料夾和檔案、送出，拿到連結和 QR code" width="80%" />
+</p>
+
 加上 `--encrypt` 會在內容離開你的電腦前先加密，金鑰是連結 `#` 後面那段，伺服器永遠看不到。
 
 手邊沒有 CLI？用 `curl` 也行，會直接印出連結：
