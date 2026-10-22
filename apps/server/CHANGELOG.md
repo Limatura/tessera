@@ -1,5 +1,13 @@
 # tessera-server
 
+## 0.3.1
+
+### Patch Changes
+
+- [#117](https://github.com/Limatura/tessera/pull/117) [`2d7b299`](https://github.com/Limatura/tessera/commit/2d7b299bb432239e37148a56247295b51522a165) Thanks [@timo9378](https://github.com/timo9378)! - In the full-screen view, sending looks more like printing a ticket. While a transfer runs, a ticket machine prints the ticket as far as the upload has got. When it ends, the QR code prints from the top under a print head, also when the terminal draws it as an image. The stub then hangs on through a few gusts of autumn wind, comes loose, and turns over as it falls to the ground among the leaves. The footer shows a small progress bar instead of a moving block, and signing in waits with a spinner.
+
+- [#114](https://github.com/Limatura/tessera/pull/114) [`1a9af03`](https://github.com/Limatura/tessera/commit/1a9af038544e46cc6464631da6a0395a73a95966) Thanks [@timo9378](https://github.com/timo9378)! - In the full-screen view, a send or a download opens a dialog that follows it: the small ticket rides a track as far as the transfer has got, with how much, how fast and which file; Hide leaves it running in the background as before. When a send ends, the stub tears along its perforation and falls away, the link types itself out, and the QR code prints row by row beside it when the window has room. The small ticket is redrawn to match the logo. The footer gives up buttons before it cuts short what it says, and VS Code's terminal, which draws pictures only when `terminal.integrated.enableImages` is on, gets its QR codes in half blocks unless it says otherwise.
+
 ## 0.3.0
 
 ### Minor Changes
