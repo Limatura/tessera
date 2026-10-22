@@ -685,3 +685,50 @@ async fn a_directory_goes_into_one_share_and_comes_back_as_it_was() {
         );
     }
 }
+
+/// A JPEG with a location in its Exif: enough structure for the cleaner to
+/// walk, and a marker to search for.
+fn photo() -> Vec<u8> {
+    let mut exif = b"Exif\0\0MM\0\x2a\0\0\0\x08\0\0\0\0\0\0".to_vec();
+    exif.extend(b"GPS 25.03N 121.56E");
+    let length = u16::try_from(exif.len() + 2).expect("a short segment");
+    let mut image = vec![0xFF, 0xD8, 0xFF, 0xE1];
+    image.extend(length.to_be_bytes());
+    image.extend(exif);
+    image.extend([0xFF, 0xDA, 0, 8, 1, 1, 0, 0, 63, 0, 0x12, 0x34, 0xFF, 0xD9]);
+    image
+}
+
+#[tokio::test]
+async fn a_photo_goes_without_its_location_unless_kept() {
+    let server = server().await;
+    let local = tempfile::tempdir().unwrap();
+    let client = Client::new(server.url.clone(), None).unwrap();
+    let original = photo();
+
+    for (encrypt, keep_metadata) in [(false, false), (true, false), (false, true)] {
+        let path = write(local.path(), "trip.jpg", &original);
+        let sent = send::send(
+            &client,
+            Content::Files(vec![path]),
+            Options {
+                encrypt,
+                keep_metadata,
+                ..Options::default()
+            },
+            &mut |_, _, _| {},
+        )
+        .await
+        .expect("send");
+
+        let into = tempfile::tempdir().unwrap();
+        fetch(&sent.link, None, into.path()).await.expect("get");
+        let back = std::fs::read(into.path().join("trip.jpg")).unwrap();
+        assert_eq!(back.len(), original.len(), "cleaned in place");
+        assert_eq!(
+            contains(&back, b"GPS"),
+            keep_metadata,
+            "encrypt {encrypt}, keep {keep_metadata}"
+        );
+    }
+}

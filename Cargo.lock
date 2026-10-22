@@ -5494,6 +5494,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tessera-crypto",
+ "tessera-metadata",
  "tessera-server",
  "thiserror 2.0.21",
  "time",
@@ -5542,6 +5543,15 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "tessera-metadata"
+version = "0.0.0"
+dependencies = [
+ "crc32fast",
+ "image",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

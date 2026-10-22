@@ -576,6 +576,14 @@ pub struct Capabilities {
     /// The site's look. Missing from servers before 0.3.
     #[serde(default)]
     pub appearance: Appearance,
+    /// Whether photos are sent without their metadata unless asked otherwise.
+    /// Missing from older servers, which get the safer side.
+    #[serde(default = "yes")]
+    pub strip_metadata: bool,
+}
+
+const fn yes() -> bool {
+    true
 }
 
 /// A look, as names. Only the accent is read: a terminal keeps its own

@@ -43,6 +43,7 @@ rpassword = "7.5"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tessera-crypto = { workspace = true }
+tessera-metadata = { workspace = true }
 thiserror = { workspace = true }
 # `local-offset` for showing an expiry as this machine's clock reads it.
 time = { workspace = true, features = ["local-offset"] }
