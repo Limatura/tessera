@@ -72,17 +72,20 @@ https://github.com/user-attachments/assets/f1c95b78-8561-4184-9616-c57e3fa3bc5a
 
 ## クイックスタート
 
-Docker を使い、このリポジトリをクローンした場所で実行します。
+Docker で起動します。
 
 ```bash
-docker compose up -d
+docker run -d --name tessera --restart unless-stopped \
+  -p 12923:12923 -v tessera-data:/data ghcr.io/limatura/tessera
 ```
 
 <http://localhost:12923> を開いてください。初回起動時にサーバーが管理者アカウントを作成し、そのパスワードをログに一度だけ出力します。
 
 ```bash
-docker compose logs tessera | grep password
+docker logs tessera | grep password
 ```
+
+このリポジトリをクローンした場所で `docker compose up -d` を実行しても同じで、設定は `docker-compose.yml` に残ります。
 
 インターネットに公開する前に、[公開インスタンス向けの設定例](tessera.public.env.example)を読んでください。匿名アップロードは初期状態で有効なので、容量の上限がないと、サーバーに届く人なら誰でもディスクを埋められます。
 
