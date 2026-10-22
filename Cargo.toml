@@ -134,27 +134,30 @@ empty_structs_with_brackets = "warn"
 rest_pat_in_fully_bound_structs = "warn"
 try_err = "warn"
 
-# Debug builds, tests included, still optimise the few crates the tests spend
-# their time in. nextest runs every test in its own process, and each server
-# test builds the app afresh, which decompresses the link-preview fonts
-# (`wuff`, `brotli-decompressor`): 0.6 s a test unoptimised. Signing in and
-# sealing are the rest: one Argon2 hash at the default cost takes a third of a
-# second, and sealing runs at 4 MB/s.
-[profile.dev.package.argon2]
+# Test builds still optimise the few crates the tests spend their time in.
+# nextest runs every test in its own process, and each server test builds the
+# app afresh, which decompresses the link-preview fonts (`wuff`,
+# `brotli-decompressor`): 0.6 s a test unoptimised. Signing in and sealing are
+# the rest: one Argon2 hash at the default cost takes a third of a second, and
+# sealing runs at 4 MB/s.
+#
+# On `test` and not `dev`, because `wasm` below inherits `dev`, and any
+# per-crate setting it inherits changes the module `wasm-bindgen` writes.
+[profile.test.package.argon2]
 opt-level = 3
-[profile.dev.package.blake2]
+[profile.test.package.blake2]
 opt-level = 3
-[profile.dev.package.chacha20]
+[profile.test.package.chacha20]
 opt-level = 3
-[profile.dev.package.poly1305]
+[profile.test.package.poly1305]
 opt-level = 3
-[profile.dev.package.sha2]
+[profile.test.package.sha2]
 opt-level = 3
-[profile.dev.package.tessera-crypto]
+[profile.test.package.tessera-crypto]
 opt-level = 3
-[profile.dev.package.wuff]
+[profile.test.package.wuff]
 opt-level = 3
-[profile.dev.package.brotli-decompressor]
+[profile.test.package.brotli-decompressor]
 opt-level = 3
 
 [profile.release]
@@ -187,9 +190,10 @@ opt-level = 3
 # and encryption sits between the file and the network. `panic` is abort
 # because nothing on `wasm32-unknown-unknown` can catch an unwind.
 #
-# It spells out release's settings instead of inheriting them: inheriting would
-# bring the per-crate settings above along, which changes the module and the
-# bindings `wasm-bindgen` writes for it.
+# It inherits `dev`, which has no per-crate settings, and spells out release's
+# instead of inheriting them: any per-crate setting it inherited would change
+# the module and the bindings `wasm-bindgen` writes for it, even one that only
+# repeats its own opt-level.
 [profile.wasm]
 inherits = "dev"
 opt-level = 3
