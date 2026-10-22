@@ -75,6 +75,27 @@ impl Canvas {
         }
     }
 
+    fn set(&mut self, x: usize, y: usize, colour: Color) {
+        if x < self.width
+            && let Some(cell) = self.pixels.get_mut(y * self.width + x)
+        {
+            *cell = Some(colour);
+        }
+    }
+
+    /// Empties the pixels in `columns` across `rows`.
+    fn clear(&mut self, columns: std::ops::Range<usize>, rows: std::ops::Range<usize>) {
+        for y in rows {
+            for x in columns.clone() {
+                if x < self.width
+                    && let Some(cell) = self.pixels.get_mut(y * self.width + x)
+                {
+                    *cell = None;
+                }
+            }
+        }
+    }
+
     fn at(&self, x: usize, y: usize) -> Option<Color> {
         if x < self.width && y < self.height {
             self.pixels.get(y * self.width + x).copied().flatten()
@@ -150,50 +171,141 @@ fn eased(elapsed: Duration, delay: Duration, length: Duration) -> f32 {
 const PULLED: Duration = Duration::from_millis(700);
 
 /// How long [`torn`] moves for; after that it holds still, the stub gone.
-pub(crate) const TEARING: Duration = Duration::from_millis(1150);
+pub(crate) const TEARING: Duration = Duration::from_millis(2400);
+
+/// Where the stub starts on the ticket, in pixels from its left.
+const PERFORATION: usize = 21;
+
+/// The room the stub falls through, in pixels: wide enough for it to swing,
+/// and as tall as a QR code beside it, so the dialog does not grow for it.
+const FALL_ROOM: (usize, usize) = (46, 26);
 
 /// The small ticket, `elapsed` into having its stub torn off: whole for a
-/// moment, then the stub pulled away to the right and down, and dropped,
-/// falling faster as it goes until it is out of sight.
+/// moment, then the stub pulled away to the right and down, and let go. It
+/// comes down as paper does, swinging from side to side and tipping as it
+/// swings, turning over to show its back, until it is out of sight.
 pub(crate) fn torn(elapsed: Duration, truecolor: bool) -> Vec<Line<'static>> {
     const WHOLE: Duration = Duration::from_millis(250);
     let pulled = eased(elapsed, WHOLE, PULLED.saturating_sub(WHOLE));
-    let falling = fallen(elapsed, PULLED, TEARING.saturating_sub(PULLED));
-    let width = SMALL.first().map_or(0, |row| row.len());
-    let height = SMALL.len();
-    let canvas_height = (height + TEAR.1).next_multiple_of(2);
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        clippy::cast_precision_loss,
-        clippy::as_conversions,
-        reason = "a few pixels, from a fraction between 0 and 1"
-    )]
-    let part = |far: usize, done: f32| (far as f32 * done).round() as usize;
-    let mut canvas = Canvas::new(width + TEAR.0 + 1, canvas_height);
-    canvas.paint(
-        &SMALL,
-        |x, y, ink| {
-            if ink == Ink::Stub {
-                // Dropped, it drifts on a pixel as it falls.
-                let across = part(TEAR.0, pulled) + part(1, falling);
-                let down = part(TEAR.1, pulled) + part(canvas_height, falling);
-                (x + across, y + down)
-            } else {
-                (x, y)
-            }
-        },
-        |ink| colour(ink, truecolor),
-    );
+    let falling = (elapsed.saturating_sub(PULLED).as_secs_f32()
+        / TEARING.saturating_sub(PULLED).as_secs_f32())
+    .clamp(0.0, 1.0);
+    let mut canvas = Canvas::new(FALL_ROOM.0, FALL_ROOM.1);
+    canvas.paint(&SMALL, |x, y, _| (x, y), |ink| colour(ink, truecolor));
+    // The paint above put the stub where it was; take it off again and draw
+    // it where it has got to.
+    canvas.clear(PERFORATION..FALL_ROOM.0, 0..SMALL.len());
+    let flight = Flight::at(pulled, falling);
+    let front = colour(Ink::Stub, truecolor);
+    let back = if truecolor {
+        Color::Rgb(0xa3, 0x36, 0x1b)
+    } else {
+        Color::Indexed(130)
+    };
+    flight.draw(&mut canvas, if flight.turned { back } else { front });
     canvas.lines()
 }
 
-/// How far along `elapsed` is of a fall that waits `delay` and then takes
-/// `length`, from 0 to 1, gathering speed.
-fn fallen(elapsed: Duration, delay: Duration, length: Duration) -> f32 {
-    let done = elapsed.saturating_sub(delay).as_secs_f32() / length.as_secs_f32();
-    let done = done.clamp(0.0, 1.0);
-    done * done
+/// Where the stub is and how it lies, part of the way through its fall.
+struct Flight {
+    /// Its middle, in pixels.
+    centre: (f32, f32),
+    /// How far it has tipped, in radians, clockwise.
+    tilt: f32,
+    /// How wide it looks, turning over: 1 flat, less edge on.
+    breadth: f32,
+    /// Whether its back is to the viewer.
+    turned: bool,
+}
+
+impl Flight {
+    /// `pulled` and `falling` each from 0 to 1.
+    fn at(pulled: f32, falling: f32) -> Self {
+        use std::f32::consts::TAU;
+        let (width, height) = stub_size();
+        #[expect(
+            clippy::cast_precision_loss,
+            clippy::as_conversions,
+            reason = "pixel counts of a few dozen"
+        )]
+        let (middle, perforation, room, (pull_across, pull_down)) = (
+            ((width as f32 - 1.0) / 2.0, (height as f32 - 1.0) / 2.0),
+            PERFORATION as f32,
+            FALL_ROOM.1 as f32,
+            (TEAR.0 as f32, TEAR.1 as f32),
+        );
+        let start = (
+            perforation + middle.0 + pull_across * pulled,
+            middle.1 + pull_down * pulled,
+        );
+        // A swing and a half on the way down, growing from nothing as it
+        // leaves the ticket, and tipping with the swing as a pendulum does.
+        let swing = (TAU * 1.5 * falling).sin() * (falling * 4.0).min(1.0);
+        // Three quarters of a turn: edge on, its back, edge on again.
+        let turning = (TAU * 0.75 * falling).cos();
+        // Out of sight below by the end, slow to start and then steady.
+        let drop = (room + 10.0 - start.1) * (0.35 * falling * falling + 0.65 * falling);
+        Self {
+            centre: (start.0 + 4.0 * falling + 5.0 * swing, start.1 + drop),
+            tilt: -0.49 * swing,
+            breadth: turning.abs().max(0.25),
+            turned: turning < 0.0,
+        }
+    }
+
+    /// The stub, as it lies, onto `canvas` in `ink`.
+    fn draw(&self, canvas: &mut Canvas, ink: Color) {
+        let (width, height) = stub_size();
+        #[expect(
+            clippy::cast_precision_loss,
+            clippy::as_conversions,
+            reason = "pixel counts of a few dozen"
+        )]
+        let middle = ((width as f32 - 1.0) / 2.0, (height as f32 - 1.0) / 2.0);
+        let (sin, cos) = self.tilt.sin_cos();
+        for y in 0..canvas.height {
+            for x in 0..canvas.width {
+                // Back from the screen to the stub: undo the tilt, then the
+                // turn.
+                #[expect(
+                    clippy::cast_precision_loss,
+                    clippy::as_conversions,
+                    reason = "pixel counts of a few dozen"
+                )]
+                let (across, down) = (x as f32 - self.centre.0, y as f32 - self.centre.1);
+                let along = (across * cos + down * sin) / self.breadth + middle.0;
+                let up = (down * cos - across * sin) + middle.1;
+                if stub_has(along.round(), up.round()) {
+                    canvas.set(x, y, ink);
+                }
+            }
+        }
+    }
+}
+
+/// The stub's width and height in pixels.
+fn stub_size() -> (usize, usize) {
+    let width = SMALL.first().map_or(0, |row| row.len());
+    (width.saturating_sub(PERFORATION), SMALL.len())
+}
+
+/// Whether the stub has a pixel at `x`, `y` of its own, given as whole
+/// numbers that may lie outside it.
+fn stub_has(x: f32, y: f32) -> bool {
+    if x < 0.0 || y < 0.0 {
+        return false;
+    }
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::as_conversions,
+        reason = "whole, non-negative numbers of a few dozen"
+    )]
+    let (x, y) = (x as usize, y as usize);
+    SMALL
+        .get(y)
+        .and_then(|row| row.as_bytes().get(PERFORATION + x))
+        .is_some_and(|pixel| ink_of(*pixel) == Some(Ink::Stub))
 }
 
 /// How much of `text` has been typed out `elapsed` after the stub was torn:
@@ -225,7 +337,7 @@ pub(crate) fn printed(elapsed: Duration) -> f32 {
 /// How long the dialog for something sent keeps moving: the tear, the link
 /// typed out and the code printed, with a frame or two to spare so that the
 /// last one drawn shows them finished.
-pub(crate) const SENT_MOVES: Duration = Duration::from_millis(1400);
+pub(crate) const SENT_MOVES: Duration = Duration::from_millis(2550);
 
 /// The small ticket riding along `width` cells as far as `done` says, from 0
 /// to 1, or back and forth when there is no telling how far. It bobs a pixel
@@ -394,6 +506,20 @@ mod tests {
         // Fallen, it is gone, and the ticket holds still.
         assert!(!has_stub(&torn(TEARING, true)));
         assert_eq!(torn(TEARING * 2, true), torn(TEARING * 5, true));
+    }
+
+    #[test]
+    fn the_stub_turns_over_as_it_falls() {
+        let back = Color::Rgb(0xa3, 0x36, 0x1b);
+        let shows_back = (0..30)
+            .map(|step| torn(PULLED + Duration::from_millis(step * 60), true))
+            .any(|lines| {
+                lines
+                    .iter()
+                    .flat_map(|line| &line.spans)
+                    .any(|span| span.style.fg == Some(back) || span.style.bg == Some(back))
+            });
+        assert!(shows_back);
     }
 
     #[test]
