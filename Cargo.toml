@@ -26,7 +26,7 @@ thiserror = "2"
 time = { version = "0.3", features = ["serde", "formatting", "parsing", "macros"] }
 ulid = { version = "3", features = ["serde"] }
 tracing = "0.1"
-utoipa = { version = "5.5", features = ["axum_extras", "time"] }
+utoipa = { version = "6", features = ["axum_extras", "time"] }
 
 # Lint policy is declared once for the workspace; each crate opts in with
 # `[lints] workspace = true`. Two tiers, by design:
