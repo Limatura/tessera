@@ -143,6 +143,21 @@ lto = "fat"
 codegen-units = 1
 strip = "symbols"
 
+# Except the crates every byte of a file passes through: `tess` seals uploads
+# with ChaCha20-Poly1305, and the server hashes them with SHA-256. At "z" these
+# ran at about 100 MB/s and 1 GB/s, and at 3 they are ten and two times faster.
+# A whole build at 3 would grow both binaries by half; these four don't change
+# the size. argon2 is left out: with fat LTO its speed follows the binary's own
+# opt-level, not its crate's.
+[profile.release.package.tessera-crypto]
+opt-level = 3
+[profile.release.package.chacha20]
+opt-level = 3
+[profile.release.package.poly1305]
+opt-level = 3
+[profile.release.package.sha2]
+opt-level = 3
+
 # The browser's build of `tessera-crypto`, made by `scripts/crypto-wasm.sh`.
 #
 # Speed over size, unlike release: the module is tens of kilobytes either way,
