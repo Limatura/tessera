@@ -4,9 +4,7 @@ use std::sync::LazyLock;
 
 use argon2::{
     Algorithm, Argon2, Params, Version,
-    password_hash::{
-        PasswordHash, PasswordHasher as _, PasswordVerifier as _, SaltString, rand_core,
-    },
+    password_hash::{PasswordHasher as _, PasswordVerifier as _},
 };
 use tessera_core::Password;
 
@@ -87,9 +85,9 @@ pub async fn hash(password: Password, cost: HashingConfig) -> Result<String, Pas
     // executor had scheduled there. Nothing in the lint set catches this; it has
     // to be remembered, so it is written down.
     tokio::task::spawn_blocking(move || {
-        let salt = SaltString::generate(&mut rand_core::OsRng);
+        // The salt comes from the operating system's random source.
         hasher(cost)?
-            .hash_password(password.expose().as_bytes(), &salt)
+            .hash_password(password.expose().as_bytes())
             .map(|hash| hash.to_string())
             .map_err(|_| PasswordError::Hasher)
     })
@@ -114,12 +112,10 @@ pub async fn verify(password: Password, stored: String) -> Result<bool, Password
         .await
         .map_err(|_| PasswordError::Cancelled)?;
     tokio::task::spawn_blocking(move || {
-        let Ok(parsed) = PasswordHash::new(&stored) else {
-            return false;
-        };
+        // A string that does not parse fails like a wrong password, and
         // `verify_password` is constant-time with respect to the hash contents.
         Argon2::default()
-            .verify_password(password.expose().as_bytes(), &parsed)
+            .verify_password(password.expose().as_bytes(), stored.as_str())
             .is_ok()
     })
     .await

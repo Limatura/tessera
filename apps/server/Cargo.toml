@@ -266,10 +266,13 @@ tracing-subscriber = { version = "0.3", features = [
 figment = { version = "0.10", features = ["env"] }
 
 # --- authentication ---
-# Argon2id is OWASP's current recommendation for password storage. The `std`
-# feature brings the PHC string format, so a stored hash carries its own
+# Argon2id is OWASP's current recommendation for password storage. Its default
+# features bring the PHC string format, so a stored hash carries its own
 # parameters and a future change to them does not invalidate existing passwords.
-argon2 = { version = "0.5", features = ["std"] }
+argon2 = "0.6"
+# Random bytes from the operating system, for tokens, secrets and codes. See
+# `auth::secret::fill_random`.
+getrandom = "0.4"
 # Session and API tokens are high-entropy random values, so they are stored
 # under a fast hash instead of Argon2: there is nothing to brute-force, and
 # ~50 ms of key derivation on every authenticated request would be absurd.

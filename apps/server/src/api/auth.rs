@@ -1292,7 +1292,7 @@ mod tests {
         // If it were malformed, verification against it would short-circuit and
         // the timing equalisation it exists for would silently stop working.
         assert!(
-            argon2::password_hash::PasswordHash::new(DUMMY_HASH).is_ok(),
+            argon2::password_hash::phc::PasswordHash::new(DUMMY_HASH).is_ok(),
             "the dummy hash must parse, or the timing defence is a no-op"
         );
     }
