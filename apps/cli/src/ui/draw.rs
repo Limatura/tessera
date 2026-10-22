@@ -752,13 +752,14 @@ fn footer_note(app: &App, width: usize) -> (Line<'static>, bool) {
         let rest = format!(" {percent}%{more} · {watch}");
         let room = width.saturating_sub(width_of(&rest) + 2 + TRACK + 1);
         let text = format!(" {}{rest}", fit(&transfer.title, room));
-        let mut spans = vec![Span::raw(" ")];
-        spans.extend(motion::in_transit(
-            app.started.elapsed(),
-            TRACK,
-            logo::truecolor(),
-        ));
-        spans.push(Span::styled(text, Style::new().fg(accent())));
+        // A short bar, filled as far as the transfer has got.
+        let filled = usize::try_from(percent).map_or(TRACK, |percent| percent * TRACK / 100);
+        let spans = vec![
+            Span::raw(" "),
+            Span::styled("━".repeat(filled.min(TRACK)), Style::new().fg(accent())),
+            Span::styled("─".repeat(TRACK.saturating_sub(filled)), dim()),
+            Span::styled(text, Style::new().fg(accent())),
+        ];
         (Line::from(spans), true)
     } else if app.tab == Tab::Files && app.finder.is_some() {
         (
@@ -1085,7 +1086,12 @@ fn draw_sent(
         ));
     }
     lines.push(Line::default());
-    lines.extend(motion::torn(torn, logo::truecolor()));
+    // As much room for the stub to blow across as the dialog has beside the
+    // code, or without it, within reason.
+    let beside = qr.map_or(0, |qr| qr.width + 2);
+    let room = area.width.min(74).saturating_sub(6 + beside);
+    let room = usize::from(room).clamp(motion::FALL_WIDTH, 56);
+    lines.extend(motion::torn(torn, room, logo::truecolor()));
     let printed = motion::printed(torn);
     let inner = with_qr(
         frame,
@@ -1648,9 +1654,13 @@ fn draw_sign_in(
         ]),
         Line::default(),
         Line::from({
-            let mut spans = motion::in_transit(sign_in.started.elapsed(), TRACK, logo::truecolor());
-            spans.push(Span::styled(" Waiting for approval…", dim()));
-            spans
+            vec![
+                Span::styled(
+                    motion::spinner(sign_in.started.elapsed()),
+                    Style::new().fg(accent()),
+                ),
+                Span::styled(" Waiting for approval…", dim()),
+            ]
         }),
     ];
     let inner = with_qr(
@@ -1972,8 +1982,8 @@ fn transfer_lines(transfer: &Transfer, width: usize) -> [Line<'static>; 2] {
     ]
 }
 
-/// One transfer as it goes: the small ticket riding a track as far as it
-/// has got, and under it how much, how fast and what is going now.
+/// One transfer as it goes: the ticket machine printing the ticket as far as
+/// it has got, and under it how much, how fast and what is going now.
 fn draw_sending(
     app: &App,
     transfer: &Transfer,
@@ -1985,7 +1995,7 @@ fn draw_sending(
         .title
         .split_once(' ')
         .unwrap_or((&transfer.title, ""));
-    let inner = dialog(frame, area, 72, 16, verb, hits);
+    let inner = dialog(frame, area, 72, 18, verb, hits);
     let width = usize::from(inner.width);
     let done = {
         let progress = transfer.progress.borrow();
@@ -2000,12 +2010,13 @@ fn draw_sending(
         })
     };
     let mut lines = vec![Line::styled(fit(what, width), dim()), Line::default()];
-    lines.extend(motion::riding(
-        done,
-        transfer.started.elapsed(),
-        width,
-        logo::truecolor(),
-    ));
+    let printing = motion::printing(done, transfer.started.elapsed(), logo::truecolor());
+    let indent = width.saturating_sub(printing.first().map_or(0, Line::width)) / 2;
+    lines.extend(printing.into_iter().map(|line| {
+        let mut spans = vec![Span::raw(" ".repeat(indent))];
+        spans.extend(line.spans);
+        Line::from(spans)
+    }));
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,

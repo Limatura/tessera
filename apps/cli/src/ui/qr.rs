@@ -33,8 +33,64 @@ pub(crate) struct Drawn {
 }
 
 enum Art {
-    Blocks(Vec<Line<'static>>),
-    Picture(Protocol),
+    /// Drawn afresh for each frame, as far as it has printed.
+    Blocks {
+        matrix: output::Matrix,
+        finder: (u8, u8, u8),
+        head: (u8, u8, u8),
+        truecolor: bool,
+    },
+    /// One picture for each step of the printing, the last the code whole.
+    Picture(Vec<Protocol>),
+}
+
+/// How many steps a picture is printed in.
+const STEPS: usize = 12;
+
+/// How far a code has printed: its first `rows` rows of modules, and on the
+/// row after them, while there is one, the print head, in its colour.
+#[derive(Clone, Copy)]
+struct Printing {
+    rows: usize,
+    head: Option<(u8, u8, u8)>,
+}
+
+impl Printing {
+    /// `part` of the way through a code `side` modules square, from 0 to 1.
+    fn of(side: usize, part: f32, head: (u8, u8, u8)) -> Self {
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            clippy::cast_precision_loss,
+            clippy::as_conversions,
+            reason = "a row count, from a fraction between 0 and 1"
+        )]
+        let rows = ((side as f32) * part.clamp(0.0, 1.0)).ceil() as usize;
+        Self {
+            rows,
+            head: (rows < side).then_some(head),
+        }
+    }
+
+    /// What module row `y` shows.
+    const fn row(self, y: usize) -> Row {
+        match self.head {
+            _ if y < self.rows => Row::Printed,
+            Some(head) if y == self.rows => Row::Head(head),
+            _ => Row::Blank,
+        }
+    }
+}
+
+/// A row of modules, as far as the printing has got.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Row {
+    /// Printed: as the code says.
+    Printed,
+    /// Under the print head: a line in its colour.
+    Head((u8, u8, u8)),
+    /// Not printed yet: paper.
+    Blank,
 }
 
 impl Drawn {
@@ -47,24 +103,30 @@ impl Drawn {
         truecolor: bool,
     ) -> Option<Self> {
         let matrix = output::Matrix::new(link).ok()?;
-        let finder = darkened(rgb_of(accent));
+        let head = rgb_of(accent);
+        let finder = darkened(head);
         if let Some(picker) =
             picker.filter(|picker| picker.protocol_type() != ProtocolType::Halfblocks)
-            && let Some(drawn) = picture(&matrix, finder, picker)
+            && let Some(drawn) = picture(&matrix, (finder, head), picker)
         {
             return Some(drawn);
         }
         let side = u16::try_from(matrix.side()).ok()?;
         Some(Self {
-            art: Art::Blocks(blocks(&matrix, finder, truecolor)),
+            art: Art::Blocks {
+                matrix,
+                finder,
+                head,
+                truecolor,
+            },
             width: side,
             height: side.div_ceil(2),
         })
     }
 
     /// The code at `at`, `printed` of the way through coming out of a ticket
-    /// machine, from 0 to 1: half blocks a row at a time, a picture whole
-    /// once it is done.
+    /// machine, from 0 to 1: the paper first, then the modules a row at a
+    /// time under a print head in the accent.
     pub(crate) fn render(&self, frame: &mut Frame<'_>, at: Rect, printed: f32) {
         let area = Rect {
             width: self.width.min(at.width),
@@ -72,38 +134,64 @@ impl Drawn {
             ..at
         };
         match &self.art {
-            Art::Blocks(lines) => {
+            Art::Blocks {
+                matrix,
+                finder,
+                head,
+                truecolor,
+            } => {
+                let printing = Printing::of(matrix.side(), printed, *head);
+                frame.render_widget(
+                    Paragraph::new(blocks(matrix, *finder, *truecolor, printing)),
+                    area,
+                );
+            }
+            Art::Picture(steps) => {
                 #[expect(
                     clippy::cast_possible_truncation,
                     clippy::cast_sign_loss,
                     clippy::cast_precision_loss,
                     clippy::as_conversions,
-                    reason = "a row count, from a fraction between 0 and 1"
+                    reason = "a step, from a fraction between 0 and 1"
                 )]
-                let rows = (lines.len() as f32 * printed.clamp(0.0, 1.0)).ceil() as usize;
-                frame.render_widget(
-                    Paragraph::new(lines.iter().take(rows).cloned().collect::<Vec<_>>()),
-                    area,
-                );
+                let step = ((STEPS as f32) * printed.clamp(0.0, 1.0)).floor() as usize;
+                if let Some(protocol) = steps.get(step.min(STEPS)) {
+                    frame.render_widget(Image::new(protocol), area);
+                }
             }
-            Art::Picture(protocol) if printed >= 1.0 => {
-                frame.render_widget(Image::new(protocol), area);
-            }
-            Art::Picture(_) => {}
         }
     }
 }
 
 /// One pixel to a cell's width per module, so the code is as wide as in half
-/// blocks but square, and as many rows as that takes, on paper.
-fn picture(matrix: &output::Matrix, finder: (u8, u8, u8), picker: &Picker) -> Option<Drawn> {
+/// blocks but square, and as many rows as that takes, on paper: a picture
+/// for each step of its printing.
+fn picture(
+    matrix: &output::Matrix,
+    (finder, head): ((u8, u8, u8), (u8, u8, u8)),
+    picker: &Picker,
+) -> Option<Drawn> {
     let font = picker.font_size();
-    let (image, cells) = painted(matrix, finder, (font.width, font.height))?;
-    let protocol = picker
-        .new_protocol(DynamicImage::ImageRgb8(image), cells, Resize::Fit(None))
-        .ok()?;
+    let mut cells = Size::default();
+    let mut steps = Vec::with_capacity(STEPS + 1);
+    for step in 0..=STEPS {
+        #[expect(
+            clippy::cast_precision_loss,
+            clippy::as_conversions,
+            reason = "a step of a dozen"
+        )]
+        let part = step as f32 / STEPS as f32;
+        let printing = Printing::of(matrix.side(), part, head);
+        let (image, size) = painted(matrix, finder, (font.width, font.height), printing)?;
+        cells = size;
+        steps.push(
+            picker
+                .new_protocol(DynamicImage::ImageRgb8(image), size, Resize::Fit(None))
+                .ok()?,
+        );
+    }
     Some(Drawn {
-        art: Art::Picture(protocol),
+        art: Art::Picture(steps),
         width: cells.width,
         height: cells.height,
     })
@@ -115,6 +203,7 @@ fn painted(
     matrix: &output::Matrix,
     finder: (u8, u8, u8),
     font: (u16, u16),
+    printing: Printing,
 ) -> Option<(RgbImage, Size)> {
     let (cell_width, cell_height) = (u32::from(font.0), u32::from(font.1));
     if cell_width < 2 || cell_height < 2 {
@@ -136,7 +225,9 @@ fn painted(
         };
         let at = |pixel: u32| usize::try_from(pixel / module).unwrap_or(usize::MAX);
         let (x, y) = (at(x), at(y));
-        if !matrix.is_dark(x, y) {
+        if let Row::Head(head) = printing.row(y) {
+            rgb(head)
+        } else if printing.row(y) == Row::Blank || !matrix.is_dark(x, y) {
             paper
         } else if matrix.is_finder(x, y) {
             finder
@@ -149,7 +240,12 @@ fn painted(
 }
 
 /// Two modules to a cell, one above the other.
-fn blocks(matrix: &output::Matrix, finder: (u8, u8, u8), truecolor: bool) -> Vec<Line<'static>> {
+fn blocks(
+    matrix: &output::Matrix,
+    finder: (u8, u8, u8),
+    truecolor: bool,
+    printing: Printing,
+) -> Vec<Line<'static>> {
     let paint = |colour: (u8, u8, u8)| {
         if truecolor {
             Color::Rgb(colour.0, colour.1, colour.2)
@@ -162,6 +258,31 @@ fn blocks(matrix: &output::Matrix, finder: (u8, u8, u8), truecolor: bool) -> Vec
     let finder = paint(finder);
     let mut lines = Vec::new();
     for y in (0..matrix.side()).step_by(2) {
+        // A row not yet printed, or the print head on one, half a cell.
+        let (upper_row, lower_row) = (printing.row(y), printing.row(y + 1));
+        if lower_row != Row::Printed {
+            let module = |row: Row, x: usize, y: usize| match row {
+                Row::Head(head) => Some(paint(head)),
+                Row::Blank => None,
+                Row::Printed => matrix
+                    .is_dark(x, y)
+                    .then(|| if matrix.is_finder(x, y) { finder } else { dark }),
+            };
+            let spans = (0..matrix.side())
+                .map(
+                    |x| match (module(upper_row, x, y), module(lower_row, x, y + 1)) {
+                        (None, None) => Span::styled(" ", Style::new().bg(paper)),
+                        (Some(ink), None) => Span::styled("▀", Style::new().fg(ink).bg(paper)),
+                        (None, Some(ink)) => Span::styled("▄", Style::new().fg(ink).bg(paper)),
+                        (Some(top), Some(bottom)) => {
+                            Span::styled("▀", Style::new().fg(top).bg(bottom))
+                        }
+                    },
+                )
+                .collect::<Vec<_>>();
+            lines.push(Line::from(spans));
+            continue;
+        }
         let mut spans: Vec<Span<'static>> = Vec::new();
         let mut run = String::new();
         let mut ink = dark;
@@ -260,7 +381,12 @@ mod tests {
         let link = "https://share.example/s/WDJB-MJHT";
         let matrix = output::Matrix::new(link).expect("a code");
         for accent in [(0xca, 0x35, 0x00), (0xf1, 0xae, 0x2e), (0x9d, 0x72, 0xff)] {
-            let (image, cells) = painted(&matrix, darkened(accent), (10, 26)).expect("painted");
+            let whole = Printing {
+                rows: matrix.side(),
+                head: None,
+            };
+            let (image, cells) =
+                painted(&matrix, darkened(accent), (10, 26), whole).expect("painted");
             assert_eq!(cells.width, u16::try_from(matrix.side()).expect("small"));
             let (width, height) = (
                 usize::try_from(image.width()).expect("small"),
@@ -286,6 +412,19 @@ mod tests {
     }
 
     #[test]
+    fn a_code_prints_from_the_top_under_its_head() {
+        let matrix = output::Matrix::new("https://example.com/s/ABCD").expect("a code");
+        let head = (0xd9, 0x4f, 0x2b);
+        let printing = Printing::of(matrix.side(), 0.5, head);
+        assert_eq!(printing.row(0), Row::Printed);
+        assert_eq!(printing.row(printing.rows), Row::Head(head));
+        assert_eq!(printing.row(matrix.side() - 1), Row::Blank);
+        let done = Printing::of(matrix.side(), 1.0, head);
+        assert_eq!(done.row(matrix.side() - 1), Row::Printed);
+        assert!(done.head.is_none());
+    }
+
+    #[test]
     fn finder_squares_take_their_own_ink() {
         let drawn = Drawn::new(
             "https://example.com/s/ABCD",
@@ -294,9 +433,20 @@ mod tests {
             true,
         )
         .expect("a code");
-        let Art::Blocks(lines) = &drawn.art else {
+        let Art::Blocks {
+            matrix,
+            finder,
+            truecolor,
+            ..
+        } = &drawn.art
+        else {
             panic!("half blocks without a picker");
         };
+        let whole = Printing {
+            rows: matrix.side(),
+            head: None,
+        };
+        let lines = blocks(matrix, *finder, *truecolor, whole);
         // The second row of cells holds a finder square's top edge at the left.
         let first = lines
             .get(1)
