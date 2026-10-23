@@ -1248,7 +1248,7 @@ impl App {
         let Some(client) = &self.client else {
             self.show(Modal::NeedSignIn {
                 title: "No instance to send to".to_owned(),
-                message: "Sign in to the instance to send to, or start with --server.".to_owned(),
+                message: "Sign in to the instance to send to.".to_owned(),
             });
             return;
         };
