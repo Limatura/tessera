@@ -51,7 +51,7 @@ type PublicShare = components["schemas"]["PublicShareResponse"];
 const MAX_PREVIEW_BYTES = 20 * 1024 * 1024;
 
 /**
- * An end-to-end encrypted share (#292). Everything the server cannot read is
+ * An end-to-end encrypted share. Everything the server cannot read is
  * opened here: the title, file names, a note, and each file as it downloads.
  * Several files are packed into a zip here too, since the server will not
  * archive sealed files.
