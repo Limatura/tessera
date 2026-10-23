@@ -1012,6 +1012,40 @@ expression: document
         ],
         "type": "object"
       },
+      "CreateWebhookRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /webhooks` and `POST /admin/webhooks`.",
+        "properties": {
+          "events": {
+            "description": "What to send: any of `share.created`, `share.downloaded`,\n`share.expired`.",
+            "example": [
+              "share.downloaded"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "format": {
+            "description": "`json`, the default, or `discord` for a Discord channel's webhook URL.",
+            "example": "json",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "description": "Where to send events. `http` or `https`; an account's must be a public\naddress.",
+            "example": "https://example.com/hooks/tessera",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "events"
+        ],
+        "type": "object"
+      },
       "CreatedInviteResponse": {
         "allOf": [
           {
@@ -1055,6 +1089,28 @@ expression: document
           }
         ],
         "description": "A newly issued token. The only response that ever carries the secret."
+      },
+      "CreatedWebhookResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookResponse",
+            "description": "The webhook, as a listing describes it."
+          },
+          {
+            "properties": {
+              "secret": {
+                "description": "What each body is signed with, as Standard Webhooks describes: the\n`webhook-signature` header is an HMAC-SHA256 of\n`{webhook-id}.{webhook-timestamp}.{body}`, keyed with the base64 after\n`whsec_`.\n\n**Shown once.**",
+                "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw",
+                "type": "string"
+              }
+            },
+            "required": [
+              "secret"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "A newly added webhook. The only response that carries the secret."
       },
       "CreationOptions": {
         "description": "`PublicKeyCredentialCreationOptionsJSON`.",
@@ -1291,6 +1347,73 @@ expression: document
         "required": [
           "deleted",
           "failed"
+        ],
+        "type": "object"
+      },
+      "DeliveryResponse": {
+        "description": "One event sent, or being sent, to a webhook.",
+        "properties": {
+          "attempts": {
+            "description": "How many times it has been sent.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "created_at": {
+            "description": "When the event happened.",
+            "type": "string"
+          },
+          "delivered_at": {
+            "description": "When the receiver accepted it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "event": {
+            "description": "Which event.",
+            "example": "share.downloaded",
+            "type": "string"
+          },
+          "id": {
+            "description": "Stable identifier, sent as the `webhook-id` header.",
+            "type": "string"
+          },
+          "last_error": {
+            "description": "Why the last attempt failed.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_status": {
+            "description": "The status the receiver last answered with.",
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "next_attempt_at": {
+            "description": "When it is tried next, while it is pending.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "description": "`pending` while it is still being tried, then `delivered` or `failed`.",
+            "example": "delivered",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "state",
+          "attempts",
+          "created_at"
         ],
         "type": "object"
       },
@@ -3583,6 +3706,48 @@ expression: document
         },
         "required": [
           "token"
+        ],
+        "type": "object"
+      },
+      "WebhookResponse": {
+        "description": "A webhook, as a listing describes it. Never carries the secret.",
+        "properties": {
+          "created_at": {
+            "description": "When it was added, RFC 3339.",
+            "type": "string"
+          },
+          "events": {
+            "description": "What it is sent: `share.created`, `share.downloaded`, `share.expired`.",
+            "example": [
+              "share.downloaded"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "format": {
+            "description": "`json`, or `discord` for a Discord channel's webhook.",
+            "example": "json",
+            "type": "string"
+          },
+          "id": {
+            "description": "Stable identifier.",
+            "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S",
+            "type": "string"
+          },
+          "url": {
+            "description": "Where events are sent.",
+            "example": "https://example.com/hooks/tessera",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "events",
+          "format",
+          "created_at"
         ],
         "type": "object"
       }
@@ -7258,6 +7423,253 @@ expression: document
         ]
       }
     },
+    "/api/v1/admin/webhooks": {
+      "get": {
+        "description": "# Errors\n\n`403` when the caller cannot change settings, or used a bearer token.",
+        "operationId": "admin_list_webhooks",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "The instance's webhooks"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or a bearer token"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lists the instance's webhooks.",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "# Errors\n\n`400` when the URL or events are unusable, `403` when the caller cannot\nchange settings.",
+        "operationId": "admin_create_webhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedWebhookResponse"
+                }
+              }
+            },
+            "description": "Added; the secret is shown only here"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The URL, events or format are unusable, or there are too many"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or a bearer token"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Adds a webhook told about every share, and returns its signing secret,\nonce.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/webhooks/{id}": {
+      "delete": {
+        "description": "# Errors\n\n`404` when the instance has no webhook with that id.",
+        "operationId": "admin_delete_webhook",
+        "parameters": [
+          {
+            "description": "The webhook's identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or a bearer token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No webhook of the instance has that id"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Removes one of the instance's webhooks, and whatever was queued for it.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/webhooks/{id}/deliveries": {
+      "get": {
+        "description": "# Errors\n\n`404` when the instance has no webhook with that id.",
+        "operationId": "admin_list_webhook_deliveries",
+        "parameters": [
+          {
+            "description": "The webhook's identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Its most recent events"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or a bearer token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No webhook of the instance has that id"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "The most recent events sent to one of the instance's webhooks, newest\nfirst.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/auth/device": {
       "post": {
         "description": "# Errors\n\n`400` when the name is empty or too long, `404` when this instance has no\naccounts, `429` when this address has started too many.",
@@ -10777,6 +11189,259 @@ expression: document
         ]
       }
     },
+    "/api/v1/webhooks": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when the account cannot see its\nshares.",
+        "operationId": "list_webhooks",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "The caller's webhooks"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not allowed"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lists the caller's webhooks.",
+        "tags": [
+          "webhooks"
+        ]
+      },
+      "post": {
+        "description": "# Errors\n\n`400` when the URL or events are unusable, or the URL is not a public\naddress; `403` when authenticated with a token, or the account cannot see\nits shares.",
+        "operationId": "create_webhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedWebhookResponse"
+                }
+              }
+            },
+            "description": "Added; the secret is shown only here"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The URL, events or format are unusable, or there are too many"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token, or not allowed"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Adds a webhook told about the caller's own shares, and returns its signing\nsecret, once.",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{id}": {
+      "delete": {
+        "description": "# Errors\n\n`404` when the caller has no webhook with that id.",
+        "operationId": "delete_webhook",
+        "parameters": [
+          {
+            "description": "The webhook's identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token, or not allowed"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No webhook of yours has that id"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Removes one of the caller's webhooks, and whatever was queued for it.",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{id}/deliveries": {
+      "get": {
+        "description": "# Errors\n\n`404` when the caller has no webhook with that id.",
+        "operationId": "list_webhook_deliveries",
+        "parameters": [
+          {
+            "description": "The webhook's identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Its most recent events"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not allowed"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No webhook of yours has that id"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The most recent events sent to one of the caller's webhooks, newest first.",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "description": "Both a liveness and a readiness probe. The process only reaches\n[`ServiceStatus::Ready`] once migrations have run, and it flips to\n[`ServiceStatus::Draining`] the moment a shutdown signal arrives, so an\norchestrator can stop routing before the listener actually closes.\n\n# Errors\n\nReturns [`Error::Unavailable`] (503) while starting up or draining, and when\nthe database round-trip fails.",
@@ -10838,6 +11503,10 @@ expression: document
     {
       "description": "A person's own preferences",
       "name": "preferences"
+    },
+    {
+      "description": "Being told when your shares are created, downloaded or expire",
+      "name": "webhooks"
     }
   ]
 }

@@ -986,7 +986,7 @@ async fn permit(
         return Ok(Payload::Content);
     }
     gate::unlock(state, share, headers, source).await?;
-    gate::spend(state, share).await?;
+    gate::spend(state, share, headers, source).await?;
     record_access(state, share, headers, source).await;
     Ok(Payload::Content)
 }

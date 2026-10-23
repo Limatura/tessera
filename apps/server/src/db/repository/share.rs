@@ -866,6 +866,8 @@ impl Share {
 
             created_at: Set(self.created_at),
             updated_at: Set(self.updated_at),
+            // Only the webhook pass sets it, and only on its own.
+            end_announced_at: sea_orm::ActiveValue::NotSet,
         }
     }
 }
@@ -1712,6 +1714,57 @@ impl ShareRepository {
     /// Returns [`ShareRepositoryError`] if the delete fails.
     pub async fn delete(&self, id: ShareId) -> Result<(), ShareRepositoryError> {
         ShareEntity::delete_by_id(id.to_string())
+            .exec(&self.connection)
+            .await?;
+        Ok(())
+    }
+
+    /// Shares that have ended, by time or by use, and whose end the webhooks
+    /// have not been told about, oldest first.
+    ///
+    /// Disabled shares are not here, for the reason [`Self::find_reapable`]
+    /// leaves them out: switching one off is not its end.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn find_unannounced_ends(
+        &self,
+        now: OffsetDateTime,
+        limit: u64,
+    ) -> Result<Vec<Share>, ShareRepositoryError> {
+        let expired = share::Column::ExpiresAt
+            .is_not_null()
+            .and(share::Column::ExpiresAt.lt(now));
+        let exhausted = share::Column::UseLimit
+            .is_not_null()
+            .and(Expr::col(share::Column::UseCount).gte(Expr::col(share::Column::UseLimit)));
+        let models = ShareEntity::find()
+            .filter(share::Column::EndAnnouncedAt.is_null())
+            .filter(expired.or(exhausted))
+            .order_by_asc(share::Column::Id)
+            .limit(limit)
+            .all(&self.connection)
+            .await?;
+        models
+            .into_iter()
+            .map(|model| Share::from_model(model).map_err(Into::into))
+            .collect()
+    }
+
+    /// Notes that the webhooks were told this share ended.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the update fails.
+    pub async fn mark_end_announced(
+        &self,
+        id: ShareId,
+        now: OffsetDateTime,
+    ) -> Result<(), ShareRepositoryError> {
+        ShareEntity::update_many()
+            .col_expr(share::Column::EndAnnouncedAt, Expr::value(Some(now)))
+            .filter(share::Column::Id.eq(id.to_string()))
             .exec(&self.connection)
             .await?;
         Ok(())

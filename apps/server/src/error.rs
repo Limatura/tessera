@@ -749,6 +749,21 @@ impl From<crate::db::repository::mfa::MfaRepositoryError> for Error {
     }
 }
 
+/// Webhook failures are all ours: a database error, a URL or secret the key
+/// will not open, or a row that does not read back. Logged, and a 500.
+impl From<crate::db::repository::webhook::WebhookRepositoryError> for Error {
+    fn from(error: crate::db::repository::webhook::WebhookRepositoryError) -> Self {
+        use crate::db::repository::webhook::WebhookRepositoryError as Source;
+        match error {
+            Source::Database(inner) => Self::Database(inner),
+            other => {
+                tracing::error!(error = %other, "a webhook row is not usable");
+                Self::Database(sea_orm::DbErr::Custom(other.to_string()))
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
