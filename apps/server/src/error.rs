@@ -370,6 +370,9 @@ error_codes! {
     UploadAbandoned => GONE, "that upload was abandoned";
     /// This instance's store cannot hold a resumable upload.
     ResumableUnsupported => BAD_REQUEST, "this instance's store cannot hold a resumable upload";
+    /// This instance does not share files of this type, by its name or by its
+    /// first bytes. `details.extension` is the entry it falls under.
+    FileTypeBlocked => FORBIDDEN, "this instance does not share files of this type";
     /// This instance takes uploads only from signed-in accounts. Sent in place
     /// of `not_signed_in` so the client can say why, not just ask for a sign-in.
     AnonymousUploadDisabled => UNAUTHORIZED, "this instance only accepts uploads from signed-in accounts";

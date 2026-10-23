@@ -1444,6 +1444,8 @@
   "api_error_upload_abandoned": "这次上传已经中止，请重新上传。",
   "api_error_resumable_unsupported": "这台服务器的存储空间不支持续传。",
   "api_error_anonymous_upload_disabled": "这台服务器不开放匿名上传，请先登录账号再上传。",
+  "api_error_file_type_blocked": "这台服务器不分享这种类型的文件。",
+  "api_error_file_type_blocked_extension": "这台服务器不分享 {extension} 文件。",
   "api_error_network": "无法连接到服务器，或无法读取所选的文件。请检查网络，并确认文件已完整保存在手机上后再试一次。",
   "api_error_setting_unknown": "「{key}」不是这个版本的设置项目。",
   "api_error_setting_secret": "「{key}」含有凭证，只能通过环境变量设置。",

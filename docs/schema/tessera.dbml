@@ -111,6 +111,7 @@ Table file_shares {
   sealed_name text
   scan_state text
   scan_detail text
+  detected_type text
 
   Note: '''One file of a file share. One row per share today; `position` is there for when a share can hold several.'''
 }

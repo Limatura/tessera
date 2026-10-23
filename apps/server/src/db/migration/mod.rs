@@ -74,6 +74,7 @@ mod m20261013_000001_mfa;
 mod m20261013_000002_passkeys;
 mod m20261018_000001_device_authorizations;
 mod m20261019_000001_logs_permission;
+mod m20261023_000001_detected_type;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -138,6 +139,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261013_000002_passkeys::Migration),
             Box::new(m20261018_000001_device_authorizations::Migration),
             Box::new(m20261019_000001_logs_permission::Migration),
+            Box::new(m20261023_000001_detected_type::Migration),
         ]
     }
 }

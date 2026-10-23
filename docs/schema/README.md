@@ -13,7 +13,7 @@
 | [password_reset_tokens](password_reset_tokens.md) | 6 | One-shot links for setting a password. | table |
 | [pending_registrations](pending_registrations.md) | 8 | A registration waiting on its address. The account does not exist until the mail is opened, so what would become one waits here instead. That is also what keeps "is this address registered" from being a question anyone can ask. | table |
 | [invites](invites.md) | 7 | Invitation codes. Digests only, as above. | table |
-| [file_shares](file_shares.md) | 12 | One file of a file share. One row per share today; `position` is there for when a share can hold several. | table |
+| [file_shares](file_shares.md) | 13 | One file of a file share. One row per share today; `position` is there for when a share can hold several. | table |
 | [text_shares](text_shares.md) | 5 | The text of a text share. `content` cannot be null, because "the text is somewhere else" is the state this table exists to make impossible. | table |
 | [roles](roles.md) | 8 | The name of a set of permissions. Nothing else decides who may do what. | table |
 | [role_permissions](role_permissions.md) | 2 | Which permissions a role holds. The permissions themselves are defined in code rather than stored, because granting one nothing checks grants nothing. | table |
@@ -190,6 +190,7 @@ erDiagram
   TEXT sealed_name
   TEXT scan_state
   TEXT scan_detail
+  TEXT detected_type
 }
 "text_shares" {
   TEXT share_id PK

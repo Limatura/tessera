@@ -1559,6 +1559,7 @@ expression: document
           "upload_direct_unavailable",
           "upload_abandoned",
           "resumable_unsupported",
+          "file_type_blocked",
           "anonymous_upload_disabled",
           "setting_unknown",
           "setting_secret",
@@ -9956,6 +9957,16 @@ expression: document
               }
             },
             "description": "Wrong password"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A file of a type this instance does not share"
           },
           "404": {
             "content": {

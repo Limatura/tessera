@@ -22,7 +22,7 @@ CREATE TABLE file_shares (
     storage       TEXT    NOT NULL,
     object_key    TEXT,
     created_at    TEXT    NOT NULL
-, sealed_name TEXT, scan_state TEXT, scan_detail TEXT)
+, sealed_name TEXT, scan_state TEXT, scan_detail TEXT, detected_type TEXT)
 ```
 
 </details>
@@ -43,6 +43,7 @@ CREATE TABLE file_shares (
 | sealed_name | TEXT |  | true |  |  |  |
 | scan_state | TEXT |  | true |  |  |  |
 | scan_detail | TEXT |  | true |  |  |  |
+| detected_type | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -81,6 +82,7 @@ erDiagram
   TEXT sealed_name
   TEXT scan_state
   TEXT scan_detail
+  TEXT detected_type
 }
 "file_segments" {
   TEXT file_id PK
