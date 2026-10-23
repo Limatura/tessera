@@ -1,5 +1,19 @@
 # tessera-server
 
+## 0.3.2
+
+### Patch Changes
+
+- [#132](https://github.com/Limatura/tessera/pull/132) [`4a9316a`](https://github.com/Limatura/tessera/commit/4a9316a9cf4b1f906013842dede91e6cf47401f4) Thanks [@timo9378](https://github.com/timo9378)! - `tess`: the "No instance to send to" dialog no longer suggests a `--server` flag the view does not take.
+
+- [#121](https://github.com/Limatura/tessera/pull/121) [`9f0f290`](https://github.com/Limatura/tessera/commit/9f0f290002e7586305baa68c493fba298b6158ee) Thanks [@timo9378](https://github.com/timo9378)! - `tess send --encrypt` seals about ten times faster, and the server hashes uploads about twice as fast. The release build optimised the crates doing this for size, which held encryption to about 100 MB/s.
+
+- [#124](https://github.com/Limatura/tessera/pull/124) [`9d85a69`](https://github.com/Limatura/tessera/commit/9d85a69de19532a846414060c344d870a57d44c0) Thanks [@timo9378](https://github.com/timo9378)! - The server hashes passwords with argon2 0.6, the version the encryption code already used, so the binary no longer carries two copies. Stored passwords keep working.
+
+- [#130](https://github.com/Limatura/tessera/pull/130) [`0dc4755`](https://github.com/Limatura/tessera/commit/0dc47559ddcfcdb8d84333dced62b7dfad1fda54) Thanks [@timo9378](https://github.com/timo9378)! - `tess send` removes the metadata from JPEG, PNG and WebP photos before they leave the machine: where they were taken, the camera, the time, comments. The orientation stays, so a photo still shows the right way up. `--keep-metadata` sends them as they are. Whether sending starts out removing it is the new `share.strip_metadata` setting, on by default and reported in `GET /api/v1/capabilities`. The web app will follow.
+
+- [#129](https://github.com/Limatura/tessera/pull/129) [`4fdf794`](https://github.com/Limatura/tessera/commit/4fdf79417109eb9938496848da55f027b180e9bd) Thanks [@timo9378](https://github.com/timo9378)! - A share holding one video downloads with its video type (`video/mp4`, `video/webm`, `video/quicktime`, `video/x-matroska` or `video/ogg`, from the file's extension) instead of `application/octet-stream`, so Safari, iOS and Chromecast can play it. Encrypted shares and everything else stay `application/octet-stream`.
+
 ## 0.3.1
 
 ### Patch Changes
