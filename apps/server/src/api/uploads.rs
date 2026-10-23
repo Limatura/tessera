@@ -359,6 +359,7 @@ async fn named(
         &[("filename", filename.is_some())],
         &[("sealed_name", sealed_name.is_some())],
     )?;
+    crate::upload::blocked::check_name(state, filename.as_deref())?;
     Ok((filename, sealed_name, encryption))
 }
 
@@ -810,6 +811,17 @@ async fn settle(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Res
         scan: crate::scan::initial(state, upload.encryption.is_some()),
         ..finished_file(&finished)
     };
+    let file = match crate::upload::blocked::admit(state, file).await {
+        Ok(file) => file,
+        Err(error) => {
+            // Refused, and its bytes are gone, so the session has nothing left
+            // to finish.
+            if error.code() == ErrorCode::FileTypeBlocked {
+                state.uploads.delete(upload.id).await?;
+            }
+            return Err(error);
+        }
+    };
     let now = OffsetDateTime::now_utc();
 
     let response = match upload.share_id {
@@ -985,6 +997,8 @@ pub(crate) fn finished_file(upload: &Upload) -> NewFile {
         segments: Vec::new(),
         filename: upload.filename.clone(),
         content_type: upload.content_type.clone(),
+        // Filled in once the bytes are looked at.
+        detected_type: None,
         sealed_name: upload.sealed_name.clone(),
         // Set by the recorder, which knows whether a scanner is configured.
         scan: None,

@@ -1203,6 +1203,30 @@ pub struct ShareConfig {
     /// Someone sharing where a photo was taken on purpose can keep it.
     pub strip_metadata: bool,
 
+    /// File types this instance will not share, by extension: `["exe", "apk",
+    /// "scr"]`.
+    ///
+    /// A public instance that serves programs gets flagged by Safe Browsing,
+    /// and then every link on its domain opens behind a warning.
+    ///
+    /// A file is refused when its name ends in one of these, or when its first
+    /// bytes say it is a program of a kind listed: a Windows program is `exe`,
+    /// a Linux one `elf` and a macOS one `macho`, whatever the file is called.
+    /// So `setup.exe` renamed to `setup.jpg` is still refused, as long as `exe`
+    /// is listed. Other types, `apk` among them, cannot be told from their first
+    /// bytes and go by their name alone.
+    ///
+    /// Checked on upload, and again on download, so a rule added later covers
+    /// what was shared before it.
+    ///
+    /// Files in an end-to-end encrypted share go through: the server can read
+    /// neither their names nor their bytes, and what it serves is ciphertext,
+    /// which nothing takes for a program.
+    ///
+    /// Empty by default.
+    #[serde(default, deserialize_with = "list_or_commas")]
+    pub blocked_extensions: Vec<String>,
+
     /// How long a finished share is kept before it is removed, in hours.
     ///
     /// A share that expired or was used up is kept a while, so following its
@@ -1880,6 +1904,7 @@ impl Default for ShareConfig {
             // *ask* for, not what they get by default.
             max_expiry_hours: 24 * 30,
             strip_metadata: true,
+            blocked_extensions: Vec::new(),
             upload_session_ttl_hours: 24,
             retain_after_death_hours: 24 * 7,
         }

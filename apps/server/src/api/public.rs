@@ -375,6 +375,7 @@ async fn download(
     // Read before `permit`, for the reason `raw` gives.
     let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
     crate::scan::release(&state, &content)?;
+    crate::upload::blocked::release(&state, &content)?;
     let payload = permit(
         &state,
         &share,
@@ -595,6 +596,7 @@ async fn segments(
     permit(&state, &share, &headers, None, &Method::HEAD, &source).await?;
     let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
     crate::scan::release(&state, &content)?;
+    crate::upload::blocked::release(&state, &content)?;
     let (file, pieces) = direct_file(&state, &share, &content).ok_or(Error::NotFound)?;
     Ok(axum::Json(SegmentsResponse {
         size_bytes: file.size_bytes,
@@ -628,6 +630,7 @@ async fn segment(
     permit(&state, &share, &headers, None, &Method::HEAD, &source).await?;
     let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
     crate::scan::release(&state, &content)?;
+    crate::upload::blocked::release(&state, &content)?;
     let (_, pieces) = direct_file(&state, &share, &content).ok_or(Error::NotFound)?;
     let piece = pieces.get(index).ok_or(Error::NotFound)?;
 
@@ -1614,6 +1617,7 @@ mod tests {
             segments: Vec::new(),
             filename: filename.map(str::to_owned),
             content_type: None,
+            detected_type: None,
             sealed_name: None,
             scan: None,
             size_bytes: 0,
@@ -1629,6 +1633,7 @@ mod tests {
                 segments: Vec::new(),
                 filename: Some("one.txt".to_owned()),
                 content_type: None,
+                detected_type: None,
                 sealed_name: None,
                 scan: None,
                 size_bytes: 5,
@@ -1638,6 +1643,7 @@ mod tests {
                 segments: Vec::new(),
                 filename: Some("two.txt".to_owned()),
                 content_type: None,
+                detected_type: None,
                 sealed_name: None,
                 scan: None,
                 size_bytes: 7,

@@ -238,6 +238,9 @@ pub struct NewFile {
     pub filename: Option<String>,
     /// The media type the uploader claimed. Recorded, never echoed.
     pub content_type: Option<String>,
+    /// What the first bytes say it is, when they say it is a program. See
+    /// [`crate::upload::blocked`].
+    pub detected_type: Option<String>,
     /// The name and media type, sealed, when the share is encrypted. The two
     /// fields above are `None` in that case.
     pub sealed_name: Option<String>,
@@ -321,6 +324,9 @@ pub struct FilePart {
     pub filename: Option<String>,
     /// The media type, when one was worked out. Recorded, never echoed.
     pub content_type: Option<String>,
+    /// What the first bytes say it is, when they say it is a program. See
+    /// [`crate::upload::blocked`].
+    pub detected_type: Option<String>,
     /// The name and media type, sealed, in an encrypted share.
     pub sealed_name: Option<String>,
     /// The scanner's verdict, or `None` if it was never scanned.
@@ -471,6 +477,7 @@ impl Content {
                 Ok(FilePart {
                     filename: model.filename.clone(),
                     content_type: model.content_type.clone(),
+                    detected_type: model.detected_type.clone(),
                     sealed_name: model.sealed_name.clone(),
                     scan: Scan::from_columns(
                         model.scan_state.as_deref(),
@@ -948,6 +955,7 @@ impl ShareRepository {
                     position: Set(0),
                     filename: Set(file.filename.clone()),
                     content_type: Set(file.content_type.clone()),
+                    detected_type: Set(file.detected_type.clone()),
                     sealed_name: Set(file.sealed_name.clone()),
                     scan_state: Set(file.scan.as_ref().map(|scan| scan.columns().0.to_owned())),
                     scan_detail: Set(file.scan.as_ref().and_then(|scan| scan.columns().1)),
@@ -1050,6 +1058,7 @@ impl ShareRepository {
             position: Set(i64::try_from(position).unwrap_or(i64::MAX)),
             filename: Set(file.filename.clone()),
             content_type: Set(file.content_type.clone()),
+            detected_type: Set(file.detected_type.clone()),
             sealed_name: Set(file.sealed_name.clone()),
             scan_state: Set(file.scan.as_ref().map(|scan| scan.columns().0.to_owned())),
             scan_detail: Set(file.scan.as_ref().and_then(|scan| scan.columns().1)),

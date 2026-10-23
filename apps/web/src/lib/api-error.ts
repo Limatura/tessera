@@ -327,6 +327,12 @@ const translations: Record<
   upload_abandoned: () => m.api_error_upload_abandoned(),
   resumable_unsupported: () => m.api_error_resumable_unsupported(),
   anonymous_upload_disabled: () => m.api_error_anonymous_upload_disabled(),
+  file_type_blocked: (details) => {
+    const extension = stringOf(details, "extension");
+    return extension === undefined
+      ? m.api_error_file_type_blocked()
+      : m.api_error_file_type_blocked_extension({ extension: `.${extension}` });
+  },
 
   setting_unknown: (details) => {
     const key = stringOf(details, "key");
