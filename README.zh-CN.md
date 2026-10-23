@@ -125,13 +125,19 @@ TESSERA_SERVER__DATA_DIR=/var/lib/tessera
 
 ## 命令行工具
 
-在 Linux 或 macOS 安装 `tess`。Windows 版在 [releases 页面](https://github.com/Limatura/tessera/releases)；也可以用 `cargo install --path apps/cli` 从源码编译。
+在 Linux、macOS 或 Windows 安装 `tess`。各平台的文件也在 [releases 页面](https://github.com/Limatura/tessera/releases)；也可以用 `cargo install --path apps/cli` 从源码编译。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Limatura/tessera/main/scripts/install.sh | sh
 ```
 
-正式版发布之前，请在后面加上 `-s -- --version <版本>`。
+Windows 请在 PowerShell 中运行:
+
+```powershell
+irm https://raw.githubusercontent.com/Limatura/tessera/main/scripts/install.ps1 | iex
+```
+
+正式版发布之前，请在后面加上 `-s -- --version <版本>`；PowerShell 则先执行 `$env:TESS_VERSION = '<版本>'`。
 
 ```bash
 tess login https://share.example.com
