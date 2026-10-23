@@ -41,3 +41,5 @@ pub mod upload_segment;
 pub mod user;
 pub mod user_preference;
 pub mod webauthn_challenge;
+pub mod webhook;
+pub mod webhook_delivery;
