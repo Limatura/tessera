@@ -25,6 +25,7 @@ Reasoning that does not fit next to the code. Module docs carry the _why_ for a 
 | [`link-previews.md`](link-previews.md) | Open Graph tags and the card image |
 | [`scanning.md`](scanning.md) | Handing uploads to a malware scanner, and what happens when it is down. Off by default |
 | [`encryption.md`](encryption.md) | End-to-end encrypted shares: what they hide, the format, and why ChaCha20 |
+| [`webhooks.md`](webhooks.md) | Telling a URL when a share is created, downloaded or expires, and how a receiver checks it |
 | [`maintenance.md`](maintenance.md) | Sweeps, orphan reconciliation |
 | [`migrations.md`](migrations.md) | Hand-written per-dialect SQL, and the traps in each dialect |
 

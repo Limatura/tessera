@@ -194,6 +194,18 @@ declare_id!(
 );
 
 declare_id!(
+    /// Identifies a webhook: a URL told when something happens to a share.
+    WebhookId,
+    "webhook_id"
+);
+
+declare_id!(
+    /// Identifies one event on its way to one webhook.
+    WebhookDeliveryId,
+    "webhook_delivery_id"
+);
+
+declare_id!(
     /// Identifies a share.
     ///
     /// Distinct from its [`RetrievalCode`](crate::RetrievalCode): this is the

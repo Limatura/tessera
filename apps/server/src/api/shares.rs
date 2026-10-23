@@ -2544,6 +2544,13 @@ async fn insert_with_fresh_code(
             Ok(()) => {
                 // What was just stored may be waiting on the scanner.
                 state.scan_wake.notify_one();
+                crate::webhook::announce(
+                    state,
+                    crate::db::repository::webhook::Event::Created,
+                    &share,
+                    None,
+                )
+                .await;
                 return Ok(share);
             }
             Err(error) => {
@@ -3020,7 +3027,7 @@ pub async fn unlock(
     // a one-time share for nothing.
     crate::scan::release(&state, &state.shares.content_of(&share).await?)?;
 
-    let secret = gate::spend(&state, &share).await?;
+    let secret = gate::spend(&state, &share, &headers, &source).await?;
     let expires_at = OffsetDateTime::now_utc().saturating_add(
         time::Duration::try_from(state.config().share.ticket_ttl())
             .unwrap_or_else(|_| time::Duration::days(1)),

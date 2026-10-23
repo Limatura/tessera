@@ -1143,6 +1143,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists the instance's webhooks.
+         * @description # Errors
+         *
+         *     `403` when the caller cannot change settings, or used a bearer token.
+         */
+        get: operations["admin_list_webhooks"];
+        put?: never;
+        /**
+         * Adds a webhook told about every share, and returns its signing secret,
+         *     once.
+         * @description # Errors
+         *
+         *     `400` when the URL or events are unusable, `403` when the caller cannot
+         *     change settings.
+         */
+        post: operations["admin_create_webhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Removes one of the instance's webhooks, and whatever was queued for it.
+         * @description # Errors
+         *
+         *     `404` when the instance has no webhook with that id.
+         */
+        delete: operations["admin_delete_webhook"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/webhooks/{id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The most recent events sent to one of the instance's webhooks, newest
+         *     first.
+         * @description # Errors
+         *
+         *     `404` when the instance has no webhook with that id.
+         */
+        get: operations["admin_list_webhook_deliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/device": {
         parameters: {
             query?: never;
@@ -2420,6 +2495,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists the caller's webhooks.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the account cannot see its
+         *     shares.
+         */
+        get: operations["list_webhooks"];
+        put?: never;
+        /**
+         * Adds a webhook told about the caller's own shares, and returns its signing
+         *     secret, once.
+         * @description # Errors
+         *
+         *     `400` when the URL or events are unusable, or the URL is not a public
+         *     address; `403` when authenticated with a token, or the account cannot see
+         *     its shares.
+         */
+        post: operations["create_webhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Removes one of the caller's webhooks, and whatever was queued for it.
+         * @description # Errors
+         *
+         *     `404` when the caller has no webhook with that id.
+         */
+        delete: operations["delete_webhook"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The most recent events sent to one of the caller's webhooks, newest first.
+         * @description # Errors
+         *
+         *     `404` when the caller has no webhook with that id.
+         */
+        get: operations["list_webhook_deliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -3277,6 +3428,28 @@ export interface components {
              */
             permissions?: string[] | null;
         };
+        /** @description Body of `POST /webhooks` and `POST /admin/webhooks`. */
+        CreateWebhookRequest: {
+            /**
+             * @description What to send: any of `share.created`, `share.downloaded`,
+             *     `share.expired`.
+             * @example [
+             *       "share.downloaded"
+             *     ]
+             */
+            events: string[];
+            /**
+             * @description `json`, the default, or `discord` for a Discord channel's webhook URL.
+             * @example json
+             */
+            format?: string | null;
+            /**
+             * @description Where to send events. `http` or `https`; an account's must be a public
+             *     address.
+             * @example https://example.com/hooks/tessera
+             */
+            url: string;
+        };
         /** @description A freshly minted invite, with its code. */
         CreatedInviteResponse: components["schemas"]["InviteResponse"] & {
             /**
@@ -3294,6 +3467,19 @@ export interface components {
              *     **Shown once.** Only its SHA-256 digest is stored, so this value cannot be
              *     recovered, so a client that does not keep it must issue another token.
              * @example tsk_a1b2c3d4e5f6...
+             */
+            secret: string;
+        };
+        /** @description A newly added webhook. The only response that carries the secret. */
+        CreatedWebhookResponse: components["schemas"]["WebhookResponse"] & {
+            /**
+             * @description What each body is signed with, as Standard Webhooks describes: the
+             *     `webhook-signature` header is an HMAC-SHA256 of
+             *     `{webhook-id}.{webhook-timestamp}.{body}`, keyed with the base64 after
+             *     `whsec_`.
+             *
+             *     **Shown once.**
+             * @example whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw
              */
             secret: string;
         };
@@ -3419,6 +3605,39 @@ export interface components {
             deleted: string[];
             /** @description The codes that were not, and why. */
             failed: components["schemas"]["DeleteShareFailure"][];
+        };
+        /** @description One event sent, or being sent, to a webhook. */
+        DeliveryResponse: {
+            /**
+             * Format: int32
+             * @description How many times it has been sent.
+             */
+            attempts: number;
+            /** @description When the event happened. */
+            created_at: string;
+            /** @description When the receiver accepted it. */
+            delivered_at?: string | null;
+            /**
+             * @description Which event.
+             * @example share.downloaded
+             */
+            event: string;
+            /** @description Stable identifier, sent as the `webhook-id` header. */
+            id: string;
+            /** @description Why the last attempt failed. */
+            last_error?: string | null;
+            /**
+             * Format: int32
+             * @description The status the receiver last answered with.
+             */
+            last_status?: number | null;
+            /** @description When it is tried next, while it is pending. */
+            next_attempt_at?: string | null;
+            /**
+             * @description `pending` while it is still being tried, then `delivered` or `failed`.
+             * @example delivered
+             */
+            state: string;
         };
         /** @description Body of `POST /auth/device`. */
         DeviceAuthorizationRequest: {
@@ -4935,6 +5154,33 @@ export interface components {
         VerificationConfirmRequest: {
             /** @description The token from the link. */
             token: string;
+        };
+        /** @description A webhook, as a listing describes it. Never carries the secret. */
+        WebhookResponse: {
+            /** @description When it was added, RFC 3339. */
+            created_at: string;
+            /**
+             * @description What it is sent: `share.created`, `share.downloaded`, `share.expired`.
+             * @example [
+             *       "share.downloaded"
+             *     ]
+             */
+            events: string[];
+            /**
+             * @description `json`, or `discord` for a Discord channel's webhook.
+             * @example json
+             */
+            format: string;
+            /**
+             * @description Stable identifier.
+             * @example 01K1ZQK9V8QF5S3T4M2N6P7R8S
+             */
+            id: string;
+            /**
+             * @description Where events are sent.
+             * @example https://example.com/hooks/tessera
+             */
+            url: string;
         };
     };
     responses: never;
@@ -7736,6 +7982,193 @@ export interface operations {
             };
         };
     };
+    admin_list_webhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The instance's webhooks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookResponse"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or a bearer token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    admin_create_webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description Added; the secret is shown only here */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedWebhookResponse"];
+                };
+            };
+            /** @description The URL, events or format are unusable, or there are too many */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or a bearer token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    admin_delete_webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The webhook's identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or a bearer token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No webhook of the instance has that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    admin_list_webhook_deliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The webhook's identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Its most recent events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryResponse"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or a bearer token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No webhook of the instance has that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     start_device_authorization: {
         parameters: {
             query?: never;
@@ -10310,6 +10743,193 @@ export interface operations {
             };
             /** @description That session was abandoned */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_webhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's webhooks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookResponse"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    create_webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description Added; the secret is shown only here */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedWebhookResponse"];
+                };
+            };
+            /** @description The URL, events or format are unusable, or there are too many */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Authenticated with an API token, or not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    delete_webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The webhook's identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Authenticated with an API token, or not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No webhook of yours has that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_webhook_deliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The webhook's identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Its most recent events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryResponse"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No webhook of yours has that id */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

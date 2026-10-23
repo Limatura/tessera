@@ -62,6 +62,7 @@ pub mod timeout;
 pub mod tokens;
 pub mod uploads;
 pub mod verification;
+pub mod webhooks;
 
 use std::{sync::Arc, time::Duration};
 
@@ -129,6 +130,9 @@ pub const SHARES_TAG: &str = "shares";
 /// Tag for the endpoints a user uses on their own preferences.
 pub const PREFERENCES_TAG: &str = "preferences";
 
+/// Tag for an account's own webhooks.
+pub const WEBHOOKS_TAG: &str = "webhooks";
+
 /// Name of the cookie-based security scheme in the generated document.
 pub const SESSION_SCHEME: &str = "session";
 
@@ -170,6 +174,7 @@ pub const API_PREFIX: &str = "/api/v1";
         (name = ADMIN_TAG, description = "Administering the instance"),
         (name = SHARES_TAG, description = "Creating and managing shares"),
         (name = PREFERENCES_TAG, description = "A person's own preferences"),
+        (name = WEBHOOKS_TAG, description = "Being told when your shares are created, downloaded or expire"),
     ),
     modifiers(&SecurityAddon),
     components(schemas(crate::error::ErrorBody, crate::error::ErrorCode)),
@@ -356,6 +361,9 @@ fn account_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(passkeys::begin_registration))
         .routes(routes!(passkeys::list, passkeys::register))
         .routes(routes!(passkeys::rename, passkeys::remove))
+        .routes(routes!(webhooks::list, webhooks::create))
+        .routes(routes!(webhooks::delete))
+        .routes(routes!(webhooks::deliveries))
 }
 
 /// The share endpoints.
@@ -442,6 +450,9 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .merge(log_routes())
         .routes(routes!(admin::remove_user_shares))
         .routes(routes!(admin::reset_user_mfa))
+        .routes(routes!(webhooks::admin_list, webhooks::admin_create))
+        .routes(routes!(webhooks::admin_delete))
+        .routes(routes!(webhooks::admin_deliveries))
 }
 
 /// The fonts the card renderer uses, for an editor that renders the same card

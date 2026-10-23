@@ -79,6 +79,7 @@ erDiagram
   TEXT encryption
   TEXT key_salt
   TEXT sealed_details
+  TEXT end_announced_at
 }
 ```
 

@@ -68,6 +68,9 @@ pub struct Model {
     pub created_at: TimeDateTimeWithTimeZone,
     /// When it last changed.
     pub updated_at: TimeDateTimeWithTimeZone,
+    /// When webhooks were told it ended, or `None` while it has not or they
+    /// have not been yet.
+    pub end_announced_at: Option<TimeDateTimeWithTimeZone>,
 }
 
 /// No relations declared; the foreign keys are enforced by the database.
