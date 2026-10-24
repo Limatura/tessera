@@ -1,0 +1,11 @@
+-- What a file's first bytes say it is, when they say it is a program.
+--
+-- `exe` for a Windows program, `elf` for a Linux one, `macho` for a macOS one,
+-- whatever the file is called. NULL for anything else, for a file in an
+-- encrypted share, whose bytes the server cannot read, and for every file
+-- recorded before this column.
+--
+-- Kept so `share.blocked_extensions` can refuse to serve a renamed program
+-- shared before a rule against it was added, without reading the file back
+-- on every download.
+ALTER TABLE file_shares ADD COLUMN detected_type TEXT;

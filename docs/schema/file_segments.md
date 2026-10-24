@@ -84,6 +84,7 @@ erDiagram
   TEXT sealed_name
   TEXT scan_state
   TEXT scan_detail
+  TEXT detected_type
 }
 ```
 

@@ -841,6 +841,7 @@ impl<'a> Shares<'a> {
                     segments: Vec::new(),
                     filename: Some("專案.zip".to_owned()),
                     content_type: Some("application/zip".to_owned()),
+                    detected_type: None,
                     // Longer than the plain name column allows, which is why
                     // it is not that column.
                     sealed_name: Some("bmFtZQ".repeat(100)),

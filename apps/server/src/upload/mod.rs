@@ -5,6 +5,7 @@
 //! offset model (see `api::uploads`), and where the bytes go while the upload
 //! is unfinished is [`sink`].
 
+pub mod blocked;
 pub mod segments;
 pub mod sink;
 
