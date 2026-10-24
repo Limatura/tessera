@@ -30,7 +30,7 @@ function mightJoin(data: PublicShare): boolean {
 
 /**
  * Downloads a split file by fetching its pieces from the stores and joining
- * them here (#285). Only for a file in more than one piece: one in a single
+ * them here. Only for a file in more than one piece: one in a single
  * piece is better served by `/download`, which the server can redirect to the
  * store itself and the browser downloads natively, with no tab to keep open.
  *
