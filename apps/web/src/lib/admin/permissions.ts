@@ -166,6 +166,10 @@ const PERMISSION_LABELS: Record<
     hint: m.permission_invites_read_hint,
     label: m.permission_invites_read,
   },
+  "logs:read": {
+    hint: m.permission_logs_read_hint,
+    label: m.permission_logs_read,
+  },
   "roles:read": {
     hint: m.permission_roles_read_hint,
     label: m.permission_roles_read,
@@ -239,6 +243,7 @@ export function permissionHint(permission: string): string | undefined {
 
 const PERMISSION_GROUP_LABELS: Record<string, () => string> = {
   invites: m.permission_group_invites,
+  logs: m.permission_group_logs,
   roles: m.permission_group_roles,
   settings: m.permission_group_settings,
   shares: m.permission_group_shares,
