@@ -41,6 +41,7 @@ pub mod storage;
 pub mod telemetry;
 pub mod topic;
 pub mod upload;
+pub mod webhook;
 
 /// The domain rules, re-exported so that callers depend on one crate.
 ///

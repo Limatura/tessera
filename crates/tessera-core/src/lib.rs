@@ -53,6 +53,7 @@ pub use crate::{
     id::{
         AccessEventId, ApiTokenId, EmailVerificationId, InviteId, PasswordResetTokenId,
         PendingRegistrationId, RoleId, SessionId, ShareId, ShareTicketId, UploadId, UserId,
+        WebhookDeliveryId, WebhookId,
     },
     password::{Password, PasswordPolicy},
     permission::{Permission, PermissionSet},

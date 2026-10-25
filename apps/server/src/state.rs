@@ -117,6 +117,11 @@ pub struct AppState {
     /// Announced by the scanner after each verdict, for the streams that
     /// push a share's scan state to its uploader.
     pub scan_changes: crate::topic::Topic<crate::scan::Change>,
+    /// Webhooks, and the events on their way to them.
+    pub webhooks: crate::db::repository::webhook::WebhookRepository,
+    /// Wakes the webhook worker once an event is queued, so it goes out now
+    /// and not at the next interval.
+    pub webhook_wake: Arc<tokio::sync::Notify>,
     /// Whether the scanner is answering, as the worker last saw.
     pub scanner_health: crate::scan::health::ScannerHealth,
     /// The log files under `server.data_dir`, and the lines being written.
@@ -403,6 +408,11 @@ impl AppState {
             tokens: ApiTokenRepository::new(db.clone()),
             shares: ShareRepository::new(db.clone()),
             tickets: ShareTicketRepository::new(db.clone()),
+            webhooks: crate::db::repository::webhook::WebhookRepository::new(
+                db.clone(),
+                sealer.clone(),
+            ),
+            webhook_wake: Arc::new(tokio::sync::Notify::new()),
             settings: SettingRepository::new(db.clone(), sealer),
             events: AccessEventRepository::new(db.clone()),
             uploads: UploadRepository::new(db.clone()),

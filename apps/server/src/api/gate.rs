@@ -230,16 +230,42 @@ pub async fn unlock(
 
 /// Spends one of the share's permitted retrievals and issues a ticket.
 ///
+/// This is where a download is counted, so it is where webhooks hear of one.
+/// `headers` and `source` say who it was, for the instance's webhooks.
+///
 /// # Errors
 ///
 /// `410` when the limit was reached between [`open`] and here. The count is
 /// decided by the database, so two callers racing for the last retrieval get
 /// one winner.
-pub async fn spend(state: &AppState, share: &Share) -> Result<Secret> {
+pub async fn spend(
+    state: &AppState,
+    share: &Share,
+    headers: &HeaderMap,
+    source: &str,
+) -> Result<Secret> {
     let now = OffsetDateTime::now_utc();
     if !state.shares.consume(share.id, now).await? {
         return Err(Error::new(ErrorCode::ShareExhausted));
     }
+    let counted = Share {
+        use_count: share.use_count.saturating_add(1),
+        ..share.clone()
+    };
+    let retriever = crate::webhook::Retriever {
+        // The throttle's stand-in for "there was no address" is not one.
+        address: (source != crate::auth::proxy::UNPLACEABLE).then_some(source),
+        user_agent: headers
+            .get(axum::http::header::USER_AGENT)
+            .and_then(|value| value.to_str().ok()),
+    };
+    crate::webhook::announce(
+        state,
+        crate::db::repository::webhook::Event::Downloaded,
+        &counted,
+        Some(retriever),
+    )
+    .await;
 
     // Issued with the idle window, not the ceiling. The ticket is renewed by
     // being used, so starting it at its maximum leaves the renewal nothing to

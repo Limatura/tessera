@@ -15,6 +15,7 @@ Code: `maintenance.rs`.
 | Session and token expiry | Rows nothing will present again |
 | `reconcile_once` | Objects in the store that no row names |
 | Log retention | Log files older than `logs.retention_days` |
+| Webhook events | Events delivered or given up on more than a week ago |
 
 Each pass also writes today's row of `stats_snapshots` (stored bytes, shares, live shares, bytes served), replacing the one an earlier pass wrote that day, and drops rows older than 366 days. That is the history behind `GET /admin/stats/history`. It starts the day it is first deployed: the sweep deletes a dead share's size along with it, so earlier days cannot be worked out afterwards.
 

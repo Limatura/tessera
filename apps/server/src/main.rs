@@ -277,13 +277,18 @@ fn announce_docs(config: &Config, local_addr: SocketAddr) {
 ///
 /// The sweep is joined, so the pool is never closed mid-`DELETE`. The malware
 /// scanner is not: a scan cut off at shutdown leaves its file `pending`, and
-/// the next start picks it up.
+/// the next start picks it up. Nor are webhooks: an event cut off is still
+/// due, and goes out again.
 fn start_background(state: &AppState, shutdown: &CancellationToken) -> tokio::task::JoinHandle<()> {
     tokio::spawn(tessera_server::scan::worker::run(
         state.clone(),
         shutdown.clone(),
     ));
     tokio::spawn(storage::health::watch(state.clone(), shutdown.clone()));
+    tokio::spawn(tessera_server::webhook::worker::run(
+        state.clone(),
+        shutdown.clone(),
+    ));
     tokio::spawn(maintenance::sweep_expired(state.clone(), shutdown.clone()))
 }
 
