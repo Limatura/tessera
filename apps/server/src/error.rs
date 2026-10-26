@@ -370,6 +370,9 @@ error_codes! {
     UploadAbandoned => GONE, "that upload was abandoned";
     /// This instance's store cannot hold a resumable upload.
     ResumableUnsupported => BAD_REQUEST, "this instance's store cannot hold a resumable upload";
+    /// This instance does not share files of this type, by its name or by its
+    /// first bytes. `details.extension` is the entry it falls under.
+    FileTypeBlocked => FORBIDDEN, "this instance does not share files of this type";
     /// This instance takes uploads only from signed-in accounts. Sent in place
     /// of `not_signed_in` so the client can say why, not just ask for a sign-in.
     AnonymousUploadDisabled => UNAUTHORIZED, "this instance only accepts uploads from signed-in accounts";
@@ -740,6 +743,21 @@ impl From<crate::db::repository::mfa::MfaRepositoryError> for Error {
             Source::Database(inner) => Self::Database(inner),
             other => {
                 tracing::error!(error = %other, "a second-step row is not usable");
+                Self::Database(sea_orm::DbErr::Custom(other.to_string()))
+            }
+        }
+    }
+}
+
+/// Webhook failures are all ours: a database error, a URL or secret the key
+/// will not open, or a row that does not read back. Logged, and a 500.
+impl From<crate::db::repository::webhook::WebhookRepositoryError> for Error {
+    fn from(error: crate::db::repository::webhook::WebhookRepositoryError) -> Self {
+        use crate::db::repository::webhook::WebhookRepositoryError as Source;
+        match error {
+            Source::Database(inner) => Self::Database(inner),
+            other => {
+                tracing::error!(error = %other, "a webhook row is not usable");
                 Self::Database(sea_orm::DbErr::Custom(other.to_string()))
             }
         }

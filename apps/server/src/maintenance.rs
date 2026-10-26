@@ -261,6 +261,16 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
             .await,
     );
 
+    // Kept a week after they were sent or given up on, so an owner can see
+    // what went out, and no longer.
+    report(
+        "finished webhook events",
+        state
+            .webhooks
+            .delete_finished_before(now.saturating_sub(time::Duration::days(7)))
+            .await,
+    );
+
     // An abandoned upload holds real bytes that count against the quota, and
     // aborting the multipart is what frees them. Deleting the row alone leaves
     // parts nothing will look for and the store keeps billing for. That is

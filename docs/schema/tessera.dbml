@@ -111,6 +111,7 @@ Table file_shares {
   sealed_name text
   scan_state text
   scan_detail text
+  detected_type text
 
   Note: '''One file of a file share. One row per share today; `position` is there for when a share can hold several.'''
 }
@@ -281,6 +282,7 @@ Table shares {
   encryption text
   key_salt text
   sealed_details text
+  end_announced_at text
 
   Note: '''One share, whatever it holds. The code, the password, the counters and the expiry live here because those rules do not depend on the content. The content does not: it is in `file_shares` and `text_shares`, because a share can hold several files and a column cannot hold several. `role_id` is the role at the moment of upload, `guest` for anonymous, so changing somebody's role later does not retroactively change who an old share counted against. `user_id` being empty means either anonymous or an uploader whose account was deleted, and nothing tells the two apart. `bytes_served` counts bytes that left this process, not bytes that arrived: a proxy in front inflates it by whatever it holds, and a request a CDN answered is never seen at all. `bytes_redirected` is what downloads sent to the store asked for: requested, not delivered, and kept apart from `bytes_served`, which counts only what left this process.'''
 }
@@ -408,6 +410,29 @@ Table webauthn_challenges {
   Note: '''A challenge handed to a browser and not yet answered. Keyed on its digest and deleted when answered, so each works once. `purpose` keeps a sign-in challenge from registering a key, and `user_id` says whose account a registration adds to; a sign-in has none until the answer names one.'''
 }
 
+Table webhook_deliveries {
+  id text [pk, not null]
+  webhook_id text [not null]
+  event text [not null]
+  body text [not null]
+  attempts integer [not null]
+  next_attempt_at text
+  delivered_at text
+  last_status integer
+  last_error text
+  created_at text [not null]
+}
+
+Table webhooks {
+  id text [pk, not null]
+  user_id text
+  url text [not null]
+  events text [not null]
+  format text [not null]
+  secret text [not null]
+  created_at text [not null]
+}
+
 Ref: access_events.share_id > shares.id [delete: cascade]
 Ref: api_token_permissions.token_id > api_tokens.id [delete: cascade]
 Ref: api_tokens.user_id > users.id [delete: cascade]
@@ -438,3 +463,5 @@ Ref: user_preferences.user_id > users.id [delete: cascade]
 Ref: users.deleted_by > users.id
 Ref: users.role_id > roles.id
 Ref: webauthn_challenges.user_id > users.id [delete: cascade]
+Ref: webhook_deliveries.webhook_id > webhooks.id [delete: cascade]
+Ref: webhooks.user_id > users.id [delete: cascade]

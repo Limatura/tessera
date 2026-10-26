@@ -238,6 +238,9 @@ pub struct NewFile {
     pub filename: Option<String>,
     /// The media type the uploader claimed. Recorded, never echoed.
     pub content_type: Option<String>,
+    /// What the first bytes say it is, when they say it is a program. See
+    /// [`crate::upload::blocked`].
+    pub detected_type: Option<String>,
     /// The name and media type, sealed, when the share is encrypted. The two
     /// fields above are `None` in that case.
     pub sealed_name: Option<String>,
@@ -321,6 +324,9 @@ pub struct FilePart {
     pub filename: Option<String>,
     /// The media type, when one was worked out. Recorded, never echoed.
     pub content_type: Option<String>,
+    /// What the first bytes say it is, when they say it is a program. See
+    /// [`crate::upload::blocked`].
+    pub detected_type: Option<String>,
     /// The name and media type, sealed, in an encrypted share.
     pub sealed_name: Option<String>,
     /// The scanner's verdict, or `None` if it was never scanned.
@@ -471,6 +477,7 @@ impl Content {
                 Ok(FilePart {
                     filename: model.filename.clone(),
                     content_type: model.content_type.clone(),
+                    detected_type: model.detected_type.clone(),
                     sealed_name: model.sealed_name.clone(),
                     scan: Scan::from_columns(
                         model.scan_state.as_deref(),
@@ -859,6 +866,8 @@ impl Share {
 
             created_at: Set(self.created_at),
             updated_at: Set(self.updated_at),
+            // Only the webhook pass sets it, and only on its own.
+            end_announced_at: sea_orm::ActiveValue::NotSet,
         }
     }
 }
@@ -948,6 +957,7 @@ impl ShareRepository {
                     position: Set(0),
                     filename: Set(file.filename.clone()),
                     content_type: Set(file.content_type.clone()),
+                    detected_type: Set(file.detected_type.clone()),
                     sealed_name: Set(file.sealed_name.clone()),
                     scan_state: Set(file.scan.as_ref().map(|scan| scan.columns().0.to_owned())),
                     scan_detail: Set(file.scan.as_ref().and_then(|scan| scan.columns().1)),
@@ -1050,6 +1060,7 @@ impl ShareRepository {
             position: Set(i64::try_from(position).unwrap_or(i64::MAX)),
             filename: Set(file.filename.clone()),
             content_type: Set(file.content_type.clone()),
+            detected_type: Set(file.detected_type.clone()),
             sealed_name: Set(file.sealed_name.clone()),
             scan_state: Set(file.scan.as_ref().map(|scan| scan.columns().0.to_owned())),
             scan_detail: Set(file.scan.as_ref().and_then(|scan| scan.columns().1)),
@@ -1703,6 +1714,57 @@ impl ShareRepository {
     /// Returns [`ShareRepositoryError`] if the delete fails.
     pub async fn delete(&self, id: ShareId) -> Result<(), ShareRepositoryError> {
         ShareEntity::delete_by_id(id.to_string())
+            .exec(&self.connection)
+            .await?;
+        Ok(())
+    }
+
+    /// Shares that have ended, by time or by use, and whose end the webhooks
+    /// have not been told about, oldest first.
+    ///
+    /// Disabled shares are not here, for the reason [`Self::find_reapable`]
+    /// leaves them out: switching one off is not its end.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn find_unannounced_ends(
+        &self,
+        now: OffsetDateTime,
+        limit: u64,
+    ) -> Result<Vec<Share>, ShareRepositoryError> {
+        let expired = share::Column::ExpiresAt
+            .is_not_null()
+            .and(share::Column::ExpiresAt.lt(now));
+        let exhausted = share::Column::UseLimit
+            .is_not_null()
+            .and(Expr::col(share::Column::UseCount).gte(Expr::col(share::Column::UseLimit)));
+        let models = ShareEntity::find()
+            .filter(share::Column::EndAnnouncedAt.is_null())
+            .filter(expired.or(exhausted))
+            .order_by_asc(share::Column::Id)
+            .limit(limit)
+            .all(&self.connection)
+            .await?;
+        models
+            .into_iter()
+            .map(|model| Share::from_model(model).map_err(Into::into))
+            .collect()
+    }
+
+    /// Notes that the webhooks were told this share ended.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the update fails.
+    pub async fn mark_end_announced(
+        &self,
+        id: ShareId,
+        now: OffsetDateTime,
+    ) -> Result<(), ShareRepositoryError> {
+        ShareEntity::update_many()
+            .col_expr(share::Column::EndAnnouncedAt, Expr::value(Some(now)))
+            .filter(share::Column::Id.eq(id.to_string()))
             .exec(&self.connection)
             .await?;
         Ok(())

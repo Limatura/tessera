@@ -42,7 +42,7 @@ CREATE TABLE shares (
 
     created_at     TEXT    NOT NULL,
     updated_at     TEXT    NOT NULL
-, copy_count INTEGER NOT NULL DEFAULT 0, bytes_served INTEGER NOT NULL DEFAULT 0, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL, bytes_redirected INTEGER NOT NULL DEFAULT 0, encryption TEXT, key_salt TEXT, sealed_details TEXT)
+, copy_count INTEGER NOT NULL DEFAULT 0, bytes_served INTEGER NOT NULL DEFAULT 0, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL, bytes_redirected INTEGER NOT NULL DEFAULT 0, encryption TEXT, key_salt TEXT, sealed_details TEXT, end_announced_at TEXT)
 ```
 
 </details>
@@ -74,6 +74,7 @@ CREATE TABLE shares (
 | encryption | TEXT |  | true |  |  |  |
 | key_salt | TEXT |  | true |  |  |  |
 | sealed_details | TEXT |  | true |  |  |  |
+| end_announced_at | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -89,6 +90,7 @@ CREATE TABLE shares (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_shares_end_announced | CREATE INDEX idx_shares_end_announced ON shares (end_announced_at, expires_at) |
 | idx_shares_role | CREATE INDEX idx_shares_role ON shares (role_id) |
 | idx_shares_created | CREATE INDEX idx_shares_created ON shares (created_at) |
 | idx_shares_user_created | CREATE INDEX idx_shares_user_created ON shares (user_id, created_at) |
@@ -133,6 +135,7 @@ erDiagram
   TEXT encryption
   TEXT key_salt
   TEXT sealed_details
+  TEXT end_announced_at
 }
 "share_tickets" {
   TEXT id PK
@@ -154,6 +157,7 @@ erDiagram
   TEXT sealed_name
   TEXT scan_state
   TEXT scan_detail
+  TEXT detected_type
 }
 "text_shares" {
   TEXT share_id PK

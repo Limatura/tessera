@@ -8,12 +8,12 @@
 | [users](users.md) | 13 | Accounts. An empty `role_id` means signed in and allowed nothing, which is a real state rather than a fault. A deleted account leaves a scrubbed row behind rather than disappearing, because `shares.user_id` points at it and "nobody uploaded this" is a different fact from "whoever uploaded it is gone". | table |
 | [sessions](sessions.md) | 11 | One sign-in. Expired rows stay, because this table is also the sign-in history and a person needs to be able to see whether somebody else got in. Real removal is `auth.login_history_days`. `origin` says which credential started it, so a provider signing somebody out can end the sessions it issued and leave password ones alone. `provider_sid` is the provider's own identifier for its side, when it released one. | table |
 | [api_tokens](api_tokens.md) | 9 | Credentials for programs. Only a digest is stored; the value itself stops existing the moment it is handed over. | table |
-| [shares](shares.md) | 23 | One share, whatever it holds. The code, the password, the counters and the expiry live here because those rules do not depend on the content. The content does not: it is in `file_shares` and `text_shares`, because a share can hold several files and a column cannot hold several. `role_id` is the role at the moment of upload, `guest` for anonymous, so changing somebody's role later does not retroactively change who an old share counted against. `user_id` being empty means either anonymous or an uploader whose account was deleted, and nothing tells the two apart. `bytes_served` counts bytes that left this process, not bytes that arrived: a proxy in front inflates it by whatever it holds, and a request a CDN answered is never seen at all. `bytes_redirected` is what downloads sent to the store asked for: requested, not delivered, and kept apart from `bytes_served`, which counts only what left this process. | table |
+| [shares](shares.md) | 24 | One share, whatever it holds. The code, the password, the counters and the expiry live here because those rules do not depend on the content. The content does not: it is in `file_shares` and `text_shares`, because a share can hold several files and a column cannot hold several. `role_id` is the role at the moment of upload, `guest` for anonymous, so changing somebody's role later does not retroactively change who an old share counted against. `user_id` being empty means either anonymous or an uploader whose account was deleted, and nothing tells the two apart. `bytes_served` counts bytes that left this process, not bytes that arrived: a proxy in front inflates it by whatever it holds, and a request a CDN answered is never seen at all. `bytes_redirected` is what downloads sent to the store asked for: requested, not delivered, and kept apart from `bytes_served`, which counts only what left this process. | table |
 | [share_tickets](share_tickets.md) | 5 | The pass handed out after a correct password. It exists so that seeing and fetching stay separate: a preview should not spend one of a share's downloads. | table |
 | [password_reset_tokens](password_reset_tokens.md) | 6 | One-shot links for setting a password. | table |
 | [pending_registrations](pending_registrations.md) | 8 | A registration waiting on its address. The account does not exist until the mail is opened, so what would become one waits here instead. That is also what keeps "is this address registered" from being a question anyone can ask. | table |
 | [invites](invites.md) | 7 | Invitation codes. Digests only, as above. | table |
-| [file_shares](file_shares.md) | 12 | One file of a file share. One row per share today; `position` is there for when a share can hold several. | table |
+| [file_shares](file_shares.md) | 13 | One file of a file share. One row per share today; `position` is there for when a share can hold several. | table |
 | [text_shares](text_shares.md) | 5 | The text of a text share. `content` cannot be null, because "the text is somewhere else" is the state this table exists to make impossible. | table |
 | [roles](roles.md) | 8 | The name of a set of permissions. Nothing else decides who may do what. | table |
 | [role_permissions](role_permissions.md) | 2 | Which permissions a role holds. The permissions themselves are defined in code rather than stored, because granting one nothing checks grants nothing. | table |
@@ -37,6 +37,8 @@
 | [passkeys](passkeys.md) | 11 | Passkeys: a fingerprint, a face or a hardware key in place of a password. Holds the credential id and its public key exactly as the authenticator sent it, a COSE structure, so nothing here depends on how the server checks one and a dump lets nobody in. Looked up by `credential_hash`, the SHA-256 of the id, because an id can be longer than MySQL will index. `sign_count` going backwards means two copies of one key; most synced passkeys keep it at zero. | table |
 | [webauthn_challenges](webauthn_challenges.md) | 5 | A challenge handed to a browser and not yet answered. Keyed on its digest and deleted when answered, so each works once. `purpose` keeps a sign-in challenge from registering a key, and `user_id` says whose account a registration adds to; a sign-in has none until the answer names one. | table |
 | [device_authorizations](device_authorizations.md) | 10 | A program without a browser, such as the command line client, waiting for a person to approve it from one that has. The program holds the device code and only its digest is stored; the person types the short `user_code` on the site. Approval records who and with which permissions, and the token itself is minted when the program next asks, so the table never holds a usable secret. Deleted on redemption. | table |
+| [webhooks](webhooks.md) | 7 |  | table |
+| [webhook_deliveries](webhook_deliveries.md) | 10 |  | table |
 
 ## Relations
 
@@ -73,6 +75,8 @@ erDiagram
 "passkeys" }o--|| "users" : ""
 "webauthn_challenges" }o--o| "users" : ""
 "device_authorizations" }o--o| "users" : ""
+"webhooks" }o--o| "users" : ""
+"webhook_deliveries" }o--|| "webhooks" : ""
 
 "schema_metadata" {
   TEXT key PK
@@ -142,6 +146,7 @@ erDiagram
   TEXT encryption
   TEXT key_salt
   TEXT sealed_details
+  TEXT end_announced_at
 }
 "share_tickets" {
   TEXT id PK
@@ -190,6 +195,7 @@ erDiagram
   TEXT sealed_name
   TEXT scan_state
   TEXT scan_detail
+  TEXT detected_type
 }
 "text_shares" {
   TEXT share_id PK
@@ -380,6 +386,27 @@ erDiagram
   TEXT denied_at
   TEXT created_at
   TEXT expires_at
+}
+"webhooks" {
+  TEXT id PK
+  TEXT user_id FK
+  TEXT url
+  TEXT events
+  TEXT format
+  TEXT secret
+  TEXT created_at
+}
+"webhook_deliveries" {
+  TEXT id PK
+  TEXT webhook_id FK
+  TEXT event
+  TEXT body
+  INTEGER attempts
+  TEXT next_attempt_at
+  TEXT delivered_at
+  INTEGER last_status
+  TEXT last_error
+  TEXT created_at
 }
 ```
 

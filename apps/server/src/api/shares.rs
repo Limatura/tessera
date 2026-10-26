@@ -426,15 +426,7 @@ pub(crate) async fn create_share(
     // bytes are in the store and in no table, so dropping the guard there lets
     // another upload claim room that is already spent. That was the
     // `[201, 201]` this fixed.
-    let (
-        Ingested {
-            storage,
-            size_bytes,
-            inline,
-            segments,
-        },
-        _arriving,
-    ) = ingest(
+    let (ingested, _arriving) = ingest(
         state,
         Ingest {
             id,
@@ -447,7 +439,7 @@ pub(crate) async fn create_share(
     .await?;
 
     // Nothing to hand out, and the retrieval code it would occupy is not free.
-    if size_bytes == 0 {
+    if ingested.size_bytes == 0 {
         return Err(Error::new(ErrorCode::BodyEmpty));
     }
 
@@ -486,19 +478,26 @@ pub(crate) async fn create_share(
 
     let scan = crate::scan::initial(state, encryption.is_some());
     let content = match kind {
-        ShareKind::File => NewContent::File(NewFile {
-            segments,
-            filename,
-            // What the uploader claimed. Recorded but never echoed; serving an
-            // attacker-chosen media type back turns a `text/html` upload into
-            // stored XSS on our own origin.
-            content_type: recorded_type(encryption.is_some(), headers),
-            sealed_name,
-            scan,
-            size_bytes,
-            storage,
-        }),
-        ShareKind::Text | ShareKind::Link => written(kind, language, inline, scan)?,
+        ShareKind::File => NewContent::File(
+            crate::upload::blocked::admit(
+                state,
+                NewFile {
+                    segments: ingested.segments,
+                    filename,
+                    // What the uploader claimed. Recorded but never echoed;
+                    // serving an attacker-chosen media type back turns a
+                    // `text/html` upload into stored XSS on our own origin.
+                    content_type: recorded_type(encryption.is_some(), headers),
+                    detected_type: None,
+                    sealed_name,
+                    scan,
+                    size_bytes: ingested.size_bytes,
+                    storage: ingested.storage,
+                },
+            )
+            .await?,
+        ),
+        ShareKind::Text | ShareKind::Link => written(kind, language, ingested.inline, scan)?,
     };
     let share = insert_with_fresh_code(state, share, &content).await?;
     let content = state.shares.content_of(&share).await?;
@@ -653,6 +652,9 @@ fn described(state: &AppState, params: &mut CreateShareParams) -> Result<Describ
             ("sealed_details", described.sealed_details.is_some()),
         ],
     )?;
+    if described.kind == ShareKind::File {
+        crate::upload::blocked::check_name(state, described.filename.as_deref())?;
+    }
     Ok(described)
 }
 
@@ -2544,6 +2546,13 @@ async fn insert_with_fresh_code(
             Ok(()) => {
                 // What was just stored may be waiting on the scanner.
                 state.scan_wake.notify_one();
+                crate::webhook::announce(
+                    state,
+                    crate::db::repository::webhook::Event::Created,
+                    &share,
+                    None,
+                )
+                .await;
                 return Ok(share);
             }
             Err(error) => {
@@ -3001,6 +3010,7 @@ pub async fn describe(
     responses(
         (status = 200, description = "Authorised", body = TicketResponse),
         (status = 401, description = "Wrong password", body = crate::error::ErrorBody),
+        (status = 403, description = "A file of a type this instance does not share", body = crate::error::ErrorBody),
         (status = 404, description = "No such code", body = crate::error::ErrorBody),
         (status = 410, description = "Expired or exhausted", body = crate::error::ErrorBody),
         (status = 423, description = "Still being checked for malware; `Retry-After` says when to ask again", body = crate::error::ErrorBody),
@@ -3018,9 +3028,11 @@ pub async fn unlock(
     gate::unlock(&state, &share, &headers, &source).await?;
     // And the scan: a ticket for content that cannot be served yet would use up
     // a one-time share for nothing.
-    crate::scan::release(&state, &state.shares.content_of(&share).await?)?;
+    let content = state.shares.content_of(&share).await?;
+    crate::scan::release(&state, &content)?;
+    crate::upload::blocked::release(&state, &content)?;
 
-    let secret = gate::spend(&state, &share).await?;
+    let secret = gate::spend(&state, &share, &headers, &source).await?;
     let expires_at = OffsetDateTime::now_utc().saturating_add(
         time::Duration::try_from(state.config().share.ticket_ttl())
             .unwrap_or_else(|_| time::Duration::days(1)),
@@ -3209,6 +3221,7 @@ pub async fn add_file(
         &[("filename", filename.is_some())],
         &[("sealed_name", sealed_name.is_some())],
     )?;
+    crate::upload::blocked::check_name(&state, filename.as_deref())?;
     let now = OffsetDateTime::now_utc();
     // The share's owner, not the caller. A management token lets an
     // account-less uploader append to a member's share, and the bytes land
@@ -3238,22 +3251,18 @@ pub async fn add_file(
     )
     .await?;
 
-    state
-        .shares
-        .append_file(
-            share.id,
-            &NewFile {
-                segments,
-                filename,
-                content_type: recorded_type(share.encryption.is_some(), &headers),
-                sealed_name,
-                scan: crate::scan::initial(&state, share.encryption.is_some()),
-                size_bytes,
-                storage,
-            },
-            now,
-        )
-        .await?;
+    let file = NewFile {
+        segments,
+        filename,
+        content_type: recorded_type(share.encryption.is_some(), &headers),
+        detected_type: None,
+        sealed_name,
+        scan: crate::scan::initial(&state, share.encryption.is_some()),
+        size_bytes,
+        storage,
+    };
+    let file = crate::upload::blocked::admit(&state, file).await?;
+    state.shares.append_file(share.id, &file, now).await?;
     state.scan_wake.notify_one();
 
     let content = state.shares.content_of(&share).await?;
