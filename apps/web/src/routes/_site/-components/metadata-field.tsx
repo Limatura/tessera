@@ -31,7 +31,7 @@ export function MetadataField({
   onChange: (keep: boolean) => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-border/60 border-t pt-3">
+    <div className="flex flex-col gap-3 border-border/60 border-t py-3">
       <div className="flex items-center justify-between gap-2">
         <Label htmlFor="upload-keep-metadata">
           <MapPinOff className="size-3.5 text-sky-500" />
