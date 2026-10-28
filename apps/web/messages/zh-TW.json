@@ -1614,5 +1614,12 @@
   "device_try_another": "輸入其他代碼",
   "api_error_device_authorization_pending": "正在等待登入被核准。",
   "api_error_device_authorization_denied": "登入已被拒絕。",
-  "api_error_device_code_unusable": "這個登入請求已過期，請重新開始。"
+  "api_error_device_code_unusable": "這個登入請求已過期，請重新開始。",
+  "upload_keep_metadata": "保留照片的位置與相機資訊",
+  "upload_keep_metadata_hint": "JPEG、PNG 與 WebP 照片會在移除拍攝地點、相機與時間後才上傳。開啟後會原樣傳送。",
+  "api_error_image_malformed": "{name} 看起來是照片,但檔案結構已損毀,無法移除其中的位置與相機資訊。開啟「保留照片的位置與相機資訊」即可原樣傳送。",
+  "settings_share_metadata_title": "照片中繼資料",
+  "settings_share_metadata_description": "照片會帶著拍攝地點、相機與時間。上傳者的瀏覽器或命令列會在上傳前移除。",
+  "settings_share_form_strip_metadata_label": "移除照片中繼資料",
+  "settings_share_form_strip_metadata_description": "開啟後,上傳預設會移除 JPEG、PNG 與 WebP 照片中的位置、相機、時間與註解,上傳者仍可選擇保留。移除在上傳者的裝置上進行,因此端對端加密的分享也適用。照片方向會保留。"
 }

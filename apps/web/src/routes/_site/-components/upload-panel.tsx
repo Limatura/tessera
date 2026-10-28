@@ -30,6 +30,11 @@ import {
   encryptionChoice,
 } from "./encryption-field";
 import { LinkUploadForm } from "./link-upload-form";
+import {
+  MetadataField,
+  offersMetadata,
+  stripsMetadata,
+} from "./metadata-field";
 import { RecentShares } from "./recent-shares";
 import { SharedFiles } from "./shared-files";
 import { UploadButton } from "./upload-button";
@@ -73,6 +78,7 @@ export function UploadPanel({ shared, onSharedDone }: UploadPanelProps) {
   const [tab, setTab] = useState("file");
   const [encryption, setEncryption] = useState<EncryptionState>(NO_ENCRYPTION);
   const [showEncryptionError, setShowEncryptionError] = useState(false);
+  const [keepMetadata, setKeepMetadata] = useState(false);
   // Remounts the link and code forms on each share, so their prefill applies
   // even when the previous share went to the same tab.
   const [sharedKey, setSharedKey] = useState(0);
@@ -89,6 +95,7 @@ export function UploadPanel({ shared, onSharedDone }: UploadPanelProps) {
   // A link share is a URL the server must read to redirect, so it is never sealed
   const offerEncryption =
     capabilities.data?.encryption === true && tab !== "link";
+  const offerMetadata = offersMetadata(capabilities.data, tab);
 
   /**
    * The sealing to upload with, or `null` (with the error shown) when the
@@ -116,7 +123,11 @@ export function UploadPanel({ shared, onSharedDone }: UploadPanelProps) {
     start(el, (onProgress) =>
       uploader.upload(
         { files, type: "file" },
-        { encryption: choice, onProgress }
+        {
+          encryption: choice,
+          onProgress,
+          stripMetadata: stripsMetadata(offerMetadata, keepMetadata),
+        }
       )
     );
   };
@@ -232,6 +243,9 @@ export function UploadPanel({ shared, onSharedDone }: UploadPanelProps) {
                 />
               </TabsContent>
             </Tabs>
+            {offerMetadata && (
+              <MetadataField keep={keepMetadata} onChange={setKeepMetadata} />
+            )}
             {offerEncryption && (
               <EncryptionField
                 onChange={(next) => {

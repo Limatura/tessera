@@ -6,11 +6,19 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
-# Built natively for the command line, and later to WebAssembly for the browser,
-# so like `tessera-crypto` it reaches for nothing outside the bytes it is given.
+# Built natively for the command line, and to WebAssembly for the browser, so
+# like `tessera-crypto` it reaches for nothing outside the bytes it is given.
 [dependencies]
 crc32fast = "1.5"
 thiserror = { workspace = true }
+# Pinned exactly, the same as in `tessera-crypto`: `scripts/crypto-wasm.sh` runs
+# one `wasm-bindgen` command over both.
+wasm-bindgen = { version = "=0.2.128", optional = true }
+
+[features]
+# The browser's bindings. Built by `scripts/crypto-wasm.sh`, not by default:
+# nothing native needs them.
+wasm = ["dep:wasm-bindgen"]
 
 [dev-dependencies]
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }

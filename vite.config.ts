@@ -37,6 +37,7 @@ export default defineConfig({
       // Same arrangement: `scripts/crypto-wasm.sh` writes it and CI rebuilds it
       // to compare, so formatting it would fail that check.
       "packages/crypto/src/wasm/**",
+      "packages/metadata/src/wasm/**",
       // Prose, not code — formatting it here fights whatever wrapping/style the
       // authors actually used. `pull_request` CI checks out PR head merged into
       // `main`, so any pre-existing formatting drift on `main` under this path
@@ -65,6 +66,7 @@ export default defineConfig({
       // Written by `scripts/crypto-wasm.sh` and compared against a fresh build in
       // CI. Linting generated glue finds nothing anybody could fix here.
       "packages/crypto/src/wasm/**",
+      "packages/metadata/src/wasm/**",
       "**/*.toml",
     ],
     overrides: [

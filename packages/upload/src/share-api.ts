@@ -43,6 +43,14 @@ export interface UploadOptions {
   signal?: AbortSignal;
   /** Seal the share before it leaves this device. Not for a link share. */
   encryption?: EncryptionChoice;
+  /**
+   * Remove a photo's metadata (where it was taken, the camera, the time) from
+   * JPEG, PNG and WebP files before they leave the device, and before they are
+   * sealed. Only files; text and links have none. A photo whose structure is
+   * broken rejects the upload with a `MalformedImageError`, since its metadata
+   * cannot be found reliably.
+   */
+  stripMetadata?: boolean;
 }
 
 export interface ShareQuery {

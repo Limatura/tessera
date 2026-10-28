@@ -47,6 +47,7 @@
     "@tessera/api": "workspace:*",
     "@tessera/auth": "workspace:*",
     "@tessera/crypto": "workspace:*",
+    "@tessera/metadata": "workspace:*",
     "@tessera/ui": "workspace:*",
     "@tessera/upload": "workspace:*",
     "@uiw/codemirror-theme-vscode": "^4.25.11",

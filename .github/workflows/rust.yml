@@ -201,16 +201,16 @@ jobs:
             exit 1
           fi
 
-      - name: Rebuild the browser's encryption module
+      - name: Rebuild the browser's wasm modules
         run: |
           rustup target add wasm32-unknown-unknown
           ./scripts/crypto-wasm.sh
 
-      - name: Fail if the encryption module drifted
+      - name: Fail if a wasm module drifted
         run: |
-          if [ -n "$(git status --porcelain -- packages/crypto/src/wasm)" ]; then
-            git status --short -- packages/crypto/src/wasm
-            echo "::error::packages/crypto/src/wasm is out of date. Run './scripts/crypto-wasm.sh' and commit the result."
+          if [ -n "$(git status --porcelain -- packages/crypto/src/wasm packages/metadata/src/wasm)" ]; then
+            git status --short -- packages/crypto/src/wasm packages/metadata/src/wasm
+            echo "::error::A wasm module is out of date. Run './scripts/crypto-wasm.sh' and commit the result."
             exit 1
           fi
 

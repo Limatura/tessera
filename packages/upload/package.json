@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@tessera/api": "workspace:*",
-    "@tessera/crypto": "workspace:*"
+    "@tessera/crypto": "workspace:*",
+    "@tessera/metadata": "workspace:*"
   },
   "devDependencies": {
     "@tessera/config": "workspace:*",
