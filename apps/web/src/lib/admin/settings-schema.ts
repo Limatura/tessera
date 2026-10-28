@@ -627,6 +627,8 @@ export const shareSettingsSchema = z
       }),
     // features.encryption
     encryption: z.boolean(),
+    // share.blocked_extensions: string[] on the server, one per line in the form
+    blockedExtensions: z.string(),
     // share.access_log.enabled
     accessLogEnabled: z.boolean(),
     // share.access_log.retention_days: cannot be 0 while enabled

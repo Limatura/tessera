@@ -1,6 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { components } from "@tessera/api/schema";
-import { FieldGroup } from "@tessera/ui/components/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@tessera/ui/components/field";
+import { Textarea } from "@tessera/ui/components/textarea";
 import { Controller, useWatch } from "react-hook-form";
 
 import { readSetting } from "@/hooks/admin/use-settings";
@@ -12,7 +19,12 @@ import {
   shareSettingsSchema,
 } from "@/lib/admin/settings-schema";
 import type { ShareSettingsValues } from "@/lib/admin/settings-schema";
-import { asBoolean, asNumber } from "@/lib/admin/settings-values";
+import {
+  asBoolean,
+  asLines,
+  asNumber,
+  toLines,
+} from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
 import { SettingsNotice, SwitchField } from "./form-fields";
@@ -35,6 +47,7 @@ const DEFAULT_UPLOAD_SESSION_TTL_HOURS = 24;
 const KEYS = {
   accessLogEnabled: "share.access_log.enabled",
   accessLogRetentionDays: "share.access_log.retention_days",
+  blockedExtensions: "share.blocked_extensions",
   codeLength: "share.code_length",
   encryption: "features.encryption",
   inlineThresholdBytes: "share.inline_threshold_bytes",
@@ -44,6 +57,10 @@ const KEYS = {
   ticketTtlHours: "share.ticket_ttl_hours",
   uploadSessionTtlHours: "share.upload_session_ttl_hours",
 } satisfies SettingsKeyMap<ShareSettingsValues>;
+
+const ENCODERS = {
+  blockedExtensions: (value: string) => toLines(value),
+};
 
 export function ShareSettingsForm() {
   return (
@@ -64,6 +81,10 @@ function initialValues(settings: Settings): ShareSettingsValues {
     accessLogRetentionDays: asNumber(
       readSetting(settings, KEYS.accessLogRetentionDays),
       DEFAULT_ACCESS_LOG_RETENTION_DAYS
+    ),
+    blockedExtensions: asLines(
+      readSetting(settings, KEYS.blockedExtensions),
+      ""
     ),
     codeLength: asNumber(
       readSetting(settings, KEYS.codeLength),
@@ -104,6 +125,7 @@ function ShareSettingsFields({
 }) {
   const form = useSettingsForm<ShareSettingsValues>({
     defaultValues,
+    encoders: ENCODERS,
     keys: KEYS,
     resolver: zodResolver(shareSettingsSchema),
   });
@@ -192,6 +214,39 @@ function ShareSettingsFields({
                 min={0}
                 unit="bytes"
               />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsCard
+        description={m.settings_share_blocked_description()}
+        title={m.settings_share_blocked_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="blockedExtensions"
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor="share-blocked-extensions">
+                  {m.settings_share_form_blocked_extensions_label()}
+                </FieldLabel>
+                <Textarea
+                  {...field}
+                  aria-invalid={fieldState.invalid}
+                  className="font-mono"
+                  id="share-blocked-extensions"
+                  placeholder={"exe\napk\nscr"}
+                  rows={4}
+                />
+                <FieldDescription>
+                  {m.settings_share_form_blocked_extensions_description()}
+                </FieldDescription>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
             )}
           />
         </FieldGroup>
