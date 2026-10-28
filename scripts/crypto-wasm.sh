@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds the browser's copy of the encryption format into packages/crypto.
+# Builds the browser's copies of the encryption format into packages/crypto and
+# of the metadata remover into packages/metadata.
 #
 # The output is committed, and CI runs this again and fails if it differs. That
 # keeps Rust out of the JavaScript toolchain: a frontend change never needs a
@@ -36,6 +37,12 @@ RUSTFLAGS="--remap-path-prefix=$root=/tessera \
   cargo rustc --locked -p tessera-crypto --lib --crate-type cdylib --features wasm \
   --target wasm32-unknown-unknown --profile wasm
 
+RUSTFLAGS="--remap-path-prefix=$root=/tessera \
+--remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo \
+--remap-path-prefix=$sysroot/lib/rustlib/src/rust=/rustc/$commit" \
+  cargo rustc --locked -p tessera-metadata --lib --crate-type cdylib --features wasm \
+  --target wasm32-unknown-unknown --profile wasm
+
 # CI builds into a shared directory outside the checkout, not `target/`.
 #
 # `--remove-producers-section` because that section names how `wasm-bindgen`
@@ -44,3 +51,6 @@ RUSTFLAGS="--remap-path-prefix=$root=/tessera \
 wasm-bindgen --target web --remove-producers-section \
   --out-dir packages/crypto/src/wasm --out-name tessera_crypto \
   "${CARGO_TARGET_DIR:-$root/target}/wasm32-unknown-unknown/wasm/tessera_crypto.wasm"
+wasm-bindgen --target web --remove-producers-section \
+  --out-dir packages/metadata/src/wasm --out-name tessera_metadata \
+  "${CARGO_TARGET_DIR:-$root/target}/wasm32-unknown-unknown/wasm/tessera_metadata.wasm"

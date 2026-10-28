@@ -1614,5 +1614,12 @@
   "device_try_another": "別のコードを入力",
   "api_error_device_authorization_pending": "ログインの承認を待っています。",
   "api_error_device_authorization_denied": "ログインが拒否されました。",
-  "api_error_device_code_unusable": "このログインリクエストは期限切れです。最初からやり直してください。"
+  "api_error_device_code_unusable": "このログインリクエストは期限切れです。最初からやり直してください。",
+  "upload_keep_metadata": "写真の位置情報とカメラ情報を残す",
+  "upload_keep_metadata_hint": "JPEG、PNG、WebP の写真は、撮影場所・カメラ・時刻を取り除いてから送信されます。オンにすると、そのまま送信します。",
+  "api_error_image_malformed": "{name} は写真のようですが、ファイルの構造が壊れているため、位置情報とカメラ情報を取り除けませんでした。「写真の位置情報とカメラ情報を残す」をオンにすると、そのまま送信できます。",
+  "settings_share_metadata_title": "写真のメタデータ",
+  "settings_share_metadata_description": "写真には撮影場所・カメラ・時刻が含まれます。アップロードする人のブラウザまたはコマンドラインが、送信前に取り除きます。",
+  "settings_share_form_strip_metadata_label": "写真のメタデータを削除",
+  "settings_share_form_strip_metadata_description": "オンにすると、JPEG、PNG、WebP の写真から位置情報・カメラ・時刻・コメントを取り除いてアップロードするのが既定になります。アップロードする人は残すことも選べます。削除は本人の端末で行われるため、エンドツーエンド暗号化された共有にも効きます。向きは保持されます。"
 }

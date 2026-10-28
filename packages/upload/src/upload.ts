@@ -1,4 +1,5 @@
 import { sealedSize } from "@tessera/crypto";
+import { stripMetadata } from "@tessera/metadata";
 
 import { request } from "./context";
 import type { Context } from "./context";
@@ -98,9 +99,11 @@ async function uploadFile(
   const sealing = options.encryption
     ? await prepareSealing(options.encryption)
     : undefined;
+  // One file at a time, as it is sent: a folder of photos is not held in memory
+  const firstFile = await cleaned(first.file, options);
   let share = await uploadOneFile(
     context,
-    first.file,
+    firstFile,
     sealing
       ? {
           ...sealing.query,
@@ -109,7 +112,7 @@ async function uploadFile(
             : undefined,
           sealed_name: sealedNameFor(
             sealing.key,
-            first.file,
+            firstFile,
             first.path || first.file.name
           ),
         }
@@ -133,7 +136,8 @@ async function uploadFile(
       share = await addFileToShare(
         context,
         share.code,
-        entry.file,
+        // oxlint-disable-next-line no-await-in-loop -- see the line above
+        await cleaned(entry.file, options),
         entry.path || entry.file.name,
         managementToken,
         {
@@ -161,6 +165,11 @@ async function uploadFile(
     fileName:
       folderName ?? (sealing ? first.path || first.file.name : result.fileName),
   };
+}
+
+/** The file as it is to be sent: without its metadata when asked to be. */
+function cleaned(file: File, options: UploadOptions): Promise<File> {
+  return options.stripMetadata ? stripMetadata(file) : Promise.resolve(file);
 }
 
 /**

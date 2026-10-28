@@ -413,6 +413,7 @@ describe("shareSettingsSchema", () => {
     inlineThresholdBytes: 0,
     maxTextBytes: 1,
     retainAfterDeathHours: 0,
+    stripMetadata: true,
     ticketIdleHours: 1,
     ticketTtlHours: 1,
     uploadSessionTtlHours: 1,

@@ -27,6 +27,8 @@
 mod exif;
 mod jpeg;
 mod png;
+#[cfg(feature = "wasm")]
+pub mod wasm;
 mod webp;
 
 /// Why a file that looked like an image could not be cleaned.

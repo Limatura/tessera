@@ -1615,5 +1615,12 @@
   "device_try_another": "输入其他代码",
   "api_error_device_authorization_pending": "正在等待登录被批准。",
   "api_error_device_authorization_denied": "登录已被拒绝。",
-  "api_error_device_code_unusable": "这个登录请求已过期，请重新开始。"
+  "api_error_device_code_unusable": "这个登录请求已过期，请重新开始。",
+  "upload_keep_metadata": "保留照片的位置和相机信息",
+  "upload_keep_metadata_hint": "JPEG、PNG 和 WebP 照片会在移除拍摄地点、相机和时间后再上传。开启后将原样发送。",
+  "api_error_image_malformed": "{name} 看起来是照片,但文件结构已损坏,无法移除其中的位置和相机信息。开启“保留照片的位置和相机信息”即可原样发送。",
+  "settings_share_metadata_title": "照片元数据",
+  "settings_share_metadata_description": "照片会带着拍摄地点、相机和时间。上传者的浏览器或命令行会在上传前移除。",
+  "settings_share_form_strip_metadata_label": "移除照片元数据",
+  "settings_share_form_strip_metadata_description": "开启后,上传默认会移除 JPEG、PNG 和 WebP 照片中的位置、相机、时间和注释,上传者仍可选择保留。移除在上传者的设备上进行,因此端对端加密的分享同样适用。照片方向会保留。"
 }

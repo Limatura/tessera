@@ -1614,5 +1614,12 @@
   "device_try_another": "Enter another code",
   "api_error_device_authorization_pending": "Waiting for the sign-in to be approved.",
   "api_error_device_authorization_denied": "The sign-in was denied.",
-  "api_error_device_code_unusable": "This sign-in request has expired. Start again."
+  "api_error_device_code_unusable": "This sign-in request has expired. Start again.",
+  "upload_keep_metadata": "Keep photo location and camera info",
+  "upload_keep_metadata_hint": "JPEG, PNG and WebP photos are sent without where they were taken, the camera and the time. Turn this on to send them as they are.",
+  "api_error_image_malformed": "{name} looks like a photo but its structure is broken, so its location and camera info could not be removed. Turn on \"Keep photo location and camera info\" to send it as it is.",
+  "settings_share_metadata_title": "Photo metadata",
+  "settings_share_metadata_description": "Photos carry where they were taken, the camera and the time. The uploader's browser or the command line removes it before the upload.",
+  "settings_share_form_strip_metadata_label": "Remove photo metadata",
+  "settings_share_form_strip_metadata_description": "When on, uploads start out removing location, camera, time and comments from JPEG, PNG and WebP photos; the uploader can still choose to keep them. It happens on their device, so it also covers end-to-end encrypted shares. The orientation is kept."
 }

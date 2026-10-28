@@ -53,6 +53,7 @@ const KEYS = {
   inlineThresholdBytes: "share.inline_threshold_bytes",
   maxTextBytes: "share.max_text_bytes",
   retainAfterDeathHours: "share.retain_after_death_hours",
+  stripMetadata: "share.strip_metadata",
   ticketIdleHours: "share.ticket_idle_hours",
   ticketTtlHours: "share.ticket_ttl_hours",
   uploadSessionTtlHours: "share.upload_session_ttl_hours",
@@ -103,6 +104,7 @@ function initialValues(settings: Settings): ShareSettingsValues {
       readSetting(settings, KEYS.retainAfterDeathHours),
       DEFAULT_RETAIN_AFTER_DEATH_HOURS
     ),
+    stripMetadata: asBoolean(readSetting(settings, KEYS.stripMetadata), true),
     ticketIdleHours: asNumber(
       readSetting(settings, KEYS.ticketIdleHours),
       DEFAULT_TICKET_IDLE_HOURS
@@ -247,6 +249,26 @@ function ShareSettingsFields({
                   <FieldError errors={[fieldState.error]} />
                 )}
               </Field>
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsCard
+        description={m.settings_share_metadata_description()}
+        title={m.settings_share_metadata_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="stripMetadata"
+            render={({ field }) => (
+              <SwitchField
+                description={m.settings_share_form_strip_metadata_description()}
+                field={field}
+                id="share-strip-metadata"
+                label={m.settings_share_form_strip_metadata_label()}
+              />
             )}
           />
         </FieldGroup>

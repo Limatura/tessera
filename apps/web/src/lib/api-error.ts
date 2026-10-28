@@ -1,4 +1,5 @@
 import type { components } from "@tessera/api/schema";
+import { MalformedImageError } from "@tessera/metadata";
 import { formatBytes } from "@tessera/ui/lib/format";
 
 import type { BulkDeleteResult } from "@/lib/bulk-delete";
@@ -394,6 +395,9 @@ const HTTP_GATEWAY_TIMEOUT = 504;
  * what was being attempted.
  */
 function codelessErrorMessage(error: unknown): string | undefined {
+  if (error instanceof MalformedImageError) {
+    return m.api_error_image_malformed({ name: error.fileName });
+  }
   if (typeof error !== "object" || error === null) {
     return undefined;
   }
