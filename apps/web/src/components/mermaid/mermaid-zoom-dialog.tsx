@@ -208,7 +208,7 @@ function ZoomViewer({ svg }: { svg: string }) {
         style={{
           transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
         }}
-        // oxlint-disable-next-line react/no-danger -- SVG produced by mermaid with securityLevel "strict"
+        // oxlint-disable-next-line react/no-danger -- SVG produced by pele with links and images off
         dangerouslySetInnerHTML={{ __html: svg }}
       />
       {/* This layer must stop pointerdown. Otherwise it bubbles to the outer

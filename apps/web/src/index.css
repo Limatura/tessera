@@ -25,3 +25,21 @@
   --melt: color-mix(in oklch, var(--primary) 32%, oklch(0.17 0.008 49.3) 68%);
   --melt-foreground: oklch(0.986 0.002 67.8);
 }
+
+/*
+ * pele diagrams read --pele-* at paint time, so binding them to the design
+ * tokens makes a diagram follow light/dark and data-theme/data-accent with no
+ * re-render. They sit on :root, next to the tokens they resolve against.
+ */
+:root {
+  --pele-bg: var(--card);
+  --pele-fg: var(--foreground);
+  --pele-muted: var(--muted-foreground);
+  --pele-line: var(--muted-foreground);
+  --pele-surface: var(--muted);
+  --pele-surface-alt: var(--accent);
+  --pele-border: var(--border);
+  --pele-accent: var(--primary);
+  --pele-font: var(--font-sans);
+  --pele-font-mono: var(--font-mono);
+}

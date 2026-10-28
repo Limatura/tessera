@@ -75,7 +75,7 @@ export function MermaidDiagram({
             not always apply otherwise. */}
         <div
           className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/20 p-4 [&_svg]:max-h-full [&_svg]:max-w-full"
-          // oxlint-disable-next-line react/no-danger -- SVG produced by mermaid with securityLevel "strict"
+          // oxlint-disable-next-line react/no-danger -- SVG produced by pele with links and images off
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       </div>
