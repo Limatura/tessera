@@ -407,6 +407,7 @@ describe("shareSettingsSchema", () => {
   const valid = {
     accessLogEnabled: false,
     accessLogRetentionDays: 0,
+    blockedExtensions: "",
     codeLength: CODE_LENGTH_MIN,
     encryption: false,
     inlineThresholdBytes: 0,
