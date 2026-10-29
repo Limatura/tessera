@@ -14,10 +14,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License: AGPL-3.0" /></a>
 </p>
 
-<a href="https://postyourstartup.co/startup/tessera-1?ref=badge" target="_blank">
-  <img src="https://postyourstartup.co/api/badge/tessera-1?theme=dark" alt="Featured on PostYourStartup" width="212" height="55" />
-</a>
-
 https://github.com/user-attachments/assets/f1c95b78-8561-4184-9616-c57e3fa3bc5a
 
 <p align="center">
