@@ -39,4 +39,6 @@ export const adminKeys = {
   users: () => ["admin", "users"] as const,
   usersPage: (offset: number, includeDeleted: boolean) =>
     ["admin", "users", { includeDeleted, offset }] as const,
+
+  webhooks: () => ["admin", "webhooks"] as const,
 };

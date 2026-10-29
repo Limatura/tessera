@@ -8,6 +8,7 @@ import { PasskeysSection } from "./passkeys-section";
 import { PasswordSection } from "./password-section";
 import { ProfileSection } from "./profile-section";
 import { SessionsSection } from "./sessions-section";
+import { WebhooksSection } from "./webhooks-section";
 
 export function AccountTab() {
   return (
@@ -16,6 +17,7 @@ export function AccountTab() {
       <Separator />
       <ApiKeysSection />
       <Separator />
+      <WebhooksSection />
       <PasswordSection />
       <Separator />
       <MfaSection />
