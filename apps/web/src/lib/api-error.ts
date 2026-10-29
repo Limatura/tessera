@@ -87,6 +87,12 @@ function fieldLabel(details: Details): string {
     case "expires_in_days": {
       return m.api_error_field_expires_in_days();
     }
+    case "events": {
+      return m.api_error_field_events();
+    }
+    case "webhooks": {
+      return m.api_error_field_webhooks();
+    }
     // Field names are the API's snake_case and mean nothing to a user inside a sentence.
     default: {
       return m.api_error_field_unknown();
@@ -161,8 +167,12 @@ function valueInvalid(details: Details): string {
     case "no_control_characters": {
       return m.api_error_rule_no_control_characters({ field });
     }
-    case "http_url": {
+    case "http_url":
+    case "not_a_url": {
       return m.api_error_rule_http_url();
+    }
+    case "not_public": {
+      return m.api_error_rule_not_public();
     }
     default: {
       return m.api_error_value_invalid({ field });

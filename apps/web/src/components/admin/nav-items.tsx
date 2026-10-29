@@ -5,6 +5,7 @@ import {
   IconSettings,
   IconShieldLock,
   IconUsers,
+  IconWebhook,
 } from "@tabler/icons-react";
 import { useSession } from "@tessera/auth/hooks";
 import type * as React from "react";
@@ -80,6 +81,12 @@ function adminNavGroups(): AdminNavGroup[] {
           permission: PERMISSIONS.rolesRead,
           title: m.nav_roles(),
           url: "/admin/roles",
+        },
+        {
+          icon: <IconWebhook />,
+          permission: PERMISSIONS.settingsRead,
+          title: m.nav_webhooks(),
+          url: "/admin/webhooks",
         },
         {
           icon: <IconSettings />,
