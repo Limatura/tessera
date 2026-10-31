@@ -12,7 +12,7 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.90.5",
+    "@tanstack/react-query": "^5.105.0",
     "@tessera/api": "workspace:*",
     "react": "catalog:"
   },
