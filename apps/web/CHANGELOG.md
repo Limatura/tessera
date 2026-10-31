@@ -10,6 +10,10 @@ No changes in this release.
 
 - [#104](https://github.com/Limatura/tessera/pull/104) [`2da4a90`](https://github.com/Limatura/tessera/commit/2da4a90cf3422188f56d4e84690745ef5d64115c) Thanks [@sao-coding](https://github.com/sao-coding)! - My shares now shows each share's file name or title, with the code beneath it, so a share can be found without remembering its code. On phones the card's top half puts the kind and code on one line with the time left on the right. The account and My shares pages get a "Back to home" button, and the code tab's language picker shows the language's name (JavaScript) instead of its internal value (javascript).
 
+- [#109](https://github.com/Limatura/tessera/pull/109) Thanks [@sao-coding](https://github.com/sao-coding)! - A shared audio file plays on the share page, in a player with the video player's timeline, speed menu and keyboard shortcuts. A file the browser can't decode shows a note to download it instead.
+
+- [#108](https://github.com/Limatura/tessera/pull/108) Thanks [@sao-coding](https://github.com/sao-coding)! - The copy buttons work over plain http, such as a LAN address. They fell back to nothing where the browser has no clipboard API, and now show the checkmark only when the text was copied.
+
 ## 0.2.0
 
 ### Minor Changes
