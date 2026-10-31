@@ -1,6 +1,6 @@
 {
   "name": "tessera-server",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "Version carrier for changesets. The server is Rust; this file is only read by `changeset version`, and scripts/sync-cargo-version.sh copies the number into Cargo.toml."
 }

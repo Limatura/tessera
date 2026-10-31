@@ -1,5 +1,37 @@
 # tessera-server
 
+## 0.3.2
+
+### Patch Changes
+
+- [#133](https://github.com/Limatura/tessera/pull/133) [`b337ea7`](https://github.com/Limatura/tessera/commit/b337ea7b8994aa9bffa4eb0f5f6dd327e30123c6) Thanks [@Koimsurai](https://github.com/Koimsurai)! - Refuse file types by extension with `share.blocked_extensions`. Windows, Linux and macOS programs are also caught by their first bytes when renamed. Checked on upload and again on download. Files in end-to-end encrypted shares go through.
+
+- [#135](https://github.com/Limatura/tessera/pull/135) [`bad8b3b`](https://github.com/Limatura/tessera/commit/bad8b3b418b24e76757b686a3a99d86945cbaccb) Thanks [@Koimsurai](https://github.com/Koimsurai)! - Update `ctutils` to 0.4.5 for RUSTSEC-2026-0385.
+
+- [#132](https://github.com/Limatura/tessera/pull/132) [`4a9316a`](https://github.com/Limatura/tessera/commit/4a9316a9cf4b1f906013842dede91e6cf47401f4) Thanks [@Koimsurai](https://github.com/Koimsurai)! - `tess`: the "No instance to send to" dialog no longer suggests a `--server` flag the view does not take.
+
+- [#121](https://github.com/Limatura/tessera/pull/121) [`9f0f290`](https://github.com/Limatura/tessera/commit/9f0f290002e7586305baa68c493fba298b6158ee) Thanks [@Koimsurai](https://github.com/Koimsurai)! - `tess send --encrypt` seals about ten times faster, and the server hashes uploads about twice as fast. The release build optimised the crates doing this for size, which held encryption to about 100 MB/s.
+
+- [#124](https://github.com/Limatura/tessera/pull/124) [`9d85a69`](https://github.com/Limatura/tessera/commit/9d85a69de19532a846414060c344d870a57d44c0) Thanks [@Koimsurai](https://github.com/Koimsurai)! - The server hashes passwords with argon2 0.6, the version the encryption code already used, so the binary no longer carries two copies. Stored passwords keep working.
+
+- [#130](https://github.com/Limatura/tessera/pull/130) [`0dc4755`](https://github.com/Limatura/tessera/commit/0dc47559ddcfcdb8d84333dced62b7dfad1fda54) Thanks [@Koimsurai](https://github.com/Koimsurai)! - `tess send` removes the metadata from JPEG, PNG and WebP photos before they leave the machine: where they were taken, the camera, the time, comments. The orientation stays, so a photo still shows the right way up. `--keep-metadata` sends them as they are. Whether sending starts out removing it is the new `share.strip_metadata` setting, on by default and reported in `GET /api/v1/capabilities`. The web app will follow.
+
+- [#143](https://github.com/Limatura/tessera/pull/143) [`0386264`](https://github.com/Limatura/tessera/commit/0386264bb72d7b63ac09a554ffed1d99989f56d5) Thanks [@Koimsurai](https://github.com/Koimsurai)! - Update `tokio` to 1.54.1 for RUSTSEC-2026-0386.
+
+- [#129](https://github.com/Limatura/tessera/pull/129) [`4fdf794`](https://github.com/Limatura/tessera/commit/4fdf79417109eb9938496848da55f027b180e9bd) Thanks [@Koimsurai](https://github.com/Koimsurai)! - A share holding one video downloads with its video type (`video/mp4`, `video/webm`, `video/quicktime`, `video/x-matroska` or `video/ogg`, from the file's extension) instead of `application/octet-stream`, so Safari, iOS and Chromecast can play it. Encrypted shares and everything else stay `application/octet-stream`.
+
+- [#163](https://github.com/Limatura/tessera/pull/163) [`45ec340`](https://github.com/Limatura/tessera/commit/45ec340d2d7581292182ed1ae0265386e63a4631) Thanks [@sao-coding](https://github.com/sao-coding)! - The share settings in the admin panel have a field for `share.blocked_extensions`, the file types the instance refuses.
+
+- [#163](https://github.com/Limatura/tessera/pull/163) [`45ec340`](https://github.com/Limatura/tessera/commit/45ec340d2d7581292182ed1ae0265386e63a4631) Thanks [@sao-coding](https://github.com/sao-coding)! - API keys and the admin panel show a name for the `logs:read` permission instead of its raw value.
+
+- [#163](https://github.com/Limatura/tessera/pull/163) [`45ec340`](https://github.com/Limatura/tessera/commit/45ec340d2d7581292182ed1ae0265386e63a4631) Thanks [@sao-coding](https://github.com/sao-coding)! - Mermaid diagrams in shared Markdown render with Pele Mermaid, which replaces the Mermaid library and makes the web bundle smaller.
+
+- [#151](https://github.com/Limatura/tessera/pull/151) [`79284a4`](https://github.com/Limatura/tessera/commit/79284a44b5debe38db30b1cbbd87ac1ff6a0bfca) Thanks [@sao-coding](https://github.com/sao-coding)! - The web app removes the metadata from JPEG, PNG and WebP photos before they are uploaded, the same as `tess send`, when the instance has `share.strip_metadata` on. For an end-to-end encrypted share it happens before sealing. A switch on the upload card keeps the metadata instead. The share settings in the admin panel have a switch for `share.strip_metadata`.
+
+- [#163](https://github.com/Limatura/tessera/pull/163) [`45ec340`](https://github.com/Limatura/tessera/commit/45ec340d2d7581292182ed1ae0265386e63a4631) Thanks [@sao-coding](https://github.com/sao-coding)! - Webhooks have pages in the web app. Account settings lists your webhooks and lets you add one, pick its events, see its delivery history and remove it; the admin panel has the same for the instance's own webhooks.
+
+- [#134](https://github.com/Limatura/tessera/pull/134) [`a38706a`](https://github.com/Limatura/tessera/commit/a38706aecba1b34416a09a437470b9ffdc712def) Thanks [@Koimsurai](https://github.com/Koimsurai)! - Webhooks. An account can be told when its shares are created, downloaded or expire (`/api/v1/webhooks`), and an administrator about every share (`/api/v1/admin/webhooks`). Bodies follow Standard Webhooks and are signed; `"format": "discord"` posts to a Discord channel instead. Failed events are retried for a day. An account's webhooks only go to public addresses, and only the instance's are told who downloaded something, while `share.access_log.enabled` is on.
+
 ## 0.3.1
 
 ### Patch Changes
