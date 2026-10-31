@@ -2,7 +2,7 @@
 # Rules are evaluated from top to bottom; the last matching rule wins.
 
 # Fallback for new or otherwise unclassified files
-* @sao-coding @timo9378
+* @sao-coding @Koimsurai
 
 # Frontend
 /apps/web/ @sao-coding
@@ -10,23 +10,23 @@
 /packages/ui/ @sao-coding
 
 # Backend
-/apps/server/ @timo9378
-/apps/cli/ @timo9378
-/apps/dev/ @timo9378
-/crates/ @timo9378
+/apps/server/ @Koimsurai
+/apps/cli/ @Koimsurai
+/apps/dev/ @Koimsurai
+/crates/ @Koimsurai
 
 # Shared project configuration and API contracts
-/packages/api/ @sao-coding @timo9378
-/packages/auth/ @sao-coding @timo9378
-/packages/config/ @sao-coding @timo9378
-/packages/env/ @sao-coding @timo9378
-/packages/crypto/ @timo9378
-/openapi.json @sao-coding @timo9378
-/Cargo.toml @sao-coding @timo9378
-/pnpm-workspace.yaml @sao-coding @timo9378
-/turbo.json @sao-coding @timo9378
+/packages/api/ @sao-coding @Koimsurai
+/packages/auth/ @sao-coding @Koimsurai
+/packages/config/ @sao-coding @Koimsurai
+/packages/env/ @sao-coding @Koimsurai
+/packages/crypto/ @Koimsurai
+/openapi.json @sao-coding @Koimsurai
+/Cargo.toml @sao-coding @Koimsurai
+/pnpm-workspace.yaml @sao-coding @Koimsurai
+/turbo.json @sao-coding @Koimsurai
 
 # CI, security, and repository-wide automation
-/.github/ @sao-coding @timo9378
-/docker-compose.yml @sao-coding @timo9378
-/rust-toolchain.toml @sao-coding @timo9378
+/.github/ @sao-coding @Koimsurai
+/docker-compose.yml @sao-coding @Koimsurai
+/rust-toolchain.toml @sao-coding @Koimsurai
