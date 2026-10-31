@@ -1,5 +1,19 @@
 # web
 
+## 0.3.2
+
+### Patch Changes
+
+- [#163](https://github.com/Limatura/tessera/pull/163) [`45ec340`](https://github.com/Limatura/tessera/commit/45ec340d2d7581292182ed1ae0265386e63a4631) Thanks [@sao-coding](https://github.com/sao-coding)! - The share settings in the admin panel have a field for `share.blocked_extensions`, the file types the instance refuses.
+
+- [#163](https://github.com/Limatura/tessera/pull/163) [`45ec340`](https://github.com/Limatura/tessera/commit/45ec340d2d7581292182ed1ae0265386e63a4631) Thanks [@sao-coding](https://github.com/sao-coding)! - API keys and the admin panel show a name for the `logs:read` permission instead of its raw value.
+
+- [#163](https://github.com/Limatura/tessera/pull/163) [`45ec340`](https://github.com/Limatura/tessera/commit/45ec340d2d7581292182ed1ae0265386e63a4631) Thanks [@sao-coding](https://github.com/sao-coding)! - Mermaid diagrams in shared Markdown render with Pele Mermaid, which replaces the Mermaid library and makes the web bundle smaller.
+
+- [#151](https://github.com/Limatura/tessera/pull/151) [`79284a4`](https://github.com/Limatura/tessera/commit/79284a44b5debe38db30b1cbbd87ac1ff6a0bfca) Thanks [@sao-coding](https://github.com/sao-coding)! - The web app removes the metadata from JPEG, PNG and WebP photos before they are uploaded, the same as `tess send`, when the instance has `share.strip_metadata` on. For an end-to-end encrypted share it happens before sealing. A switch on the upload card keeps the metadata instead. The share settings in the admin panel have a switch for `share.strip_metadata`.
+
+- [#163](https://github.com/Limatura/tessera/pull/163) [`45ec340`](https://github.com/Limatura/tessera/commit/45ec340d2d7581292182ed1ae0265386e63a4631) Thanks [@sao-coding](https://github.com/sao-coding)! - Webhooks have pages in the web app. Account settings lists your webhooks and lets you add one, pick its events, see its delivery history and remove it; the admin panel has the same for the instance's own webhooks.
+
 ## 0.3.1
 
 No changes in this release.
