@@ -58,7 +58,7 @@
     "lint-staged": "^17.6.0",
     "turbo": "^2.11.9",
     "typescript": "catalog:",
-    "ultracite": "7.12.2",
+    "ultracite": "8.0.0",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
