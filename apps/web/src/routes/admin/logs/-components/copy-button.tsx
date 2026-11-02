@@ -25,7 +25,8 @@ export function CopyButton({
   withLabel = false,
 }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>();
+  // oxlint-disable-next-line unicorn/no-useless-undefined
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
