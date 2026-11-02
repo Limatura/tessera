@@ -71,3 +71,6 @@ temp
 
 # A code-graph tool's cache.
 graphify-out/
+
+
+!apps/web/src/routes/admin/logs/
