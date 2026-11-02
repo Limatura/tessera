@@ -37,6 +37,7 @@ const RULES: [match: string, url: string][] = [
   ["storage.", "/admin/settings/storage"],
   ["mail.", "/admin/settings/mail"],
   ["scan.", "/admin/settings/scan"],
+  ["logs.", "/admin/settings/logs"],
   ["features.accounts", "/admin/settings/features"],
   ["features.admin", "/admin/settings/features"],
 ];

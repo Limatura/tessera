@@ -11,6 +11,8 @@ export const adminKeys = {
 
   invites: () => ["admin", "invites"] as const,
 
+  logFiles: () => ["admin", "logs", "files"] as const,
+
   ogLayoutCheck: (layout: string) =>
     ["admin", "og-layout-check", layout] as const,
 

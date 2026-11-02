@@ -16,6 +16,7 @@ export const PERMISSIONS = {
   invitesCreate: "invites:create",
   invitesDelete: "invites:delete",
   invitesRead: "invites:read",
+  logsRead: "logs:read",
   rolesRead: "roles:read",
   rolesWrite: "roles:write",
   settingsRead: "settings:read",
@@ -67,6 +68,7 @@ export const ADMIN_ENTRY_PERMISSIONS = [
   PERMISSIONS.rolesRead,
   PERMISSIONS.sharesReadAny,
   PERMISSIONS.settingsRead,
+  PERMISSIONS.logsRead,
 ] as const;
 
 /** Whether this account can reach any admin page. */
