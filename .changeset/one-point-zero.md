@@ -1,7 +1,6 @@
 ---
 "tessera-server": major
 "web": major
-"tui": major
 "extension": major
 ---
 
