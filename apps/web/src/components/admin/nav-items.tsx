@@ -1,6 +1,7 @@
 import {
   IconDashboard,
   IconDatabase,
+  IconFileText,
   IconKey,
   IconSettings,
   IconShieldLock,
@@ -87,6 +88,12 @@ function adminNavGroups(): AdminNavGroup[] {
           permission: PERMISSIONS.settingsRead,
           title: m.nav_webhooks(),
           url: "/admin/webhooks",
+        },
+        {
+          icon: <IconFileText />,
+          permission: PERMISSIONS.logsRead,
+          title: m.nav_logs(),
+          url: "/admin/logs",
         },
         {
           icon: <IconSettings />,

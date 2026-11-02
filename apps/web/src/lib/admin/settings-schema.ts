@@ -5,6 +5,7 @@ import {
 } from "@tessera/ui/lib/appearance";
 import { z } from "zod";
 
+import { LOG_LEVELS } from "@/lib/admin/log-entries";
 import {
   PASSWORD_MAX_CEILING,
   PASSWORD_MIN_FLOOR,
@@ -706,3 +707,27 @@ export const ogCardSettingsSchema = z.object({
 });
 
 export type OgCardSettingsValues = z.infer<typeof ogCardSettingsSchema>;
+
+// Server log: logs.*
+
+/** Upper bound of `logs.retention_days`, `LogsConfig::MAX_RETENTION_DAYS` on the server. */
+export const LOG_RETENTION_MAX_DAYS = 90;
+
+export const logsSettingsSchema = z.object({
+  // logs.min_level: the least severe line written to the files
+  minLevel: z.enum(LOG_LEVELS),
+  // logs.retention_days
+  retentionDays: z
+    .number()
+    .int()
+    .min(1, {
+      error: () =>
+        m.settings_schema_logs_retention_range({ max: LOG_RETENTION_MAX_DAYS }),
+    })
+    .max(LOG_RETENTION_MAX_DAYS, {
+      error: () =>
+        m.settings_schema_logs_retention_range({ max: LOG_RETENTION_MAX_DAYS }),
+    }),
+});
+
+export type LogsSettingsValues = z.infer<typeof logsSettingsSchema>;

@@ -58,6 +58,7 @@ export function settingsNavGroups(): SettingsNavGroup[] {
     {
       items: [
         { title: m.nav_settings_mail(), url: "/admin/settings/mail" },
+        { title: m.nav_settings_logs(), url: "/admin/settings/logs" },
         { title: m.nav_settings_features(), url: "/admin/settings/features" },
         { title: m.nav_settings_reset(), url: "/admin/settings/reset" },
       ],

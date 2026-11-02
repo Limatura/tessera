@@ -71,6 +71,7 @@ const LANDING_ORDER = [
   { permission: PERMISSIONS.rolesRead, to: "/admin/roles" },
   { permission: PERMISSIONS.sharesReadAny, to: "/admin/all-shares" },
   { permission: PERMISSIONS.settingsRead, to: "/admin/settings" },
+  { permission: PERMISSIONS.logsRead, to: "/admin/logs" },
 ] as const;
 
 /**
