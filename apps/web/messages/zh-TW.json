@@ -1708,7 +1708,6 @@
   "settings_schema_logs_retention_range": "需介於 1 到 {max} 天",
   "logs_copied": "已複製",
   "logs_copy_line": "複製這一行",
-  "logs_copy_message": "複製訊息",
   "logs_copy_json": "複製為 JSON",
   "logs_open_line": "開啟 {time} 的日誌",
   "logs_new_lines": "{count} 行新日誌",

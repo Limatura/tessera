@@ -26,6 +26,7 @@
     "lucide-react": "catalog:",
     "next-themes": "catalog:",
     "react": "catalog:",
+    "react-day-picker": "^10.0.2",
     "react-dom": "catalog:",
     "recharts": "catalog:",
     "shadcn": "^4.16.0",

@@ -1708,7 +1708,6 @@
   "settings_schema_logs_retention_range": "1〜{max} 日の範囲で指定してください",
   "logs_copied": "コピーしました",
   "logs_copy_line": "この行をコピー",
-  "logs_copy_message": "メッセージをコピー",
   "logs_copy_json": "JSON としてコピー",
   "logs_open_line": "{time} のログを開く",
   "logs_new_lines": "新着 {count} 行",

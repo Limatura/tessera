@@ -25,17 +25,14 @@ import { formatBytes } from "@tessera/ui/lib/format";
 import { cn } from "@tessera/ui/lib/utils";
 import { useEffect, useRef, useState } from "react";
 
+import { DateTimePicker } from "@/components/admin/date-time-picker";
 import { useLogFiles } from "@/hooks/admin/use-log-feed";
 import type {
   LiveStatus,
   LogFeed,
   LogFilters,
 } from "@/hooks/admin/use-log-feed";
-import {
-  LOG_LEVELS,
-  fromLocalInput,
-  toLocalInput,
-} from "@/lib/admin/log-entries";
+import { LOG_LEVELS } from "@/lib/admin/log-entries";
 import type { LogLevel } from "@/lib/admin/log-entries";
 import * as m from "@/paraglide/messages";
 
@@ -140,27 +137,21 @@ export function LogToolbar({
         value={query}
       />
 
-      <div className="flex items-center gap-1">
-        <Input
-          aria-label={m.logs_since_label()}
-          className="w-auto"
-          onChange={(event) =>
-            onFiltersChange({ since: fromLocalInput(event.target.value) })
-          }
-          type="datetime-local"
-          value={toLocalInput(filters.since)}
+      <div className="grid w-full grid-cols-[1fr_auto_1fr_auto] items-center gap-1 sm:flex sm:w-auto">
+        <DateTimePicker
+          className="w-full sm:w-auto"
+          label={m.logs_since_label()}
+          onChange={(since) => onFiltersChange({ since })}
+          value={filters.since}
         />
         <span aria-hidden="true">–</span>
-        <Input
-          aria-label={m.logs_until_label()}
-          className="w-auto"
-          onChange={(event) =>
-            onFiltersChange({ until: fromLocalInput(event.target.value) })
-          }
-          type="datetime-local"
-          value={toLocalInput(filters.until)}
+        <DateTimePicker
+          className="w-full sm:w-auto"
+          label={m.logs_until_label()}
+          onChange={(until) => onFiltersChange({ until })}
+          value={filters.until}
         />
-        {hasRange && (
+        {hasRange ? (
           <Button
             aria-label={m.logs_clear_range()}
             onClick={() => onFiltersChange({ since: null, until: null })}
@@ -170,6 +161,8 @@ export function LogToolbar({
           >
             <IconX />
           </Button>
+        ) : (
+          <span className="size-8 sm:hidden" />
         )}
       </div>
 

@@ -24,7 +24,7 @@ import type { LogEntry } from "@/lib/admin/log-entries";
 import * as m from "@/paraglide/messages";
 
 import { CopyButton } from "./copy-button";
-import { LEVEL_STYLES, formatValue, lineAsJson } from "./log-row";
+import { LEVEL_STYLES_TEXT, formatValue, lineAsJson } from "./log-row";
 
 interface LogDetailSheetProps {
   entry: LogEntry | null;
@@ -58,11 +58,11 @@ export function LogDetailSheet({ entry, onClose }: LogDetailSheetProps) {
                 <DrawerTitle className="flex items-center gap-2">
                   <LevelAndTime entry={entry} />
                 </DrawerTitle>
-                <DrawerDescription className="font-mono text-xs">
+                <DrawerDescription className="font-mono text-left text-xs">
                   {entry.time}
                 </DrawerDescription>
               </DrawerHeader>
-              <div className="max-h-[60svh] overflow-y-auto overscroll-contain px-4">
+              <div className="max-h-[60svh] overflow-y-auto overscroll-contain px-4 mt-4">
                 <LogDetailBody entry={entry} />
               </div>
               <DrawerFooter className="flex-row justify-end pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -108,7 +108,7 @@ function LevelAndTime({ entry }: { entry: LogEntry }) {
   return (
     <>
       <Badge
-        className={cn("uppercase", LEVEL_STYLES[entry.level])}
+        className={cn("uppercase", LEVEL_STYLES_TEXT[entry.level])}
         variant="outline"
       >
         {entry.level}
@@ -124,45 +124,96 @@ function LogDetailBody({ entry }: { entry: LogEntry }) {
   return (
     <div className="flex flex-col gap-5">
       <Section title={m.logs_detail_target()}>
-        <p className="break-all font-mono text-xs">{entry.target}</p>
+        <ValueBox copy={entry.target} label={m.logs_detail_target()}>
+          {entry.target}
+        </ValueBox>
       </Section>
       <Section title={m.logs_detail_message()}>
-        <p className="whitespace-pre-wrap break-words font-mono text-xs">
+        <ValueBox
+          className="whitespace-pre-wrap break-words"
+          copy={entry.message}
+          label={m.logs_detail_message()}
+        >
           {entry.message}
-        </p>
+        </ValueBox>
       </Section>
       {fields.length > 0 && (
         <Section title={m.logs_detail_fields()}>
-          <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 font-mono text-xs">
+          <div className="flex flex-col gap-2">
             {fields.map(([key, value]) => (
-              <FieldLine key={key} name={key} value={value} />
+              <FieldBox key={key} name={key} value={value} />
             ))}
-          </dl>
+          </div>
         </Section>
       )}
       <Section title={m.logs_detail_id()}>
-        <p className="break-all font-mono text-muted-foreground text-xs">
+        <ValueBox
+          className="text-muted-foreground"
+          copy={entry.id}
+          label={m.logs_detail_id()}
+        >
           {entry.id}
-        </p>
+        </ValueBox>
       </Section>
+    </div>
+  );
+}
+
+/** A value in a tinted box, with its own copy button in the corner. */
+function ValueBox({
+  children,
+  copy,
+  label,
+  className,
+}: {
+  children: React.ReactNode;
+  copy: string;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div className="relative rounded-md border bg-muted/40">
+      <p
+        className={cn(
+          "break-all p-2.5 pr-10 font-mono text-xs leading-relaxed",
+          className
+        )}
+      >
+        {children}
+      </p>
+      <CopyButton
+        className="absolute top-1 right-1"
+        label={label}
+        text={() => copy}
+      />
+    </div>
+  );
+}
+
+function FieldBox({ name, value }: { name: string; value: unknown }) {
+  const text = formatValue(value);
+  return (
+    <div className="relative rounded-md border bg-muted/40">
+      <div className="flex flex-col gap-0.5 p-2.5 pr-10 font-mono text-xs">
+        <span className="text-muted-foreground">{name}</span>
+        <span className="whitespace-pre-wrap break-all">{text}</span>
+      </div>
+      <CopyButton
+        className="absolute top-1 right-1"
+        label={name}
+        text={() => text}
+      />
     </div>
   );
 }
 
 function LogDetailActions({ entry }: { entry: LogEntry }) {
   return (
-    <>
-      <CopyButton
-        label={m.logs_copy_message()}
-        text={() => entry.message}
-        withLabel
-      />
-      <CopyButton
-        label={m.logs_copy_json()}
-        text={() => lineAsJson(entry)}
-        withLabel
-      />
-    </>
+    <CopyButton
+      label={m.logs_copy_json()}
+      text={() => lineAsJson(entry)}
+      withLabel
+    />
   );
 }
 
@@ -178,14 +229,5 @@ function Section({
       <h3 className="font-medium text-muted-foreground text-xs">{title}</h3>
       {children}
     </section>
-  );
-}
-
-function FieldLine({ name, value }: { name: string; value: unknown }) {
-  return (
-    <>
-      <dt className="text-muted-foreground">{name}</dt>
-      <dd className="break-all">{formatValue(value)}</dd>
-    </>
   );
 }

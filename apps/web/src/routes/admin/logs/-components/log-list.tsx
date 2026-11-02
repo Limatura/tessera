@@ -88,7 +88,8 @@ export function LogList({
     }
   };
 
-  const handleJump = () => scroller.current?.scrollTo({ top: 0 });
+  const handleJump = () =>
+    scroller.current?.scrollTo({ top: 0, behavior: "smooth" });
 
   if (feed.loading) {
     return <LogSkeleton />;
@@ -108,10 +109,11 @@ export function LogList({
 
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg">
-      {/* Absolute, so the list is exactly as big as its box and its thousands of
-          rows can never stretch the page: only this area scrolls. */}
+      {/* `h-full` of a flex-sized box, so the list is exactly as big as that box
+          and its thousands of rows can never stretch the page: only this area
+          scrolls. */}
       <ScrollArea
-        className="absolute inset-0 rounded-lg border"
+        className="h-full rounded-lg border"
         viewportProps={{ onScroll: handleScroll, ref: scroller, role: "log" }}
       >
         <div className="relative w-full" style={{ height: totalSize }}>
@@ -142,8 +144,9 @@ export function LogList({
         <OlderNotice feed={feed} />
       </ScrollArea>
       {!pinned && (
+        // 給個動畫 從右向左滑動出現按鈕的動畫
         <Button
-          className="absolute right-4 bottom-4 rounded-full shadow-md"
+          className="absolute right-4 bottom-4 rounded-full shadow-md animate-in slide-in-from-right-8 fade-in duration-300"
           onClick={handleJump}
           type="button"
         >

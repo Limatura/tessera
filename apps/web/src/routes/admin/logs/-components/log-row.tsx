@@ -8,12 +8,28 @@ import { useAppearanceStore } from "@/stores/appearance";
 
 import { CopyButton } from "./copy-button";
 
-export const LEVEL_STYLES: Record<LogLevel, string> = {
-  debug: "text-muted-foreground",
-  error: "text-red-600 dark:text-red-400",
-  info: "text-sky-600 dark:text-sky-400",
-  trace: "text-muted-foreground/70",
-  warn: "text-amber-600 dark:text-amber-400",
+export const LEVEL_STYLES_TEXT: Record<LogLevel, string> = {
+  debug: "text-slate-700 dark:text-slate-300",
+  error: "text-red-700 dark:text-red-400",
+  info: "text-blue-700 dark:text-blue-400",
+  trace: "text-violet-700 dark:text-violet-400",
+  warn: "text-amber-800 dark:text-amber-400",
+};
+
+export const LEVEL_STYLES_BG: Record<LogLevel, string> = {
+  debug: "bg-slate-500/15 dark:bg-slate-400/15",
+  error: "bg-red-500/20 dark:bg-red-500/20",
+  info: "",
+  trace: "bg-violet-500/15 dark:bg-violet-500/20",
+  warn: "bg-amber-500/20 dark:bg-amber-500/20",
+};
+
+export const LEVEL_STYLES_LINE: Record<LogLevel, string> = {
+  debug: "bg-slate-500 dark:bg-slate-400",
+  error: "bg-red-600 dark:bg-red-400",
+  info: "bg-blue-600 dark:bg-blue-400",
+  trace: "bg-violet-600 dark:bg-violet-400",
+  warn: "bg-amber-600 dark:bg-amber-400",
 };
 
 interface LogRowProps {
@@ -37,18 +53,25 @@ export function LogRow({ entry, selected, formatTime, onSelect }: LogRowProps) {
   return (
     <div
       className={cn(
-        "group/row flex h-full items-center border-b hover:bg-muted/50 focus-within:bg-muted/50",
-        selected && "bg-muted"
+        "group/row flex h-full items-center border-b hover:bg-muted/50 focus-within:bg-muted/50 relative",
+        selected && "bg-muted",
+        LEVEL_STYLES_BG[entry.level]
       )}
     >
       <button
         aria-label={m.logs_open_line({ time: formatTime(entry.time) })}
-        className="flex min-w-0 flex-1 items-baseline gap-2 self-stretch px-2 text-left font-mono text-xs outline-none"
+        className="flex min-w-0 flex-1 items-center gap-2 self-stretch px-2 text-left font-mono text-xs outline-none"
         onClick={() => onSelect(entry)}
         type="button"
       >
+        <div
+          className={cn(
+            "absolute left-1 top-1/2 h-4/5 w-1 -translate-y-1/2 rounded-full",
+            LEVEL_STYLES_LINE[entry.level]
+          )}
+        />
         <time
-          className="shrink-0 text-muted-foreground tabular-nums"
+          className="shrink-0 text-muted-foreground tabular-nums pl-3"
           dateTime={entry.time}
         >
           {formatTime(entry.time)}
@@ -56,7 +79,7 @@ export function LogRow({ entry, selected, formatTime, onSelect }: LogRowProps) {
         <Badge
           className={cn(
             "w-12 shrink-0 justify-center uppercase",
-            LEVEL_STYLES[entry.level]
+            LEVEL_STYLES_TEXT[entry.level]
           )}
           variant="outline"
         >

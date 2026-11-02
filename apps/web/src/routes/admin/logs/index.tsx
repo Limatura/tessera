@@ -17,13 +17,13 @@ import { LogToolbar } from "./-components/log-toolbar";
 /** The filters live in the URL, so a view of the log can be sent to someone. */
 const logsSearchSchema = z.object({
   // oxlint-disable-next-line promise/prefer-await-to-then -- zod's catch, not a Promise's
-  level: z.enum(LOG_LEVELS).optional().catch(),
+  level: z.enum(LOG_LEVELS).optional().catch("info"),
   // oxlint-disable-next-line promise/prefer-await-to-then -- zod's catch, not a Promise's
-  q: z.string().optional().catch(),
+  q: z.string().optional().catch(""),
   // oxlint-disable-next-line promise/prefer-await-to-then -- zod's catch, not a Promise's
-  since: z.iso.datetime().optional().catch(),
+  since: z.iso.datetime().optional().catch(""),
   // oxlint-disable-next-line promise/prefer-await-to-then -- zod's catch, not a Promise's
-  until: z.iso.datetime().optional().catch(),
+  until: z.iso.datetime().optional().catch(""),
 });
 
 export const Route = createFileRoute("/admin/logs/")({
@@ -67,9 +67,9 @@ function LogsComponent() {
   // The admin frame is `h-svh` and its main area scrolls, so this page must fit
   // inside it exactly or the toolbar scrolls away with the overflow. Below `md`
   // the content has `py-4` (2rem in all); from `md` up, `py-6` (3rem) plus the
-  // inset's `m-2` (1rem) and the title bar's `--header-height`.
+  // inset's `m-2` (1rem). The title bar's `--header-height` comes off both.
   return (
-    <div className="flex h-[calc(100svh-var(--header-height)-2rem)] min-h-96 flex-col gap-3 md:h-[calc(100svh-var(--header-height)-7rem)]">
+    <div className="flex h-[calc(100svh-var(--header-height)-2rem)] min-h-96 flex-col gap-3 md:h-[calc(100svh-var(--header-height)-4rem)]">
       <LogToolbar
         feed={feed}
         filters={filters}
