@@ -26,6 +26,8 @@ import { apiErrorMessage } from "@/lib/api-error";
 import { copyText } from "@/lib/copy-text";
 import * as m from "@/paraglide/messages";
 
+import { UploaderConfigs } from "./uploader-configs";
+
 type CreatedToken = components["schemas"]["CreatedTokenResponse"];
 
 const COPIED_FEEDBACK_MS = 2000;
@@ -85,7 +87,13 @@ export function CreateApiKeyDialogBody({ onDone }: { onDone: () => void }) {
   const [created, setCreated] = useState<CreatedToken | null>(null);
 
   if (created) {
-    return <SecretStep onDone={onDone} secret={created.secret} />;
+    return (
+      <SecretStep
+        onDone={onDone}
+        permissions={created.permissions}
+        secret={created.secret}
+      />
+    );
   }
   return (
     <CreateForm
@@ -233,9 +241,11 @@ function CreateForm({
 
 function SecretStep({
   secret,
+  permissions,
   onDone,
 }: {
   secret: string;
+  permissions: readonly string[];
   onDone: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -261,6 +271,7 @@ function SecretStep({
       <code className="block break-all rounded-lg border bg-muted/40 p-3 font-mono text-sm">
         {secret}
       </code>
+      <UploaderConfigs permissions={permissions} secret={secret} />
       <ResponsiveDialogFooter>
         <Button onClick={handleCopy} type="button" variant="outline">
           {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
