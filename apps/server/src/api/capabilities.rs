@@ -187,6 +187,15 @@ pub struct Capabilities {
     /// client that draws its own screen, such as `tess ui`, to match the site.
     #[schema(value_type = Object, example = json!({"mode": "system", "theme": "default", "accent": "orange"}))]
     pub appearance: Appearance,
+
+    /// `server.public_url` without a trailing slash, or `null` when the
+    /// operator left it empty and links are built from each request's `Host`.
+    ///
+    /// For a client that writes this instance's address into something that
+    /// outlives the page, such as a ShareX config: the address the browser
+    /// happens to be on can be a proxy's internal name.
+    #[schema(example = "https://share.example.com")]
+    pub public_url: Option<String>,
 }
 
 /// Seconds in an hour, for reporting durations in the unit the API takes them
@@ -251,6 +260,9 @@ impl Capabilities {
                 theme: Some(config.appearance.theme),
                 accent: Some(config.appearance.accent),
             },
+            public_url: Some(config.server.public_url.trim().trim_end_matches('/'))
+                .filter(|url| !url.is_empty())
+                .map(str::to_owned),
         }
     }
 }

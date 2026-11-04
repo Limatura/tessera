@@ -3224,6 +3224,16 @@ export interface components {
              */
             password_reset: boolean;
             /**
+             * @description `server.public_url` without a trailing slash, or `null` when the
+             *     operator left it empty and links are built from each request's `Host`.
+             *
+             *     For a client that writes this instance's address into something that
+             *     outlives the page, such as a ShareX config: the address the browser
+             *     happens to be on can be a proxy's internal name.
+             * @example https://share.example.com
+             */
+            public_url?: string | null;
+            /**
              * @description Who may create an account. Meaningless when
              *     [`accounts`](Self::accounts) is `false`.
              */

@@ -135,6 +135,22 @@ async fn capabilities_report_what_this_instance_exposes() {
         body["storage_remaining_bytes"].is_null(),
         "an anonymous caller must not learn how full the disk is"
     );
+
+    // Unset by default, so a client falls back to the address it is on.
+    assert!(body["public_url"].is_null());
+}
+
+/// An uploader config written in the browser carries the address the operator
+/// configured, not whatever host the browser reached the page through.
+#[tokio::test]
+async fn capabilities_report_the_configured_public_url() {
+    let app = TestApp::with_config(|config| {
+        "https://share.example.com/".clone_into(&mut config.server.public_url);
+    })
+    .await;
+    let body =
+        body_json(expect_status(app.get("/api/v1/capabilities").await, StatusCode::OK).await).await;
+    assert_eq!(body["public_url"], "https://share.example.com");
 }
 
 /// How much room is left is the operator's capacity planning, not the visitor's
