@@ -745,6 +745,14 @@ expression: document
             "description": "Whether this instance can send a password reset link.\n\n`false` when no relay is configured, the default. A client that\ndrew the \"forgot password\" link regardless would send people to an\nendpoint answering 404, so this is the difference between a missing\nfeature and a broken one.",
             "type": "boolean"
           },
+          "public_url": {
+            "description": "`server.public_url` without a trailing slash, or `null` when the\noperator left it empty and links are built from each request's `Host`.\n\nFor a client that writes this instance's address into something that\noutlives the page, such as a ShareX config: the address the browser\nhappens to be on can be a proxy's internal name.",
+            "example": "https://share.example.com",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "registration": {
             "$ref": "#/components/schemas/RegistrationPolicy",
             "description": "Who may create an account. Meaningless when\n[`accounts`](Self::accounts) is `false`."
