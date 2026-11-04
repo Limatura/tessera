@@ -1,5 +1,8 @@
 import { useCapabilities } from "@/hooks/use-capabilities";
 import { uploaderOrigin } from "@/lib/uploaders/origin";
+import * as m from "@/paraglide/messages";
+
+import { ShareXDownload } from "./sharex-download";
 
 /** What every uploader config is written from. */
 export interface UploaderContext {
@@ -18,7 +21,9 @@ interface Uploader {
   render: (context: UploaderContext) => React.ReactNode;
 }
 
-const UPLOADERS: readonly Uploader[] = [];
+const UPLOADERS: readonly Uploader[] = [
+  { id: "sharex", render: (context) => <ShareXDownload {...context} /> },
+];
 
 /**
  * The configs that can be made from a freshly minted key. Shown only when the
@@ -42,10 +47,15 @@ export function UploaderConfigs({
     secret,
   };
   return (
-    <div className="flex flex-wrap gap-2">
-      {UPLOADERS.map((uploader) => (
-        <div key={uploader.id}>{uploader.render(context)}</div>
-      ))}
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {UPLOADERS.map((uploader) => (
+          <div key={uploader.id}>{uploader.render(context)}</div>
+        ))}
+      </div>
+      <p className="text-muted-foreground text-xs">
+        {m.user_api_keys_uploader_warning()}
+      </p>
     </div>
   );
 }

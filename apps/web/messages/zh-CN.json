@@ -298,6 +298,8 @@
   "user_api_keys_copy": "复制",
   "user_api_keys_copied": "已复制",
   "user_api_keys_done": "完成",
+  "user_api_keys_uploader_sharex": "ShareX 配置文件",
+  "user_api_keys_uploader_warning": "文件内含此密钥,拿到文件的人都能以你的身份上传。",
   "user_password_title": "密码",
   "user_password_description": "变更您的账户密码",
   "user_password_current": "目前密码",
