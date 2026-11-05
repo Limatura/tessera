@@ -14,6 +14,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License: AGPL-3.0" /></a>
 </p>
 
+<p align="center">
+  <a href="https://railway.com/deploy/tessera"><img src="https://railway.com/button.svg" alt="Deploy on Railway" /></a>
+</p>
+
 https://github.com/user-attachments/assets/f1c95b78-8561-4184-9616-c57e3fa3bc5a
 
 <p align="center">
