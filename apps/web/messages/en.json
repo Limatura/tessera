@@ -292,6 +292,7 @@
   "user_api_keys_expiry_90": "90 days",
   "user_api_keys_expiry_365": "1 year",
   "user_api_keys_creating": "Creating…",
+  "user_api_keys_uploader_shell": "Shell script",
   "user_api_keys_create": "Create key",
   "user_api_keys_secret_title": "Copy your key now",
   "user_api_keys_secret_warning": "This is the only time the key is shown. If you lose it, revoke it and create a new one.",

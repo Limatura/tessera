@@ -292,6 +292,7 @@
   "user_api_keys_expiry_90": "90 天",
   "user_api_keys_expiry_365": "1 年",
   "user_api_keys_creating": "创建中…",
+  "user_api_keys_uploader_shell": "Shell 脚本",
   "user_api_keys_create": "创建密钥",
   "user_api_keys_secret_title": "请现在复制密钥",
   "user_api_keys_secret_warning": "密钥只会显示这一次。丢失的话,请撤销后重新创建。",
