@@ -3,6 +3,7 @@ import { uploaderOrigin } from "@/lib/uploaders/origin";
 import * as m from "@/paraglide/messages";
 
 import { ShareXDownload } from "./sharex-download";
+import { ShellScriptDownload } from "./shell-script-download";
 
 /** What every uploader config is written from. */
 export interface UploaderContext {
@@ -22,6 +23,7 @@ interface Uploader {
 }
 
 const UPLOADERS: readonly Uploader[] = [
+  { id: "shell", render: (context) => <ShellScriptDownload {...context} /> },
   { id: "sharex", render: (context) => <ShareXDownload {...context} /> },
 ];
 

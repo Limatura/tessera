@@ -292,6 +292,7 @@
   "user_api_keys_expiry_90": "90 天",
   "user_api_keys_expiry_365": "1 年",
   "user_api_keys_creating": "建立中…",
+  "user_api_keys_uploader_shell": "Shell 腳本",
   "user_api_keys_create": "建立金鑰",
   "user_api_keys_secret_title": "請現在複製金鑰",
   "user_api_keys_secret_warning": "金鑰只會顯示這一次。弄丟的話,請撤銷後重新建立。",

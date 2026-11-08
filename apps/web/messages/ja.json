@@ -292,6 +292,7 @@
   "user_api_keys_expiry_90": "90 日",
   "user_api_keys_expiry_365": "1 年",
   "user_api_keys_creating": "作成中…",
+  "user_api_keys_uploader_shell": "シェルスクリプト",
   "user_api_keys_create": "キーを作成",
   "user_api_keys_secret_title": "今すぐキーをコピーしてください",
   "user_api_keys_secret_warning": "キーが表示されるのはこの一度だけです。紛失した場合は取り消して作り直してください。",
