@@ -2,8 +2,8 @@ import { useCapabilities } from "@/hooks/use-capabilities";
 import { uploaderOrigin } from "@/lib/uploaders/origin";
 import * as m from "@/paraglide/messages";
 
-import { ShellScriptDownload } from "./shell-script-download";
 import { ShareXDownload } from "./sharex-download";
+import { ShellScriptDownload } from "./shell-script-download";
 
 /** What every uploader config is written from. */
 export interface UploaderContext {
