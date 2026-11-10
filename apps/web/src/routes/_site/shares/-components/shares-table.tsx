@@ -82,9 +82,11 @@ export function SharesTable({
                   }
                 />
               </TableCell>
-              <TableCell className="max-w-72">
+              <TableCell>
+                {/* max-width on a table cell is not honored in auto layout, so cap the
+                    link itself: the cell then sizes to it and `truncate` can kick in. */}
                 <Link
-                  className="group flex flex-col"
+                  className="group flex max-w-72 flex-col"
                   params={{ code: share.code }}
                   title={name ?? undefined}
                   to="/s/$code"
