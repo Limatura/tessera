@@ -36,17 +36,6 @@ ignore = [
   # build input, not an attack surface. No syntect 5 release drops it; the fix
   # is upstream.
   { id = "RUSTSEC-2025-0141", reason = "unmaintained deserialiser used by syntect only to load syntax dumps embedded in our own binary; never reads request data" },
-  # The bundled SQLite (before 3.54.0) can return uninitialised memory when it
-  # opens a database next to a `-wal` file with a different page size. Exposure
-  # needs somebody to put a crafted pair of files where the process opens them.
-  # This server opens exactly one SQLite file, the one the operator names in
-  # `database.url`, and has no import or restore path that takes a database
-  # from anywhere else; whoever can write into that directory already owns the
-  # instance. The fix is `libsqlite3-sys` >= 0.39, which `sqlx-sqlite` 0.9.0
-  # (the latest) forbids with `<0.38.0`, so it cannot be taken here. Remove this
-  # as soon as an sqlx release allows 0.39, and do not add an import feature
-  # that opens a foreign database before then.
-  { id = "RUSTSEC-2026-0459", reason = "SQLite WAL page-size bug needing a crafted db+wal pair in the server's own data directory; only the operator-configured file is ever opened; fix blocked by sqlx-sqlite's <0.38 pin" },
 ]
 
 [licenses]
