@@ -1,4 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useSession } from "@tessera/auth/hooks";
 import {
   Card,
   CardContent,
@@ -11,13 +13,14 @@ import { z } from "zod";
 
 import { useAuditEvents } from "@/hooks/admin/use-audit-events";
 import type { AuditFilters } from "@/hooks/admin/use-audit-events";
+import { readSetting, settingsQueryOptions } from "@/hooks/admin/use-settings";
 import {
   AUDIT_CATEGORIES,
   AUDIT_OUTCOMES,
   CATEGORY_ACTIONS,
 } from "@/lib/admin/audit-events";
 import type { AuditEvent } from "@/lib/admin/audit-events";
-import { PERMISSIONS } from "@/lib/admin/permissions";
+import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
@@ -25,6 +28,9 @@ import { AuditDetailSheet } from "./-components/audit-detail-sheet";
 import { AuditList } from "./-components/audit-list";
 import { AuditToolbar } from "./-components/audit-toolbar";
 import type { AuditSearch } from "./-components/audit-toolbar";
+
+/** The setting that says how many days an entry is kept. */
+const AUDIT_RETENTION_KEY = "audit.retention_days";
 
 /** A value that does not parse drops that one filter, not the page. */
 function lenient<T extends z.ZodType<string>>(schema: T) {
@@ -86,7 +92,9 @@ function AuditLogComponent() {
     <Card className="ring-foreground/10">
       <CardHeader>
         <CardTitle>{m.audit_card_title()}</CardTitle>
-        <CardDescription>{m.audit_card_description()}</CardDescription>
+        <CardDescription>
+          <AuditCardDescription />
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <AuditToolbar
@@ -99,4 +107,24 @@ function AuditLogComponent() {
       <AuditDetailSheet event={selected} onClose={() => setSelected(null)} />
     </Card>
   );
+}
+
+/**
+ * The card's one-line summary. The retention period is a setting, so it is read
+ * rather than written into the copy; an account that may read the log but not
+ * the settings gets the sentence without it instead of a number it cannot know.
+ */
+function AuditCardDescription() {
+  const { data: account } = useSession();
+  const canReadSettings = hasPermission(account, PERMISSIONS.settingsRead);
+  const { data: settings } = useQuery({
+    ...settingsQueryOptions,
+    enabled: canReadSettings,
+  });
+
+  const days = readSetting(settings, AUDIT_RETENTION_KEY);
+  if (typeof days !== "number") {
+    return m.audit_card_description_plain();
+  }
+  return m.audit_card_description({ days });
 }
