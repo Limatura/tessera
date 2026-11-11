@@ -16,6 +16,7 @@ use crate::{
     db::repository::{
         access_event::AccessEventRepository,
         api_token::ApiTokenRepository,
+        audit_event::AuditEventRepository,
         invite::InviteRepository,
         oidc::OidcRepository,
         password_reset::PasswordResetRepository,
@@ -89,6 +90,8 @@ pub struct AppState {
     /// Recorded retrievals, when the operator has asked for them. Written only
     /// while `share.access_log.enabled` is on.
     pub events: AccessEventRepository,
+    /// The audit log: who did what. See [`crate::audit`].
+    pub audit: AuditEventRepository,
     /// Outstanding password reset links.
     pub resets: PasswordResetRepository,
     /// One row per day of what the instance held, for the dashboard's trend.
@@ -415,6 +418,7 @@ impl AppState {
             webhook_wake: Arc::new(tokio::sync::Notify::new()),
             settings: SettingRepository::new(db.clone(), sealer),
             events: AccessEventRepository::new(db.clone()),
+            audit: AuditEventRepository::new(db.clone()),
             uploads: UploadRepository::new(db.clone()),
             assets: Arc::new(assets),
             oidc: Arc::new(crate::auth::oidc::discovery::Discovery::default()),

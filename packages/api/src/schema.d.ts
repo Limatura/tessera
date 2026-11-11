@@ -306,6 +306,55 @@ export interface paths {
         patch: operations["rename_passkey"];
         trace?: never;
     };
+    "/api/v1/admin/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reads the audit log, newest first, a page at a time.
+         * @description # Errors
+         *
+         *     `400` for a filter that does not parse, `401` when nothing was signed in,
+         *     `403` without `audit:read` or with an API token, `404` when this instance
+         *     has no administration.
+         */
+        get: operations["list_audit_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit-events/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Downloads every matching entry as CSV, newest first.
+         * @description Streamed, so a year of entries is not held in memory. The export is itself
+         *     recorded, with the filters it was asked for.
+         *
+         *     # Errors
+         *
+         *     As for [`list`].
+         */
+        get: operations["export_audit_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/invites": {
         parameters: {
             query?: never;
@@ -2925,6 +2974,59 @@ export interface components {
             /** @description Base64url. */
             clientDataJSON: string;
         };
+        /** @description Who did it, with enough to show without another request. */
+        AuditActor: {
+            /** @description What to call them: the username. */
+            display_name: string;
+            /** @description Their address. Empty once the account has been removed and scrubbed. */
+            email: string;
+            /** @description The account's id. */
+            id: string;
+        };
+        /** @description A page of `GET /admin/audit-events`, newest first. */
+        AuditEventPage: {
+            /** @description The entries. */
+            items: components["schemas"]["AuditEventResponse"][];
+            /** @description Pass back as `cursor` for older entries. `null` when there are none. */
+            next_cursor?: string | null;
+        };
+        /** @description One entry. */
+        AuditEventResponse: {
+            /**
+             * @description What was done, such as `share.create`.
+             * @example share.create
+             */
+            action: string;
+            actor?: components["schemas"]["AuditActor"] | null;
+            /**
+             * @description `anonymous`, `user`, `api_token` or `system`.
+             * @example user
+             */
+            actor_kind: string;
+            /** @description The account's id, kept even when the account can no longer be read. */
+            actor_user_id?: string | null;
+            /** @description The token it was done with. */
+            api_token_id?: string | null;
+            /** @description Identifier, sortable by when it was written. */
+            id: string;
+            /** @description Where it came from, when there is an honest answer and it was kept. */
+            ip_address?: string | null;
+            /** @description Whatever this action recorded. */
+            metadata?: Record<string, never> | null;
+            /** @description When it happened, RFC 3339. */
+            occurred_at: string;
+            /**
+             * @description `success` or `failure`.
+             * @example success
+             */
+            outcome: string;
+            /** @description Which one. */
+            target_id?: string | null;
+            /** @description What kind of thing it was done to. */
+            target_type?: string | null;
+            /** @description What the client called itself. */
+            user_agent?: string | null;
+        };
         /** @description A sign-in answer, as `PublicKeyCredential.toJSON()` writes it. */
         AuthenticationCredential: {
             /** @description The credential id, base64url. */
@@ -3387,7 +3489,7 @@ export interface components {
          * @description What a [`Consequence`] removes.
          * @enum {string}
          */
-        ConsequenceKind: "shares" | "access_log_entries" | "login_history";
+        ConsequenceKind: "shares" | "access_log_entries" | "login_history" | "audit_entries";
         /** @description Body of `POST /admin/invites`. */
         CreateInviteRequest: {
             /**
@@ -6009,6 +6111,158 @@ export interface operations {
                 };
             };
             /** @description No passkey of yours has that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_audit_events: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Comma-separated actions. `auth.*` matches every action under `auth.`.
+                 * @example share.create,auth.*
+                 */
+                action?: string;
+                /** @description `success` or `failure`. */
+                outcome?: string;
+                /** @description Only what this account did, by id. */
+                actor?: string;
+                /**
+                 * @description Only what was done to this kind of thing: `share`, `user`, `role`,
+                 *     `invite`, `setting` or `api_token`.
+                 */
+                target_type?: string;
+                /** @description Only what was done to this one. */
+                target_id?: string;
+                /** @description Nothing before this, RFC 3339. */
+                from?: string;
+                /** @description Nothing after this, RFC 3339. */
+                to?: string;
+                /** @description `next_cursor` from the previous page. */
+                cursor?: string;
+                /** @description How many, 50 when omitted, at most 200. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEventPage"];
+                };
+            };
+            /** @description A filter does not parse */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read the audit log, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    export_audit_events: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated actions. `auth.*` matches every action under `auth.`. */
+                action?: string;
+                /** @description `success` or `failure`. */
+                outcome?: string;
+                /** @description Only what this account did, by id. */
+                actor?: string;
+                /** @description Only what was done to this kind of thing. */
+                target_type?: string;
+                /** @description Only what was done to this one. */
+                target_id?: string;
+                /** @description Nothing before this, RFC 3339. */
+                from?: string;
+                /** @description Nothing after this, RFC 3339. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every matching entry, one per line */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description A filter does not parse */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read the audit log, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
             404: {
                 headers: {
                     [name: string]: unknown;

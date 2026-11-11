@@ -22,6 +22,7 @@
 
 pub mod api;
 pub mod assets;
+pub mod audit;
 pub mod auth;
 pub mod cli;
 pub mod config;

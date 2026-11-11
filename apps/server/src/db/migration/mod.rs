@@ -76,6 +76,7 @@ mod m20261018_000001_device_authorizations;
 mod m20261019_000001_logs_permission;
 mod m20261023_000001_detected_type;
 mod m20261023_000002_webhooks;
+mod m20261111_000001_audit_events;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -142,6 +143,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261019_000001_logs_permission::Migration),
             Box::new(m20261023_000001_detected_type::Migration),
             Box::new(m20261023_000002_webhooks::Migration),
+            Box::new(m20261111_000001_audit_events::Migration),
         ]
     }
 }
@@ -248,6 +250,7 @@ mod tests {
                     m20260818_000005_owner_role::SQLITE,
                     m20260823_000002_settings_permissions::SQLITE,
                     m20261019_000001_logs_permission::SQLITE,
+                    m20261111_000001_audit_events::SQLITE,
                 ],
             ),
             (
@@ -256,6 +259,7 @@ mod tests {
                     m20260818_000005_owner_role::POSTGRES,
                     m20260823_000002_settings_permissions::POSTGRES,
                     m20261019_000001_logs_permission::POSTGRES,
+                    m20261111_000001_audit_events::POSTGRES,
                 ],
             ),
             (
@@ -264,6 +268,7 @@ mod tests {
                     m20260818_000005_owner_role::MYSQL,
                     m20260823_000002_settings_permissions::MYSQL,
                     m20261019_000001_logs_permission::MYSQL,
+                    m20261111_000001_audit_events::MYSQL,
                 ],
             ),
         ];
