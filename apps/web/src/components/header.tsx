@@ -1,4 +1,4 @@
-import { IconLanguage, IconLogin } from "@tabler/icons-react";
+import { IconGauge, IconLanguage, IconLogin } from "@tabler/icons-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useSession, useLogout } from "@tessera/auth/hooks";
 import { canAccessAdmin } from "@tessera/auth/permissions";
@@ -28,6 +28,7 @@ import { useEffect, useState } from "react";
 
 import { InstallAppButton } from "@/components/install-app-button";
 import { Logo } from "@/components/logo";
+import { useCapabilities } from "@/hooks/use-capabilities";
 import { LOCALE_LABELS, getLocale, setLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
 import { locales } from "@/paraglide/runtime.js";
@@ -37,6 +38,9 @@ export function Header() {
   const { data: session } = useSession();
   const logout = useLogout();
   const navigate = useNavigate();
+  // Hidden whenever this caller may not run one, whichever setting decides it.
+  const { data: capabilities } = useCapabilities();
+  const showSpeedTest = capabilities?.speed_test === true;
 
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -106,6 +110,16 @@ export function Header() {
             </SelectContent>
           </Select>
           <InstallAppButton />
+          {showSpeedTest && (
+            <Link
+              aria-label={m.speed_title()}
+              className={buttonVariants({ size: "icon", variant: "outline" })}
+              title={m.speed_title()}
+              to="/speed"
+            >
+              <IconGauge size={20} />
+            </Link>
+          )}
           <AnimatedThemeToggler
             className={buttonVariants({ size: "icon", variant: "outline" })}
           />

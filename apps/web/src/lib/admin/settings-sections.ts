@@ -1,7 +1,7 @@
 /**
  * Which settings page a dotted key is edited on, for the "Reset to defaults"
- * page to group what was changed. `null` for a key no page edits yet (speed
- * test, first-run admin); those are grouped as "other".
+ * page to group what was changed. `null` for a key no page edits yet
+ * (first-run admin); those are grouped as "other".
  *
  * Rules are checked in order, first match wins, so a specific key comes
  * before its prefix (`share.default_expiry_hours` is on the uploads page, the
@@ -40,6 +40,7 @@ const RULES: [match: string, url: string][] = [
   ["logs.", "/admin/settings/logs"],
   ["features.accounts", "/admin/settings/features"],
   ["features.admin", "/admin/settings/features"],
+  ["speed.", "/admin/settings/features"],
 ];
 
 export function settingsSectionOf(key: string): string | null {
