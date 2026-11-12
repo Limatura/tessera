@@ -20,19 +20,26 @@ import { useSettingsForm } from "@/hooks/admin/use-settings-form";
 import type { SettingsKeyMap } from "@/hooks/admin/use-settings-form";
 import { featureSettingsSchema } from "@/lib/admin/settings-schema";
 import type { FeatureSettingsValues } from "@/lib/admin/settings-schema";
-import { asBoolean } from "@/lib/admin/settings-values";
+import { asBoolean, asNumber } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
 import { SettingsNotice, SwitchField } from "./form-fields";
+import { NumberField } from "./number-field";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
 import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
+/** `SpeedConfig::default` in config.rs: 25 MiB per test. */
+const DEFAULT_SPEED_MAX_BYTES = 25 * 1024 * 1024;
+
 const KEYS = {
   accounts: "features.accounts",
   admin: "features.admin",
+  speedAnonymous: "speed.anonymous",
+  speedEnabled: "speed.enabled",
+  speedMaxBytes: "speed.max_bytes",
 } satisfies SettingsKeyMap<FeatureSettingsValues>;
 
 export function FeatureSettingsForm() {
@@ -49,6 +56,15 @@ function initialValues(settings: Settings): FeatureSettingsValues {
   return {
     accounts: asBoolean(readSetting(settings, KEYS.accounts), true),
     admin: asBoolean(readSetting(settings, KEYS.admin), true),
+    speedAnonymous: asBoolean(
+      readSetting(settings, KEYS.speedAnonymous),
+      false
+    ),
+    speedEnabled: asBoolean(readSetting(settings, KEYS.speedEnabled), false),
+    speedMaxBytes: asNumber(
+      readSetting(settings, KEYS.speedMaxBytes),
+      DEFAULT_SPEED_MAX_BYTES
+    ),
   };
 }
 
@@ -65,6 +81,10 @@ function FeatureSettingsFields({
 
   const admin = useWatch({ control: form.control, name: "admin" });
   const accounts = useWatch({ control: form.control, name: "accounts" });
+  const speedEnabled = useWatch({
+    control: form.control,
+    name: "speedEnabled",
+  });
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Which switches this save turns off; turning off either one locks you out of the panel.
@@ -134,6 +154,57 @@ function FeatureSettingsFields({
           />
 
           {!admin && <AdminLockoutWarning />}
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsCard
+        description={m.settings_speed_card_description()}
+        title={m.settings_speed_card_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="speedEnabled"
+            render={({ field }) => (
+              <SwitchField
+                description={m.settings_speed_form_enabled_description()}
+                field={field}
+                id="speed-enabled"
+                label={m.settings_speed_form_enabled_label()}
+              />
+            )}
+          />
+          {speedEnabled && (
+            <>
+              <Controller
+                control={form.control}
+                name="speedAnonymous"
+                render={({ field }) => (
+                  <SwitchField
+                    description={m.settings_speed_form_anonymous_description()}
+                    field={field}
+                    id="speed-anonymous"
+                    label={m.settings_speed_form_anonymous_label()}
+                  />
+                )}
+              />
+              <Controller
+                control={form.control}
+                name="speedMaxBytes"
+                render={({ field, fieldState }) => (
+                  <NumberField
+                    description={m.settings_speed_form_max_bytes_description()}
+                    field={field}
+                    fieldState={fieldState}
+                    id="speed-max-bytes"
+                    label={m.settings_speed_form_max_bytes_label()}
+                    min={1}
+                    unit="bytes"
+                  />
+                )}
+              />
+            </>
+          )}
         </FieldGroup>
       </SettingsCard>
 

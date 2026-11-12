@@ -30,8 +30,13 @@ describe("settingsSectionOf", () => {
     );
   });
 
+  it("puts the speed test on the features page", () => {
+    expect(settingsSectionOf("speed.max_bytes")).toBe(
+      "/admin/settings/features"
+    );
+  });
+
   it("has no page for keys no form edits", () => {
-    expect(settingsSectionOf("speed.enabled")).toBeNull();
     expect(settingsSectionOf("auth.admin_email")).toBeNull();
     expect(settingsSectionOf("server.trusted_proxy")).toBeNull();
   });

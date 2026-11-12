@@ -691,6 +691,12 @@ export const featureSettingsSchema = z.object({
   accounts: z.boolean(),
   // features.admin
   admin: z.boolean(),
+  // speed.anonymous
+  speedAnonymous: z.boolean(),
+  // speed.enabled
+  speedEnabled: z.boolean(),
+  // speed.max_bytes; the server refuses 0 while the test is on
+  speedMaxBytes: z.number().int().min(1),
 });
 
 export type FeatureSettingsValues = z.infer<typeof featureSettingsSchema>;
