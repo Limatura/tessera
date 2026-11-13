@@ -2,6 +2,7 @@ import {
   IconDashboard,
   IconDatabase,
   IconFileText,
+  IconHistory,
   IconKey,
   IconSettings,
   IconShieldLock,
@@ -94,6 +95,12 @@ function adminNavGroups(): AdminNavGroup[] {
           permission: PERMISSIONS.logsRead,
           title: m.nav_logs(),
           url: "/admin/logs",
+        },
+        {
+          icon: <IconHistory />,
+          permission: PERMISSIONS.auditRead,
+          title: m.nav_audit_log(),
+          url: "/admin/audit-log",
         },
         {
           icon: <IconSettings />,

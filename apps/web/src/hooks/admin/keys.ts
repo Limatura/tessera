@@ -9,6 +9,11 @@
 export const adminKeys = {
   all: ["admin"] as const,
 
+  /** Every page of the audit log; `auditEventsList` is one filtered list. */
+  auditEvents: () => ["admin", "audit-events"] as const,
+  auditEventsList: (filters: Record<string, string | undefined>) =>
+    ["admin", "audit-events", filters] as const,
+
   invites: () => ["admin", "invites"] as const,
 
   logFiles: () => ["admin", "logs", "files"] as const,

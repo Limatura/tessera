@@ -39,6 +39,7 @@
 | [device_authorizations](device_authorizations.md) | 10 | A program without a browser, such as the command line client, waiting for a person to approve it from one that has. The program holds the device code and only its digest is stored; the person types the short `user_code` on the site. Approval records who and with which permissions, and the token itself is minted when the program next asks, so the table never holds a usable secret. Deleted on redemption. | table |
 | [webhooks](webhooks.md) | 7 |  | table |
 | [webhook_deliveries](webhook_deliveries.md) | 10 |  | table |
+| [audit_events](audit_events.md) | 12 | Who did what: sign-ins, administrators' changes and what happened to shares, one row each. Not `access_events`: most of these have no share, and an administrator's action is always recorded while the access log is off by default. No foreign keys, on purpose: "who deleted that share" has to outlive the share and the account. `metadata` is JSON written as text and never holds a secret, an invite code or what was typed into a failed sign-in. Kept for `audit.retention_days`. | table |
 
 ## Relations
 
@@ -407,6 +408,20 @@ erDiagram
   INTEGER last_status
   TEXT last_error
   TEXT created_at
+}
+"audit_events" {
+  TEXT id PK
+  TEXT occurred_at
+  TEXT action
+  TEXT outcome
+  TEXT actor_kind
+  TEXT actor_user_id
+  TEXT api_token_id
+  TEXT target_type
+  TEXT target_id
+  TEXT ip_address
+  TEXT user_agent
+  TEXT metadata
 }
 ```
 

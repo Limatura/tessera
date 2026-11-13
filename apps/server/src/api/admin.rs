@@ -29,6 +29,7 @@
 
 use axum::{Json, extract::State, http::StatusCode};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tessera_core::{AccountState, InviteId, Permission, PermissionSet, RoleId, ShareId, UserId};
 use time::OffsetDateTime;
 use utoipa::{IntoParams, ToSchema};
@@ -42,6 +43,7 @@ use crate::{
         shares::{SharePageParams, page_bounds},
         tokens::format_timestamp,
     },
+    audit::{Actor, Event, Request, Target, action},
     auth::extract::CurrentUser,
     db::repository::{
         invite::Invite,
@@ -289,6 +291,7 @@ pub async fn list_users(
 pub async fn update_user(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiPath(id): ApiPath<String>,
     ApiJson(body): ApiJson<UpdateUserRequest>,
 ) -> Result<Json<AdminUserResponse>> {
@@ -363,6 +366,7 @@ pub async fn update_user(
         .find_by_id(user_id)
         .await?
         .ok_or(Error::NotFound)?;
+    record_user_changes(&state, &current, &request, &user, &updated, body.is_admin).await;
     let roles = state.roles.of_user(updated.id).await?;
     let has_password = state.users.has_password(updated.id).await?;
     let mfa_enabled = state.mfa.is_enabled(updated.id).await?;
@@ -372,6 +376,66 @@ pub async fn update_user(
         has_password,
         mfa_enabled,
     )))
+}
+
+/// Writes down what a `PATCH /admin/users/{id}` changed, by comparing the
+/// account before and after.
+///
+/// Suspending is its own action, since "who locked this person out" is the
+/// question asked of it. Rewriting the role through `is_admin` is a role change.
+/// Everything else is one `user.update` with the fields that moved.
+async fn record_user_changes(
+    state: &AppState,
+    current: &CurrentUser,
+    request: &Request,
+    before: &crate::db::repository::user::User,
+    after: &crate::db::repository::user::User,
+    is_admin: Option<bool>,
+) {
+    let actor = Actor::of(current);
+    if before.state != after.state {
+        let name = if after.state == AccountState::Active {
+            action::USER_UPDATE
+        } else {
+            action::USER_DISABLE
+        };
+        Event::success(name, actor)
+            .on(Target::User(after.id))
+            .with(json!({ "state": { "before": before.state.as_str(), "after": after.state.as_str() } }))
+            .record(state, request)
+            .await;
+    }
+    if let Some(is_admin) = is_admin {
+        Event::success(action::USER_ROLE_CHANGE, actor)
+            .on(Target::User(after.id))
+            .with(json!({
+                "before": before.role_id.map(|id| id.to_string()),
+                "after": after.role_id.map(|id| id.to_string()),
+                "is_admin": is_admin,
+            }))
+            .record(state, request)
+            .await;
+    }
+    let mut changed = serde_json::Map::new();
+    if before.quota_bytes != after.quota_bytes {
+        changed.insert(
+            "quota_bytes".to_owned(),
+            json!({ "before": before.quota_bytes, "after": after.quota_bytes }),
+        );
+    }
+    if before.max_file_bytes != after.max_file_bytes {
+        changed.insert(
+            "max_file_bytes".to_owned(),
+            json!({ "before": before.max_file_bytes, "after": after.max_file_bytes }),
+        );
+    }
+    if !changed.is_empty() {
+        Event::success(action::USER_UPDATE, actor)
+            .on(Target::User(after.id))
+            .with(serde_json::Value::Object(changed))
+            .record(state, request)
+            .await;
+    }
 }
 
 /// Removes an account.
@@ -406,6 +470,7 @@ pub async fn update_user(
 pub async fn delete_user(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode> {
     require_admin_feature(&state)?;
@@ -441,6 +506,13 @@ pub async fn delete_user(
     // in the same transaction.
 
     tracing::info!(account = %user_id, by = %current.user.id, "an account was removed");
+    // The username is kept in the entry: the account row is scrubbed, and
+    // "who was removed" should still have an answer a person can read.
+    Event::success(action::USER_DELETE, Actor::of(&current))
+        .on(Target::User(user_id))
+        .with(json!({ "username": user.username.to_string() }))
+        .record(&state, &request)
+        .await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -585,6 +657,7 @@ pub async fn list_invites(
 pub async fn create_invite(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiJson(body): ApiJson<CreateInviteRequest>,
 ) -> Result<(StatusCode, Json<CreatedInviteResponse>)> {
     require_admin_feature(&state)?;
@@ -613,6 +686,16 @@ pub async fn create_invite(
         .invites
         .issue(body.note, body.uses, now, expires_at)
         .await?;
+    // The code itself is the credential, so only what it allows is recorded.
+    Event::success(action::INVITE_CREATE, Actor::of(&current))
+        .on(Target::Invite(invite.id))
+        .with(json!({
+            "note": invite.note,
+            "uses": invite.max_uses,
+            "expires_at": invite.expires_at.map(format_timestamp),
+        }))
+        .record(&state, &request)
+        .await;
 
     Ok((
         StatusCode::CREATED,
@@ -651,6 +734,7 @@ pub async fn create_invite(
 pub async fn revoke_invite(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode> {
     require_admin_feature(&state)?;
@@ -658,6 +742,10 @@ pub async fn revoke_invite(
 
     let invite_id = InviteId::parse(&id).map_err(|_| Error::NotFound)?;
     if state.invites.delete(invite_id).await? {
+        Event::success(action::INVITE_REVOKE, Actor::of(&current))
+            .on(Target::Invite(invite_id))
+            .record(&state, &request)
+            .await;
         Ok(StatusCode::NO_CONTENT)
     } else {
         Err(Error::NotFound)
@@ -1149,6 +1237,7 @@ pub async fn list_permissions(
 pub async fn create_role(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiJson(body): ApiJson<RoleRequest>,
 ) -> Result<(StatusCode, Json<RoleResponse>)> {
     require_admin_feature(&state)?;
@@ -1174,7 +1263,32 @@ pub async fn create_role(
             OffsetDateTime::now_utc(),
         )
         .await?;
+    Event::success(action::ROLE_CREATE, Actor::of(&current))
+        .on(Target::Role(role.id))
+        .with(json!({
+            "name": role.name,
+            "permissions": permission_diff(&PermissionSet::default(), &role.permissions),
+            "quota_bytes": role.quota_bytes,
+            "max_file_bytes": role.max_file_bytes,
+        }))
+        .record(&state, &request)
+        .await;
     Ok((StatusCode::CREATED, Json(RoleResponse::build(&role, 0))))
+}
+
+/// What changed between two sets of permissions, as the audit log records it.
+fn permission_diff(before: &PermissionSet, after: &PermissionSet) -> serde_json::Value {
+    let added: Vec<&str> = after
+        .iter()
+        .filter(|permission| !before.allows(*permission))
+        .map(Permission::as_str)
+        .collect();
+    let removed: Vec<&str> = before
+        .iter()
+        .filter(|permission| !after.allows(*permission))
+        .map(Permission::as_str)
+        .collect();
+    json!({ "added": added, "removed": removed })
 }
 
 /// Replaces what a role allows.
@@ -1206,6 +1320,7 @@ pub async fn create_role(
 pub async fn update_role(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiPath(id): ApiPath<String>,
     ApiJson(body): ApiJson<RoleRequest>,
 ) -> Result<Json<RoleResponse>> {
@@ -1273,6 +1388,16 @@ pub async fn update_role(
     let Some(updated) = state.roles.find_by_id(role_id).await? else {
         return Err(Error::NotFound);
     };
+    Event::success(action::ROLE_UPDATE, Actor::of(&current))
+        .on(Target::Role(role_id))
+        .with(json!({
+            "name": { "before": existing.name, "after": updated.name },
+            "permissions": permission_diff(&existing.permissions, &updated.permissions),
+            "quota_bytes": { "before": existing.quota_bytes, "after": updated.quota_bytes },
+            "max_file_bytes": { "before": existing.max_file_bytes, "after": updated.max_file_bytes },
+        }))
+        .record(&state, &request)
+        .await;
     let members = state.roles.member_count(role_id).await?;
     Ok(Json(RoleResponse::build(&updated, members)))
 }
@@ -1306,6 +1431,7 @@ pub async fn update_role(
 pub async fn delete_role(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode> {
     require_admin_feature(&state)?;
@@ -1323,7 +1449,17 @@ pub async fn delete_role(
     }
 
     match state.roles.delete(role_id).await? {
-        RoleChange::Done => Ok(StatusCode::NO_CONTENT),
+        RoleChange::Done => {
+            Event::success(action::ROLE_DELETE, Actor::of(&current))
+                .on(Target::Role(role_id))
+                .with(json!({
+                    "name": existing.name,
+                    "permissions": permission_diff(&existing.permissions, &PermissionSet::default()),
+                }))
+                .record(&state, &request)
+                .await;
+            Ok(StatusCode::NO_CONTENT)
+        }
         RoleChange::NoSuchRole => Err(Error::NotFound),
         RoleChange::Seeded => Err(Error::new(ErrorCode::BuiltinRoleImmutable)
             .with_message("the roles this instance was seeded with cannot be removed".to_owned())),
@@ -1357,6 +1493,7 @@ pub async fn delete_role(
 pub async fn set_user_roles(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiPath(id): ApiPath<String>,
     ApiJson(body): ApiJson<UserRolesRequest>,
 ) -> Result<Json<AdminUserResponse>> {
@@ -1407,6 +1544,15 @@ pub async fn set_user_roles(
     {
         return Err(Error::NotFound);
     }
+    Event::success(action::USER_ROLE_CHANGE, Actor::of(&current))
+        .on(Target::User(user_id))
+        .with(json!({
+            "before": user.role_id.map(|id| id.to_string()),
+            "after": wanted.map(|id| id.to_string()),
+            "permissions": permission_diff(&held, &resulting),
+        }))
+        .record(&state, &request)
+        .await;
     let roles = state.roles.of_user(user_id).await?;
     let has_password = state.users.has_password(user_id).await?;
     let mfa_enabled = state.mfa.is_enabled(user_id).await?;
@@ -1825,22 +1971,13 @@ pub async fn share_access_log(
 pub async fn delete_share(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode> {
     require_admin_feature(&state)?;
     admitted(&current, Permission::SharesDeleteAny)?;
 
-    let share_id = ShareId::parse(&id).map_err(|_| Error::NotFound)?;
-    let Some(_) = state.shares.find_by_id(share_id).await? else {
-        return Err(Error::NotFound);
-    };
-
-    // Objects first, and every object, since a share can hold several. A row
-    // without its object is a broken share; an object without its row is an
-    // orphan a sweep can still find by listing.
-    crate::api::shares::remove_objects(&state, share_id).await?;
-    state.shares.delete(share_id).await?;
-    tracing::info!(share = %share_id, by = %current.user.id, "an administrator removed a share");
+    delete_any(&state, &current, &request, &id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1900,6 +2037,7 @@ pub struct DeleteAnyShareFailure {
 pub async fn delete_shares(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiJson(body): ApiJson<DeleteAnySharesRequest>,
 ) -> Result<Json<DeleteAnySharesResponse>> {
     require_admin_feature(&state)?;
@@ -1909,7 +2047,7 @@ pub async fn delete_shares(
     let mut deleted = Vec::new();
     let mut failed = Vec::new();
     for id in ids {
-        match delete_any(&state, &current, &id).await {
+        match delete_any(&state, &current, &request, &id).await {
             Ok(()) => deleted.push(id),
             Err(error) => {
                 if error.code() != ErrorCode::NotFound {
@@ -1925,15 +2063,32 @@ pub async fn delete_shares(
     Ok(Json(DeleteAnySharesResponse { deleted, failed }))
 }
 
-/// One share of an administrative batch.
-async fn delete_any(state: &AppState, current: &CurrentUser, id: &str) -> Result<()> {
+/// Removes one share, whoever uploaded it, and records that.
+async fn delete_any(
+    state: &AppState,
+    current: &CurrentUser,
+    request: &Request,
+    id: &str,
+) -> Result<()> {
     let share_id = ShareId::parse(id).map_err(|_| Error::NotFound)?;
-    if state.shares.find_by_id(share_id).await?.is_none() {
+    let Some(share) = state.shares.find_by_id(share_id).await? else {
         return Err(Error::NotFound);
-    }
+    };
+    // Objects first, and every object, since a share can hold several. A row
+    // without its object is a broken share; an object without its row is an
+    // orphan a sweep can still find by listing.
     crate::api::shares::remove_objects(state, share_id).await?;
     state.shares.delete(share_id).await?;
     tracing::info!(share = %share_id, by = %current.user.id, "an administrator removed a share");
+    Event::success(action::SHARE_ADMIN_DELETE, Actor::of(current))
+        .on(Target::Share(share_id))
+        .with(json!({
+            "kind": share.kind.as_str(),
+            "title": share.title,
+            "owner_id": share.user_id.map(|id| id.to_string()),
+        }))
+        .record(state, request)
+        .await;
     Ok(())
 }
 
@@ -1980,6 +2135,7 @@ pub struct RemovedSharesResponse {
 pub async fn remove_user_shares(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiPath(id): ApiPath<String>,
 ) -> Result<Json<RemovedSharesResponse>> {
     require_admin_feature(&state)?;
@@ -1995,6 +2151,13 @@ pub async fn remove_user_shares(
         .expire_all_for_user(user_id, OffsetDateTime::now_utc())
         .await?;
     tracing::info!(account = %user_id, by = %current.user.id, removed, "an administrator ended an account's shares");
+    // One entry for the lot, on the account: the shares are ended, not
+    // removed, and the sweep records each as it goes.
+    Event::success(action::SHARE_ADMIN_DELETE, Actor::of(&current))
+        .on(Target::User(user_id))
+        .with(json!({ "all_shares_of_user": true, "removed": removed }))
+        .record(&state, &request)
+        .await;
     Ok(Json(RemovedSharesResponse { removed }))
 }
 
@@ -2029,6 +2192,7 @@ pub async fn remove_user_shares(
 pub async fn reset_user_mfa(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode> {
     require_admin_feature(&state)?;
@@ -2041,6 +2205,11 @@ pub async fn reset_user_mfa(
 
     if state.mfa.remove(user_id).await? {
         tracing::info!(account = %user_id, by = %current.user.id, "an administrator turned off an account's two-step sign-in");
+        Event::success(action::USER_UPDATE, Actor::of(&current))
+            .on(Target::User(user_id))
+            .with(json!({ "mfa": { "before": true, "after": false } }))
+            .record(&state, &request)
+            .await;
     }
     Ok(StatusCode::NO_CONTENT)
 }

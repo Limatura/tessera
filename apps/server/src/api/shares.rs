@@ -46,6 +46,7 @@ use crate::{
         extract::{ApiJson, ApiPath, ApiQuery},
         gate, patched, sealed,
     },
+    audit::{Actor, Event, Request, Target, action},
     auth::{
         extract::{ClientAddress, CurrentUser, MaybeUser},
         password,
@@ -364,11 +365,12 @@ fn format_timestamp(value: OffsetDateTime) -> String {
 pub async fn create(
     State(state): State<AppState>,
     MaybeUser(current): MaybeUser,
+    request: Request,
     ApiQuery(params): ApiQuery<CreateShareParams>,
     headers: HeaderMap,
     body: Body,
 ) -> Result<Response> {
-    let response = create_share(&state, current, params, &headers, body).await?;
+    let response = create_share(&state, current, &request, params, &headers, body).await?;
     Ok((StatusCode::CREATED, Json(response)).into_response())
 }
 
@@ -381,6 +383,7 @@ pub async fn create(
 pub(crate) async fn create_share(
     state: &AppState,
     current: Option<CurrentUser>,
+    request: &Request,
     mut params: CreateShareParams,
     headers: &HeaderMap,
     body: Body,
@@ -499,7 +502,8 @@ pub(crate) async fn create_share(
         ),
         ShareKind::Text | ShareKind::Link => written(kind, language, ingested.inline, scan)?,
     };
-    let share = insert_with_fresh_code(state, share, &content).await?;
+    let actor = Actor::maybe(current.as_ref());
+    let share = insert_with_fresh_code(state, share, &content, actor, request).await?;
     let content = state.shares.content_of(&share).await?;
     Ok(ShareResponse::from_share(
         &share,
@@ -835,6 +839,7 @@ pub async fn list(
 pub async fn delete(
     State(state): State<AppState>,
     MaybeUser(current): MaybeUser,
+    request: Request,
     ApiPath(code): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<StatusCode> {
@@ -863,6 +868,18 @@ pub async fn delete(
     // orphan the sweep can still find by listing.
     remove_objects(&state, share.id).await?;
     state.shares.delete(share.id).await?;
+    // The account when it was the owner's; anonymous when it was the
+    // management token, which identifies a share, not a person.
+    let actor = if owns {
+        Actor::maybe(current.as_ref())
+    } else {
+        Actor::anonymous()
+    };
+    Event::success(action::SHARE_DELETE, actor)
+        .on(Target::Share(share.id))
+        .with(serde_json::json!({ "reason": "owner" }))
+        .record(&state, &request)
+        .await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1110,6 +1127,7 @@ pub struct DeleteShareFailure {
 pub async fn delete_many(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiJson(body): ApiJson<DeleteSharesRequest>,
 ) -> Result<Json<DeleteSharesResponse>> {
     current.require(Permission::SharesDelete)?;
@@ -1118,7 +1136,7 @@ pub async fn delete_many(
     let mut deleted = Vec::new();
     let mut failed = Vec::new();
     for code in codes {
-        match delete_own(&state, &current, &code).await {
+        match delete_own(&state, &current, &request, &code).await {
             Ok(()) => deleted.push(code),
             Err(error) => {
                 if error.code() != ErrorCode::NotFound {
@@ -1135,7 +1153,12 @@ pub async fn delete_many(
 }
 
 /// One share of a batch: the caller's, or `not_found`.
-async fn delete_own(state: &AppState, current: &CurrentUser, code: &str) -> Result<()> {
+async fn delete_own(
+    state: &AppState,
+    current: &CurrentUser,
+    request: &Request,
+    code: &str,
+) -> Result<()> {
     let code = RetrievalCode::parse(code).map_err(|_| Error::NotFound)?;
     let share = state
         .shares
@@ -1149,6 +1172,11 @@ async fn delete_own(state: &AppState, current: &CurrentUser, code: &str) -> Resu
     }
     remove_objects(state, share.id).await?;
     state.shares.delete(share.id).await?;
+    Event::success(action::SHARE_DELETE, Actor::of(current))
+        .on(Target::Share(share.id))
+        .with(serde_json::json!({ "reason": "owner" }))
+        .record(state, request)
+        .await;
     Ok(())
 }
 
@@ -2503,7 +2531,10 @@ pub(crate) async fn create_from_file(
         updated_at: now,
     };
     let content = NewContent::File(file);
-    let share = insert_with_fresh_code(state, share, &content).await?;
+    // A resumable upload is finished by whichever request sent its last part,
+    // so there is no one request to place it by; the owner is still known.
+    let actor = user_id.map_or_else(Actor::anonymous, Actor::user);
+    let share = insert_with_fresh_code(state, share, &content, actor, &Request::none()).await?;
     let stored = state.shares.content_of(&share).await?;
     Ok(ShareResponse::from_share(
         &share,
@@ -2539,6 +2570,8 @@ async fn insert_with_fresh_code(
     state: &AppState,
     mut share: Share,
     content: &NewContent,
+    actor: Actor,
+    request: &Request,
 ) -> Result<Share> {
     for _ in 0..CODE_ATTEMPTS {
         share.code = generate_code(state.config().share.code_length)?;
@@ -2546,6 +2579,20 @@ async fn insert_with_fresh_code(
             Ok(()) => {
                 // What was just stored may be waiting on the scanner.
                 state.scan_wake.notify_one();
+                let size_bytes = match content {
+                    NewContent::File(file) => file.size_bytes,
+                    NewContent::Text { body, .. } => u64::try_from(body.len()).unwrap_or(u64::MAX),
+                };
+                Event::success(action::SHARE_CREATE, actor)
+                    .on(Target::Share(share.id))
+                    .with(serde_json::json!({
+                        "kind": share.kind.as_str(),
+                        "size_bytes": size_bytes,
+                        "expires_at": share.expires_at.map(format_timestamp),
+                        "max_retrievals": share.use_limit,
+                    }))
+                    .record(state, request)
+                    .await;
                 crate::webhook::announce(
                     state,
                     crate::db::repository::webhook::Event::Created,

@@ -17,6 +17,7 @@ use crate::{
         TOKENS_TAG,
         extract::{ApiJson, ApiPath},
     },
+    audit::{Actor, Event, Request, Target, action},
     auth::extract::CurrentUser,
     db::repository::api_token::ApiToken,
     error::{Error, ErrorCode, Result},
@@ -221,6 +222,7 @@ fn requested_permissions(current: &CurrentUser, asked: Option<&[String]>) -> Res
 pub async fn create(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiJson(body): ApiJson<CreateTokenRequest>,
 ) -> Result<Response> {
     // A token may not mint another. Otherwise one leaked token is permanent
@@ -282,6 +284,16 @@ pub async fn create(
             expires_at,
         )
         .await?;
+    // The permissions it carries, never the secret.
+    Event::success(action::API_TOKEN_CREATE, Actor::of(&current))
+        .on(Target::ApiToken(token.id))
+        .with(serde_json::json!({
+            "name": token.name,
+            "permissions": token.permissions.iter().map(Permission::as_str).collect::<Vec<_>>(),
+            "expires_at": token.expires_at.map(format_timestamp),
+        }))
+        .record(&state, &request)
+        .await;
 
     Ok((
         StatusCode::CREATED,
@@ -315,6 +327,7 @@ pub async fn create(
 pub async fn revoke(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode> {
     // Same reasoning as creation: a leaked token must not be able to revoke the
@@ -334,6 +347,10 @@ pub async fn revoke(
         .await?;
 
     if revoked {
+        Event::success(action::API_TOKEN_REVOKE, Actor::of(&current))
+            .on(Target::ApiToken(token_id))
+            .record(&state, &request)
+            .await;
         Ok(StatusCode::NO_CONTENT)
     } else {
         Err(Error::NotFound)

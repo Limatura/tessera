@@ -40,27 +40,30 @@ use crate::{
 pub async fn upload_unnamed(
     State(state): State<AppState>,
     MaybeUser(current): MaybeUser,
+    request: crate::audit::Request,
     headers: HeaderMap,
     body: Body,
 ) -> Response {
-    upload(&state, current, None, &headers, body).await
+    upload(&state, current, &request, None, &headers, body).await
 }
 
 /// `PUT /{name}`: a file under that name, or a note for `-`.
 pub async fn upload_named(
     State(state): State<AppState>,
     MaybeUser(current): MaybeUser,
+    request: crate::audit::Request,
     Path(name): Path<String>,
     headers: HeaderMap,
     body: Body,
 ) -> Response {
     let name = Some(name).filter(|name| name != "-");
-    upload(&state, current, name, &headers, body).await
+    upload(&state, current, &request, name, &headers, body).await
 }
 
 async fn upload(
     state: &AppState,
     current: Option<crate::auth::extract::CurrentUser>,
+    request: &crate::audit::Request,
     name: Option<String>,
     headers: &HeaderMap,
     body: Body,
@@ -68,7 +71,7 @@ async fn upload(
     let json = wants_json(headers);
     let made = async {
         let params = params(name, headers)?;
-        create_share(state, current, params, headers, body).await
+        create_share(state, current, request, params, headers, body).await
     }
     .await;
     match made {

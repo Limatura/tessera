@@ -713,7 +713,28 @@ export type OgCardSettingsValues = z.infer<typeof ogCardSettingsSchema>;
 /** Upper bound of `logs.retention_days`, `LogsConfig::MAX_RETENTION_DAYS` on the server. */
 export const LOG_RETENTION_MAX_DAYS = 90;
 
+/** Upper bound of `audit.retention_days`, `AuditConfig::MAX_RETENTION_DAYS` on the server. */
+export const AUDIT_RETENTION_MAX_DAYS = 3650;
+
 export const logsSettingsSchema = z.object({
+  // audit.retention_days: how long the audit log keeps an entry
+  auditRetentionDays: z
+    .number()
+    .int()
+    .min(1, {
+      error: () =>
+        m.settings_schema_audit_retention_range({
+          max: AUDIT_RETENTION_MAX_DAYS,
+        }),
+    })
+    .max(AUDIT_RETENTION_MAX_DAYS, {
+      error: () =>
+        m.settings_schema_audit_retention_range({
+          max: AUDIT_RETENTION_MAX_DAYS,
+        }),
+    }),
+  // audit.record_share_events: sign-ins and admin changes are always recorded
+  auditRecordShareEvents: z.boolean(),
   // logs.min_level: the least severe line written to the files
   minLevel: z.enum(LOG_LEVELS),
   // logs.retention_days

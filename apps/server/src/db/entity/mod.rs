@@ -12,6 +12,7 @@
 pub mod access_event;
 pub mod api_token;
 pub mod api_token_permission;
+pub mod audit_event;
 pub mod auth_flow;
 pub mod credential;
 pub mod device_authorization;

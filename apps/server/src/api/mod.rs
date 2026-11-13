@@ -33,6 +33,7 @@
 
 pub mod admin;
 pub mod archive;
+pub mod audit;
 pub mod auth;
 pub mod backends;
 pub mod capabilities;
@@ -424,6 +425,13 @@ fn log_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(logs::stream))
 }
 
+/// The audit log. A separate group so [`admin_routes`] stays one page.
+fn audit_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(audit::list))
+        .routes(routes!(audit::export))
+}
+
 /// Everything under `/admin`.
 ///
 /// Its own function because it is its own surface: an operator can switch it
@@ -448,6 +456,7 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .merge(backend_routes())
         .merge(settings_routes())
         .merge(log_routes())
+        .merge(audit_routes())
         .routes(routes!(admin::remove_user_shares))
         .routes(routes!(admin::reset_user_mfa))
         .routes(routes!(webhooks::admin_list, webhooks::admin_create))

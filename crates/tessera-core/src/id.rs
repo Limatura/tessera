@@ -194,6 +194,13 @@ declare_id!(
 );
 
 declare_id!(
+    /// Identifies one entry in the audit log: something a person, a token or
+    /// the instance itself did.
+    AuditEventId,
+    "audit_event_id"
+);
+
+declare_id!(
     /// Identifies a webhook: a URL told when something happens to a share.
     WebhookId,
     "webhook_id"

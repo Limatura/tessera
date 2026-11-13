@@ -426,6 +426,148 @@
         ],
         "type": "object"
       },
+      "AuditActor": {
+        "description": "Who did it, with enough to show without another request.",
+        "properties": {
+          "display_name": {
+            "description": "What to call them: the username.",
+            "type": "string"
+          },
+          "email": {
+            "description": "Their address. Empty once the account has been removed and scrubbed.",
+            "type": "string"
+          },
+          "id": {
+            "description": "The account's id.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "email"
+        ],
+        "type": "object"
+      },
+      "AuditEventPage": {
+        "description": "A page of `GET /admin/audit-events`, newest first.",
+        "properties": {
+          "items": {
+            "description": "The entries.",
+            "items": {
+              "$ref": "#/components/schemas/AuditEventResponse"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "description": "Pass back as `cursor` for older entries. `null` when there are none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "AuditEventResponse": {
+        "description": "One entry.",
+        "properties": {
+          "action": {
+            "description": "What was done, such as `share.create`.",
+            "example": "share.create",
+            "type": "string"
+          },
+          "actor": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AuditActor",
+                "description": "The account that did it, when one did and it can still be read."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actor_kind": {
+            "description": "`anonymous`, `user`, `api_token` or `system`.",
+            "example": "user",
+            "type": "string"
+          },
+          "actor_user_id": {
+            "description": "The account's id, kept even when the account can no longer be read.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "api_token_id": {
+            "description": "The token it was done with.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Identifier, sortable by when it was written.",
+            "type": "string"
+          },
+          "ip_address": {
+            "description": "Where it came from, when there is an honest answer and it was kept.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "description": "Whatever this action recorded.",
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "occurred_at": {
+            "description": "When it happened, RFC 3339.",
+            "type": "string"
+          },
+          "outcome": {
+            "description": "`success` or `failure`.",
+            "example": "success",
+            "type": "string"
+          },
+          "target_id": {
+            "description": "Which one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target_type": {
+            "description": "What kind of thing it was done to.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "user_agent": {
+            "description": "What the client called itself.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "occurred_at",
+          "action",
+          "outcome",
+          "actor_kind"
+        ],
+        "type": "object"
+      },
       "AuthenticationCredential": {
         "description": "A sign-in answer, as `PublicKeyCredential.toJSON()` writes it.",
         "properties": {
@@ -943,7 +1085,8 @@
         "enum": [
           "shares",
           "access_log_entries",
-          "login_history"
+          "login_history",
+          "audit_entries"
         ],
         "type": "string"
       },
@@ -4783,6 +4926,291 @@
         "summary": "Renames one of the caller's passkeys.",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/admin/audit-events": {
+      "get": {
+        "description": "# Errors\n\n`400` for a filter that does not parse, `401` when nothing was signed in,\n`403` without `audit:read` or with an API token, `404` when this instance\nhas no administration.",
+        "operationId": "list_audit_events",
+        "parameters": [
+          {
+            "description": "Comma-separated actions. `auth.*` matches every action under `auth.`.",
+            "example": "share.create,auth.*",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`success` or `failure`.",
+            "in": "query",
+            "name": "outcome",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only what this account did, by id.",
+            "in": "query",
+            "name": "actor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only what was done to this kind of thing: `share`, `user`, `role`,\n`invite`, `setting` or `api_token`.",
+            "in": "query",
+            "name": "target_type",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only what was done to this one.",
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Nothing before this, RFC 3339.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Nothing after this, RFC 3339.",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`next_cursor` from the previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many, 50 when omitted, at most 200.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEventPage"
+                }
+              }
+            },
+            "description": "A page of entries"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A filter does not parse"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read the audit log, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Reads the audit log, newest first, a page at a time.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/audit-events/export": {
+      "get": {
+        "description": "Streamed, so a year of entries is not held in memory. The export is itself\nrecorded, with the filters it was asked for.\n\n# Errors\n\nAs for [`list`].",
+        "operationId": "export_audit_events",
+        "parameters": [
+          {
+            "description": "Comma-separated actions. `auth.*` matches every action under `auth.`.",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`success` or `failure`.",
+            "in": "query",
+            "name": "outcome",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only what this account did, by id.",
+            "in": "query",
+            "name": "actor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only what was done to this kind of thing.",
+            "in": "query",
+            "name": "target_type",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only what was done to this one.",
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Nothing before this, RFC 3339.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Nothing after this, RFC 3339.",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Every matching entry, one per line"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A filter does not parse"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read the audit log, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Downloads every matching entry as CSV, newest first.",
+        "tags": [
+          "admin"
         ]
       }
     },
