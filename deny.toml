@@ -36,6 +36,14 @@ ignore = [
   # build input, not an attack surface. No syntect 5 release drops it; the fix
   # is upstream.
   { id = "RUSTSEC-2025-0141", reason = "unmaintained deserialiser used by syntect only to load syntax dumps embedded in our own binary; never reads request data" },
+  # `chrono` was declared unmaintained with no successor release. We do not
+  # depend on it ourselves; it arrives through sea-orm, sea-query, sqlx and
+  # object_store, which use it for timestamp types. No advisory names a flaw in
+  # it. The fix is those crates moving to `jiff` or `time`; revisit when they do.
+  { id = "RUSTSEC-2026-0543", reason = "unmaintained, no known vulnerability; pulled in by sea-orm, sqlx and object_store for timestamp types, no upgrade path on our side" },
+  # `humantime` is flagged only because it wraps chrono (above). It reaches us
+  # through object_store, which uses it to parse durations in its own config.
+  { id = "RUSTSEC-2026-0542", reason = "unmaintained only as a wrapper of chrono; used by object_store to parse configuration durations, no upgrade path on our side" },
   # The bundled SQLite (before 3.54.0) can return uninitialised memory when it
   # opens a database next to a `-wal` file with a different page size. Exposure
   # needs somebody to put a crafted pair of files where the process opens them.
