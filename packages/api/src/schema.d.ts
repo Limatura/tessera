@@ -2336,8 +2336,8 @@ export interface paths {
          * Reads a body and discards it.
          * @description # Errors
          *
-         *     As [`download`], and `413` when the body runs past what is left of
-         *     `speed.max_bytes` for this test.
+         *     As [`download`] (`400` for a malformed query), and `413` when the body runs
+         *     past what is left of `speed.max_bytes` for this test.
          */
         post: operations["speed_upload"];
         delete?: never;
@@ -10570,6 +10570,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpeedUploadResponse"];
+                };
+            };
+            /** @description A query this endpoint does not take */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
             /** @description Not offered here */

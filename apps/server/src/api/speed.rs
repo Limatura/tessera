@@ -230,8 +230,8 @@ pub async fn download(
 ///
 /// # Errors
 ///
-/// As [`download`], and `413` when the body runs past what is left of
-/// `speed.max_bytes` for this test.
+/// As [`download`] (`400` for a malformed query), and `413` when the body runs
+/// past what is left of `speed.max_bytes` for this test.
 #[utoipa::path(
     post,
     path = "/speed/upload",
@@ -241,6 +241,7 @@ pub async fn download(
     request_body(content = Vec<u8>, description = "Anything; it is counted and dropped", content_type = "application/octet-stream"),
     responses(
         (status = 200, description = "How much arrived", body = SpeedUploadResponse),
+        (status = 400, description = "A query this endpoint does not take", body = crate::error::ErrorBody),
         (status = 404, description = "Not offered here", body = crate::error::ErrorBody),
         (status = 413, description = "More than this instance allows", body = crate::error::ErrorBody),
         (status = 429, description = "Too many tests from this source", body = crate::error::ErrorBody),

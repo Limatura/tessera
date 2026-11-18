@@ -10949,7 +10949,7 @@ expression: document
     },
     "/api/v1/speed/upload": {
       "post": {
-        "description": "# Errors\n\nAs [`download`], and `413` when the body runs past what is left of\n`speed.max_bytes` for this test.",
+        "description": "# Errors\n\nAs [`download`] (`400` for a malformed query), and `413` when the body runs\npast what is left of `speed.max_bytes` for this test.",
         "operationId": "speed_upload",
         "parameters": [
           {
@@ -10988,6 +10988,16 @@ expression: document
               }
             },
             "description": "How much arrived"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A query this endpoint does not take"
           },
           "404": {
             "content": {
