@@ -38,8 +38,8 @@ const HOUR = 60 * MINUTE;
 
 /**
  * Defaults for each counter, matching the constants in `crate::auth::throttle`:
- * MAX_ATTEMPTS / WINDOW, SOURCE_*, LOOKUP_MAX_ATTEMPTS, RESET_*, SPEED_MAX_TESTS,
- * PWNED_MAX_LOOKUPS.
+ * MAX_ATTEMPTS / WINDOW, SOURCE_*, LOOKUP_MAX_ATTEMPTS, RESET_*,
+ * PWNED_MAX_LOOKUPS. The speed test's counter is edited with the speed test.
  */
 const COUNTER_DEFAULTS: Record<
   ThrottleCounter,
@@ -52,7 +52,6 @@ const COUNTER_DEFAULTS: Record<
   reset: { maxAttempts: 3, windowSecs: HOUR },
   share: { maxAttempts: 10, windowSecs: 15 * MINUTE },
   source: { maxAttempts: 120, windowSecs: MINUTE },
-  speed: { maxAttempts: 5, windowSecs: HOUR },
   verification: { maxAttempts: 3, windowSecs: HOUR },
 };
 
@@ -84,7 +83,7 @@ function counterGroups(): {
       title: m.settings_throttle_group_mail_title(),
     },
     {
-      counters: ["speed", "pwned"],
+      counters: ["pwned"],
       description: m.settings_throttle_group_other_description(),
       title: m.settings_throttle_group_other_title(),
     },
@@ -124,10 +123,6 @@ function counterCopy(): Record<
       description: m.settings_throttle_form_source_protects(),
       title: m.settings_throttle_form_source_title(),
     },
-    speed: {
-      description: m.settings_throttle_form_speed_protects(),
-      title: m.settings_throttle_form_speed_title(),
-    },
     verification: {
       description: m.settings_throttle_form_verification_protects(),
       title: m.settings_throttle_form_verification_title(),
@@ -151,8 +146,6 @@ const KEYS = {
   shareWindowSecs: "auth.throttle.share.window_secs",
   sourceMaxAttempts: "auth.throttle.source.max_attempts",
   sourceWindowSecs: "auth.throttle.source.window_secs",
-  speedMaxAttempts: "auth.throttle.speed.max_attempts",
-  speedWindowSecs: "auth.throttle.speed.window_secs",
   verificationMaxAttempts: "auth.throttle.verification.max_attempts",
   verificationWindowSecs: "auth.throttle.verification.window_secs",
 } satisfies SettingsKeyMap<ThrottleSettingsValues>;

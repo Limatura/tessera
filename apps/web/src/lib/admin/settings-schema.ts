@@ -457,7 +457,7 @@ export type NetworkSettingsValues = z.infer<typeof networkSettingsSchema>;
 // Rate limits: auth.throttle.*
 
 /**
- * Nine counters protecting different things, each `{max_attempts, window_secs}`.
+ * Eight counters protecting different things, each `{max_attempts, window_secs}`.
  * Neither value may be 0: zero attempts locks everyone out (for `source`, the
  * whole machine), and a zero-second window never blocks anything. The order is
  * the display order: `source`, with the widest effect, first, the rest grouped
@@ -471,7 +471,6 @@ export const THROTTLE_COUNTERS = [
   "reset",
   "registration",
   "verification",
-  "speed",
   "pwned",
 ] as const;
 
@@ -522,8 +521,6 @@ export const throttleSettingsSchema = z.object({
   shareWindowSecs: throttleWindow(),
   sourceMaxAttempts: throttleAttempts(),
   sourceWindowSecs: throttleWindow(),
-  speedMaxAttempts: throttleAttempts(),
-  speedWindowSecs: throttleWindow(),
   verificationMaxAttempts: throttleAttempts(),
   verificationWindowSecs: throttleWindow(),
 });
@@ -691,6 +688,16 @@ export const featureSettingsSchema = z.object({
   accounts: z.boolean(),
   // features.admin
   admin: z.boolean(),
+  // speed.anonymous
+  speedAnonymous: z.boolean(),
+  // speed.enabled
+  speedEnabled: z.boolean(),
+  // auth.throttle.speed.max_attempts: tests one source may run per window
+  speedMaxAttempts: throttleAttempts(),
+  // speed.max_bytes; the server refuses 0 while the test is on
+  speedMaxBytes: z.number().int().min(1),
+  // auth.throttle.speed.window_secs: how long before a spent test comes back
+  speedWindowSecs: throttleWindow(),
 });
 
 export type FeatureSettingsValues = z.infer<typeof featureSettingsSchema>;

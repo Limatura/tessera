@@ -46,9 +46,16 @@ async fn download(app: &TestApp, query: &str, auth: Auth<'_>) -> axum::response:
 }
 
 async fn upload(app: &TestApp, bytes: usize, auth: Auth<'_>) -> axum::response::Response {
-    let builder = Request::builder()
-        .method(Method::POST)
-        .uri("/api/v1/speed/upload");
+    upload_to(app, "/api/v1/speed/upload", bytes, auth).await
+}
+
+async fn upload_to(
+    app: &TestApp,
+    uri: &str,
+    bytes: usize,
+    auth: Auth<'_>,
+) -> axum::response::Response {
+    let builder = Request::builder().method(Method::POST).uri(uri);
     let builder = match auth {
         Auth::Cookie(cookie) => builder.header(axum::http::header::COOKIE, cookie),
         Auth::Bearer(token) => {
@@ -193,6 +200,69 @@ async fn one_source_gets_so_many_tests_an_hour() {
     // Both directions draw on the same allowance.
     expect_status(
         upload(&app, 10, Auth::None).await,
+        StatusCode::TOO_MANY_REQUESTS,
+    )
+    .await;
+}
+
+/// One test allowed, so any second spend shows as `429`.
+async fn one_test() -> TestApp {
+    TestApp::with_config(|config| {
+        config.speed.enabled = true;
+        config.speed.anonymous = true;
+        config.speed.max_bytes = 1024;
+        config.auth.throttle.speed.max_attempts = 1;
+    })
+    .await
+}
+
+#[tokio::test]
+async fn the_parts_of_one_upload_test_count_as_one() {
+    let app = one_test().await;
+
+    let first =
+        body_json(expect_status(upload(&app, 400, Auth::None).await, StatusCode::OK).await).await;
+    assert_eq!(first["remaining_bytes"], 624);
+    let run = first["run"].as_str().expect("a run").to_owned();
+    let next = format!("/api/v1/speed/upload?run={run}");
+
+    let second = body_json(
+        expect_status(
+            upload_to(&app, &next, 400, Auth::None).await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(second["received_bytes"], 400);
+    assert_eq!(second["remaining_bytes"], 224);
+
+    // The parts share one allowance: more than is left is refused.
+    expect_status(
+        upload_to(&app, &next, 300, Auth::None).await,
+        StatusCode::PAYLOAD_TOO_LARGE,
+    )
+    .await;
+    // And they spent one test between them, the only one there was.
+    expect_status(
+        download(&app, "?bytes=10", Auth::None).await,
+        StatusCode::TOO_MANY_REQUESTS,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn a_run_nobody_opened_starts_a_test_of_its_own() {
+    let app = one_test().await;
+    let made_up = "/api/v1/speed/upload?run=0123456789abcdef";
+
+    expect_status(
+        upload_to(&app, made_up, 10, Auth::None).await,
+        StatusCode::OK,
+    )
+    .await;
+    expect_status(
+        upload_to(&app, made_up, 10, Auth::None).await,
         StatusCode::TOO_MANY_REQUESTS,
     )
     .await;

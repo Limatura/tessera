@@ -17,6 +17,15 @@
 //! against `auth.throttle.speed`, keyed on the source, so an open instance
 //! still bounds what one address can use per hour. See
 //! [`SpeedConfig`](crate::config::SpeedConfig).
+//!
+//! # Uploading in parts
+//!
+//! A browser cannot see an upload's progress: its progress events report bytes
+//! handed to the socket, and a buffering proxy on the way swallows megabytes
+//! at once. The only honest clock is the reply, so the client sends one test
+//! as several smaller requests and times each. The first spends a test and
+//! opens a [run](Runs); the rest name it and draw on what is left of the same
+//! `speed.max_bytes`, so a test in parts costs what a test in one piece does.
 
 // `params(DownloadParams)` makes utoipa emit a fully-qualified path, and the
 // generated code lands outside the function, so the suppression is module-wide
@@ -64,12 +73,98 @@ pub struct DownloadParams {
     pub bytes: Option<u64>,
 }
 
+/// Which test an upload belongs to.
+#[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+#[serde(deny_unknown_fields)]
+pub struct UploadParams {
+    /// The `run` from an earlier part of the same test. Omit to start a test,
+    /// which spends one against `auth.throttle.speed`. One that has expired,
+    /// or belongs to another source, starts a new test the same way.
+    pub run: Option<String>,
+}
+
 /// What an upload test read.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SpeedUploadResponse {
     /// How many bytes arrived. The client times its own request and divides.
     #[schema(example = 26_214_400_u64)]
     pub received_bytes: u64,
+    /// Names this test, for the next part.
+    pub run: String,
+    /// How many more bytes this test may send.
+    #[schema(example = 0_u64)]
+    pub remaining_bytes: u64,
+}
+
+/// How long a run waits for its next part.
+const RUN_IDLE: std::time::Duration = std::time::Duration::from_mins(1);
+/// Runs held at once. Each is a few dozen bytes; the cap only keeps a flood of
+/// one-part tests from growing the map without end.
+const MAX_RUNS: usize = 10_000;
+
+/// Upload tests in progress, by the token handed back after their first part.
+///
+/// In memory, like the throttles: a restart drops them, and the next part then
+/// starts a test of its own.
+#[derive(Debug, Default)]
+pub struct Runs {
+    open: parking_lot::Mutex<std::collections::HashMap<String, Run>>,
+}
+
+#[derive(Debug)]
+struct Run {
+    source: String,
+    remaining: u64,
+    expires: std::time::Instant,
+}
+
+impl Runs {
+    /// Takes the whole allowance left on `token` for one part, or `None` when
+    /// there is no such run for `source`. A part in flight holds it all, so two
+    /// parts sent at once cannot both spend the same bytes.
+    fn take(&self, token: &str, source: &str) -> Option<u64> {
+        let mut open = self.open.lock();
+        let run = open.get_mut(token)?;
+        if run.source != source || run.expires <= std::time::Instant::now() {
+            open.remove(token);
+            return None;
+        }
+        Some(std::mem::take(&mut run.remaining))
+    }
+
+    /// Puts back what a part did not use.
+    fn settle(&self, token: &str, source: &str, remaining: u64) {
+        let now = std::time::Instant::now();
+        let mut open = self.open.lock();
+        if open.len() >= MAX_RUNS && !open.contains_key(token) {
+            open.retain(|_, run| run.expires > now);
+            if open.len() >= MAX_RUNS {
+                let oldest = open
+                    .iter()
+                    .min_by_key(|(_, run)| run.expires)
+                    .map(|(key, _)| key.clone());
+                if let Some(key) = oldest {
+                    open.remove(&key);
+                }
+            }
+        }
+        open.insert(
+            token.to_owned(),
+            Run {
+                source: source.to_owned(),
+                remaining,
+                expires: now + RUN_IDLE,
+            },
+        );
+    }
+}
+
+fn new_run_token() -> String {
+    let mut bytes = [0_u8; 16];
+    crate::auth::secret::fill_random(&mut bytes);
+    // URL-safe, since it travels in the query string.
+    base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, bytes)
 }
 
 /// Sends `bytes` bytes of filler.
@@ -135,15 +230,18 @@ pub async fn download(
 ///
 /// # Errors
 ///
-/// As [`download`], and `413` when the body runs past `speed.max_bytes`.
+/// As [`download`] (`400` for a malformed query), and `413` when the body runs
+/// past what is left of `speed.max_bytes` for this test.
 #[utoipa::path(
     post,
     path = "/speed/upload",
     operation_id = "speed_upload",
     tag = SPEED_TAG,
+    params(UploadParams),
     request_body(content = Vec<u8>, description = "Anything; it is counted and dropped", content_type = "application/octet-stream"),
     responses(
         (status = 200, description = "How much arrived", body = SpeedUploadResponse),
+        (status = 400, description = "A query this endpoint does not take", body = crate::error::ErrorBody),
         (status = 404, description = "Not offered here", body = crate::error::ErrorBody),
         (status = 413, description = "More than this instance allows", body = crate::error::ErrorBody),
         (status = 429, description = "Too many tests from this source", body = crate::error::ErrorBody),
@@ -153,11 +251,21 @@ pub async fn download(
 pub async fn upload(
     State(state): State<AppState>,
     MaybeUser(current): MaybeUser,
+    ApiQuery(params): ApiQuery<UploadParams>,
     ClientAddress(Origin { source, .. }): ClientAddress,
     body: Body,
 ) -> Result<axum::Json<SpeedUploadResponse>> {
-    let limit = offered(&state, current.is_some())?;
-    spend(&state, &source)?;
+    let max = offered(&state, current.is_some())?;
+    let continued = params
+        .run
+        .as_deref()
+        .and_then(|token| Some((token.to_owned(), state.speed_runs.take(token, &source)?)));
+    let (run, limit) = if let Some(found) = continued {
+        found
+    } else {
+        spend(&state, &source)?;
+        (new_run_token(), max)
+    };
 
     // Read to the end, counting. Nothing is kept: a speed test that stored
     // anything would be an upload endpoint with no quota.
@@ -169,11 +277,16 @@ pub async fn upload(
         })?;
         received = received.saturating_add(to_u64(chunk.len()));
         if received > limit {
+            // The run stays spent: a part that overran has used its allowance.
             return Err(Error::new(ErrorCode::PayloadTooLarge).with_detail("limit_bytes", limit));
         }
     }
+    let remaining = limit - received;
+    state.speed_runs.settle(&run, &source, remaining);
     Ok(axum::Json(SpeedUploadResponse {
         received_bytes: received,
+        run,
+        remaining_bytes: remaining,
     }))
 }
 

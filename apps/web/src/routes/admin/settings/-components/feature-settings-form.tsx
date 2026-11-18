@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IconAlertTriangle } from "@tabler/icons-react";
+import { IconAlertTriangle, IconGauge } from "@tabler/icons-react";
+import { Link } from "@tanstack/react-router";
 import type { components } from "@tessera/api/schema";
 import { Button } from "@tessera/ui/components/button";
 import { Field, FieldGroup, FieldLabel } from "@tessera/ui/components/field";
@@ -20,19 +21,31 @@ import { useSettingsForm } from "@/hooks/admin/use-settings-form";
 import type { SettingsKeyMap } from "@/hooks/admin/use-settings-form";
 import { featureSettingsSchema } from "@/lib/admin/settings-schema";
 import type { FeatureSettingsValues } from "@/lib/admin/settings-schema";
-import { asBoolean } from "@/lib/admin/settings-values";
+import { asBoolean, asNumber } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
 import { SettingsNotice, SwitchField } from "./form-fields";
+import { NumberField } from "./number-field";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
 import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
+/** `SpeedConfig::default` in config.rs: 25 MiB per test. */
+const DEFAULT_SPEED_MAX_BYTES = 25 * 1024 * 1024;
+/** `SPEED_MAX_TESTS` and `RESET_WINDOW` in auth/throttle.rs: 5 tests an hour. */
+const DEFAULT_SPEED_MAX_ATTEMPTS = 5;
+const DEFAULT_SPEED_WINDOW_SECS = 60 * 60;
+
 const KEYS = {
   accounts: "features.accounts",
   admin: "features.admin",
+  speedAnonymous: "speed.anonymous",
+  speedEnabled: "speed.enabled",
+  speedMaxAttempts: "auth.throttle.speed.max_attempts",
+  speedMaxBytes: "speed.max_bytes",
+  speedWindowSecs: "auth.throttle.speed.window_secs",
 } satisfies SettingsKeyMap<FeatureSettingsValues>;
 
 export function FeatureSettingsForm() {
@@ -49,7 +62,39 @@ function initialValues(settings: Settings): FeatureSettingsValues {
   return {
     accounts: asBoolean(readSetting(settings, KEYS.accounts), true),
     admin: asBoolean(readSetting(settings, KEYS.admin), true),
+    speedAnonymous: asBoolean(
+      readSetting(settings, KEYS.speedAnonymous),
+      false
+    ),
+    speedEnabled: asBoolean(readSetting(settings, KEYS.speedEnabled), false),
+    speedMaxAttempts: asNumber(
+      readSetting(settings, KEYS.speedMaxAttempts),
+      DEFAULT_SPEED_MAX_ATTEMPTS
+    ),
+    speedMaxBytes: asNumber(
+      readSetting(settings, KEYS.speedMaxBytes),
+      DEFAULT_SPEED_MAX_BYTES
+    ),
+    speedWindowSecs: asNumber(
+      readSetting(settings, KEYS.speedWindowSecs),
+      DEFAULT_SPEED_WINDOW_SECS
+    ),
   };
+}
+
+/** Opens the page visitors use, with the settings as last saved. */
+function SpeedTestLink() {
+  return (
+    <Button
+      className="self-start"
+      nativeButton={false}
+      render={<Link to="/admin/speed" />}
+      variant="outline"
+    >
+      <IconGauge />
+      {m.settings_speed_run_test()}
+    </Button>
+  );
 }
 
 function FeatureSettingsFields({
@@ -65,6 +110,10 @@ function FeatureSettingsFields({
 
   const admin = useWatch({ control: form.control, name: "admin" });
   const accounts = useWatch({ control: form.control, name: "accounts" });
+  const speedEnabled = useWatch({
+    control: form.control,
+    name: "speedEnabled",
+  });
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Which switches this save turns off; turning off either one locks you out of the panel.
@@ -134,6 +183,88 @@ function FeatureSettingsFields({
           />
 
           {!admin && <AdminLockoutWarning />}
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsCard
+        description={m.settings_speed_card_description()}
+        title={m.settings_speed_card_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="speedEnabled"
+            render={({ field }) => (
+              <SwitchField
+                description={m.settings_speed_form_enabled_description()}
+                field={field}
+                id="speed-enabled"
+                label={m.settings_speed_form_enabled_label()}
+              />
+            )}
+          />
+          {speedEnabled && (
+            <>
+              <Controller
+                control={form.control}
+                name="speedAnonymous"
+                render={({ field }) => (
+                  <SwitchField
+                    description={m.settings_speed_form_anonymous_description()}
+                    field={field}
+                    id="speed-anonymous"
+                    label={m.settings_speed_form_anonymous_label()}
+                  />
+                )}
+              />
+              <Controller
+                control={form.control}
+                name="speedMaxBytes"
+                render={({ field, fieldState }) => (
+                  <NumberField
+                    description={m.settings_speed_form_max_bytes_description()}
+                    field={field}
+                    fieldState={fieldState}
+                    id="speed-max-bytes"
+                    label={m.settings_speed_form_max_bytes_label()}
+                    min={1}
+                    unit="bytes"
+                  />
+                )}
+              />
+              <Controller
+                control={form.control}
+                name="speedMaxAttempts"
+                render={({ field, fieldState }) => (
+                  <NumberField
+                    description={m.settings_speed_form_attempts_description()}
+                    field={field}
+                    fieldState={fieldState}
+                    id="speed-max-attempts"
+                    label={m.settings_speed_form_attempts_label()}
+                    min={1}
+                    unit="times"
+                  />
+                )}
+              />
+              <Controller
+                control={form.control}
+                name="speedWindowSecs"
+                render={({ field, fieldState }) => (
+                  <NumberField
+                    description={m.settings_speed_form_window_description()}
+                    field={field}
+                    fieldState={fieldState}
+                    id="speed-window-secs"
+                    label={m.settings_speed_form_window_label()}
+                    min={1}
+                    unit="seconds"
+                  />
+                )}
+              />
+              <SpeedTestLink />
+            </>
+          )}
         </FieldGroup>
       </SettingsCard>
 

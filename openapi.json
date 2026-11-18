@@ -3358,10 +3358,23 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "remaining_bytes": {
+            "description": "How many more bytes this test may send.",
+            "example": 0,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "run": {
+            "description": "Names this test, for the next part.",
+            "type": "string"
           }
         },
         "required": [
-          "received_bytes"
+          "received_bytes",
+          "run",
+          "remaining_bytes"
         ],
         "type": "object"
       },
@@ -10932,8 +10945,19 @@
     },
     "/api/v1/speed/upload": {
       "post": {
-        "description": "# Errors\n\nAs [`download`], and `413` when the body runs past `speed.max_bytes`.",
+        "description": "# Errors\n\nAs [`download`] (`400` for a malformed query), and `413` when the body runs\npast what is left of `speed.max_bytes` for this test.",
         "operationId": "speed_upload",
+        "parameters": [
+          {
+            "description": "The `run` from an earlier part of the same test. Omit to start a test,\nwhich spends one against `auth.throttle.speed`. One that has expired,\nor belongs to another source, starts a new test the same way.",
+            "in": "query",
+            "name": "run",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/octet-stream": {
@@ -10960,6 +10984,16 @@
               }
             },
             "description": "How much arrived"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A query this endpoint does not take"
           },
           "404": {
             "content": {
