@@ -125,7 +125,7 @@ jobs:
 
       - name: Checksums
         run: |
-          cp scripts/install.sh dist/
+          cp scripts/install.sh scripts/install.ps1 dist/
           (cd dist && sha256sum -- * > SHA256SUMS)
           cat dist/SHA256SUMS
 
@@ -149,6 +149,12 @@ jobs:
             echo
             echo '```sh'
             echo "curl -fsSL https://github.com/$REPO/releases/download/v$VERSION/install.sh | sh -s -- --version $VERSION"
+            echo '```'
+            echo
+            echo "On Windows, in PowerShell:"
+            echo
+            echo '```powershell'
+            echo "\$env:TESS_VERSION='$VERSION'; irm https://github.com/$REPO/releases/download/v$VERSION/install.ps1 | iex"
             echo '```'
             echo
             echo "Or download \`tess\` for your platform below. The server is also attached, for running without Docker."
@@ -185,3 +191,34 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
+
+  # Opens a pull request on microsoft/winget-pkgs for this version. The package
+  # has to be in winget already: the first version goes in by hand from
+  # `contrib/winget` (see the README there), this only follows it. Needs a
+  # `WINGET_TOKEN` secret, a classic PAT (not fine-grained) with `public_repo`
+  # and `workflow` scopes, from the account that holds the winget-pkgs fork,
+  # named in `fork-user`. A release without the secret skips the job.
+  winget:
+    name: winget
+    needs: github-release
+    if: ${{ !contains(inputs.version, '-') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions: {}
+    steps:
+      - name: Check the token is there
+        id: token
+        run: echo "present=${{ env.WINGET_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+      - name: Open the winget-pkgs pull request
+        if: steps.token.outputs.present == 'true'
+        uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
+        with:
+          identifier: Limatura.Tess
+          fork-user: sao-coding
+          version: ${{ inputs.version }}
+          release-tag: v${{ inputs.version }}
+          installers-regex: 'tess-windows-x86_64\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}
