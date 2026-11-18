@@ -77,13 +77,23 @@ function UsersComponent() {
   const canSetState = hasPermission(account, PERMISSIONS.usersWrite);
   const canRemoveShares = hasPermission(account, PERMISSIONS.sharesDeleteAny);
   const canDelete = hasPermission(account, PERMISSIONS.usersDelete);
-  const hasActions = canSetRole || canSetState || canRemoveShares || canDelete;
+  const canReadAudit = hasPermission(account, PERMISSIONS.auditRead);
+  const hasActions = [
+    canSetRole,
+    canSetState,
+    canRemoveShares,
+    canDelete,
+    canReadAudit,
+  ].some(Boolean);
 
   const abilitiesFor = (user: Account): RowAbilities => {
     // A tombstone stands for no one. All that is left is removing the shares it
     // left behind, which deleting the account never did.
     if (isDeletedAccount(user)) {
       return {
+        // Kept for a removed account too: "who removed this person, and what
+        // did they do before" is exactly when the log is read.
+        auditActor: canReadAudit ? user.id : null,
         disable: false,
         enable: false,
         remove: false,
@@ -99,6 +109,7 @@ function UsersComponent() {
     // so with another admin around, the first-run owner could demote themselves.
     const isSelf = user.id === account?.id;
     return {
+      auditActor: canReadAudit ? user.id : null,
       disable: canSetState && !isSelf && user.state === "active",
       enable: canSetState && user.state === "disabled",
       remove: canDelete && !isSelf,

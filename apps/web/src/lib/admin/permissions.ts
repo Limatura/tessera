@@ -72,6 +72,7 @@ const LANDING_ORDER = [
   { permission: PERMISSIONS.sharesReadAny, to: "/admin/all-shares" },
   { permission: PERMISSIONS.settingsRead, to: "/admin/settings" },
   { permission: PERMISSIONS.logsRead, to: "/admin/logs" },
+  { permission: PERMISSIONS.auditRead, to: "/admin/audit-log" },
 ] as const;
 
 /**
@@ -155,6 +156,10 @@ const PERMISSION_LABELS: Record<
   string,
   { label: () => string; hint: () => string }
 > = {
+  "audit:read": {
+    hint: m.permission_audit_read_hint,
+    label: m.permission_audit_read,
+  },
   "invites:create": {
     hint: m.permission_invites_create_hint,
     label: m.permission_invites_create,

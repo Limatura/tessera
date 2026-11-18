@@ -1007,6 +1007,41 @@ async fn permit(
 /// into an outage on the one path that has to work. It is logged and the
 /// download continues.
 async fn record_access(state: &AppState, share: &Share, headers: &HeaderMap, source: &str) {
+    // The audit entry, in the background: reading what the share holds is
+    // one more query, and a download must not wait on bookkeeping.
+    {
+        let state = state.clone();
+        let share_id = share.id;
+        let share = share.clone();
+        let request = crate::audit::Request::new(source, headers);
+        tokio::spawn(async move {
+            let (files, size_bytes) = match state.shares.content_of(&share).await {
+                Ok(content) => (
+                    content
+                        .files()
+                        .iter()
+                        .map(|file| {
+                            serde_json::json!({ "name": file.filename, "size_bytes": file.size_bytes })
+                        })
+                        .collect::<Vec<_>>(),
+                    Some(content.size_bytes()),
+                ),
+                Err(_) => (Vec::new(), None),
+            };
+            crate::audit::Event::success(
+                crate::audit::action::SHARE_DOWNLOAD,
+                crate::audit::Actor::anonymous(),
+            )
+            .on(crate::audit::Target::Share(share_id))
+            .with(serde_json::json!({
+                "kind": share.kind.as_str(),
+                "size_bytes": size_bytes,
+                "files": files,
+            }))
+            .record(&state, &request)
+            .await;
+        });
+    }
     if !state.config().share.access_log.enabled {
         return;
     }

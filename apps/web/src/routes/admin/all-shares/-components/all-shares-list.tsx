@@ -4,6 +4,7 @@ import { Checkbox } from "@tessera/ui/components/checkbox";
 import { formatBytes } from "@tessera/ui/lib/format";
 import { cn } from "@tessera/ui/lib/utils";
 
+import { ShareAuditLink } from "@/components/admin/audit-log-link";
 import { PurgeDate } from "@/components/admin/purge-date";
 import { ShareStatusBadge } from "@/components/admin/share-status-badge";
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
@@ -106,6 +107,10 @@ function ShareCard({
             <PurgeDate share={share} />
           </span>
         </div>
+        <ShareAuditLink
+          className={cn("relative z-10 -mt-2 shrink-0", !onDelete && "-mr-2")}
+          shareId={share.id}
+        />
         {onDelete && (
           <Button
             aria-label={m.all_shares_delete_aria({ label })}

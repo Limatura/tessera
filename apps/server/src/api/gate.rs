@@ -37,6 +37,7 @@ use tessera_core::{Password, PasswordPolicy, RetrievalCode};
 use time::OffsetDateTime;
 
 use crate::{
+    audit::{Actor, Event, Request, Target, action},
     auth::{password, secret::Secret, throttle::Decision},
     db::repository::share::{Availability, Share},
     error::{Error, ErrorCode, Result},
@@ -147,6 +148,11 @@ pub async fn find(state: &AppState, code: &str, source: &str) -> Result<Share> {
         // code they know is real could otherwise clear the counter between
         // batches. The window forgives it instead, which cannot be gamed.
         throttles.lookup.record_failure(source);
+        // No target, and not the code: a wrong guess names nothing, and the
+        // log is no place to collect what people guessed.
+        Event::failure(action::SHARE_RETRIEVE, Actor::anonymous())
+            .with(serde_json::json!({ "reason": "unknown_code" }))
+            .record_detached(state, &Request::new(source, &HeaderMap::new()));
         return Err(Error::NotFound);
     };
     Ok(share)
@@ -224,6 +230,10 @@ pub async fn unlock(
         Ok(())
     } else {
         throttles.record_failure(&throttles.share, &key, source);
+        Event::failure(action::SHARE_RETRIEVE, Actor::anonymous())
+            .on(Target::Share(share.id))
+            .with(serde_json::json!({ "reason": "wrong_password" }))
+            .record_detached(state, &Request::new(source, headers));
         Err(Error::new(ErrorCode::SharePasswordIncorrect))
     }
 }
@@ -252,6 +262,13 @@ pub async fn spend(
         use_count: share.use_count.saturating_add(1),
         ..share.clone()
     };
+    Event::success(action::SHARE_RETRIEVE, Actor::anonymous())
+        .on(Target::Share(share.id))
+        .with(serde_json::json!({
+            "use_count": counted.use_count,
+            "use_limit": counted.use_limit,
+        }))
+        .record_detached(state, &Request::new(source, headers));
     let retriever = crate::webhook::Retriever {
         // The throttle's stand-in for "there was no address" is not one.
         address: (source != crate::auth::proxy::UNPLACEABLE).then_some(source),

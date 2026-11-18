@@ -121,9 +121,68 @@ pub struct Config {
     /// The copy of the log kept on disk for the panel. See [`LogsConfig`].
     #[serde(default)]
     pub logs: LogsConfig,
+    /// The record of who did what. See [`AuditConfig`].
+    #[serde(default)]
+    pub audit: AuditConfig,
     /// The key recoverable secrets are sealed under. See [`SecurityConfig`].
     #[serde(default)]
     pub security: SecurityConfig,
+}
+
+/// The audit log: who changed a setting, who signed in, who removed a share.
+///
+/// # What cannot be turned off
+///
+/// Sign-ins and administrators' changes are always recorded. An audit log that
+/// the person being audited can switch off answers nothing. What can be turned
+/// off is the record of shares being created and fetched, most of which is
+/// done by people with no account, see [`AuditConfig::record_share_events`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AuditConfig {
+    /// How many days an entry is kept before the sweep removes it.
+    pub retention_days: u16,
+    /// Whether creating, fetching, downloading and removing shares is recorded.
+    ///
+    /// On by default. Even when on, the address and browser of someone with no
+    /// account are only kept while `share.access_log.enabled` is, the switch
+    /// that already decides whether visitors are recorded at all.
+    pub record_share_events: bool,
+}
+
+impl Default for AuditConfig {
+    fn default() -> Self {
+        Self {
+            // Half a year: long enough to answer "who changed this last
+            // quarter", short enough that a busy instance's table stays small.
+            retention_days: 180,
+            record_share_events: true,
+        }
+    }
+}
+
+impl AuditConfig {
+    /// The most days an entry is kept.
+    pub const MAX_RETENTION_DAYS: u16 = 3650;
+
+    /// How long an entry is kept.
+    #[must_use]
+    pub fn retention(&self) -> Duration {
+        Duration::from_secs(u64::from(self.retention_days).saturating_mul(24 * 3600))
+    }
+
+    fn validate(self) -> Result<(), ConfigError> {
+        if !(1..=Self::MAX_RETENTION_DAYS).contains(&self.retention_days) {
+            return Err(ConfigError::Invalid {
+                field: "audit.retention_days",
+                reason: format!(
+                    "must be between 1 and {}; there is no value that means \"keep for ever\"",
+                    Self::MAX_RETENTION_DAYS
+                ),
+            });
+        }
+        Ok(())
+    }
 }
 
 /// The copy of the log written under `server.data_dir`, for the panel to read.
@@ -2231,6 +2290,7 @@ impl Config {
         self.site.validate()?;
         self.speed.validate()?;
         self.logs.validate()?;
+        self.audit.validate()?;
         self.mail.validate()
     }
 }

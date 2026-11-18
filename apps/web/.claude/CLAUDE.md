@@ -212,6 +212,7 @@ routes/admin/
 ├── invites/                # Invite codes (invites:read)
 ├── dashboard/              # Stats, trends, storage locations, current settings, recent shares (stats:read)
 ├── roles/                  # Roles and what they permit (roles:read)
+├── audit-log/              # Who did what, filters in the URL, CSV export (audit:read)
 └── settings/               # route.tsx = grouped nav layout + sets the title, gates settings:read once; one route per section; index redirects to site
 ```
 

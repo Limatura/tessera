@@ -229,6 +229,21 @@ Besides stdout, every line goes to `server.data_dir/logs/YYYY-MM-DD.jsonl` (UTC 
 
 **The file never holds up the server.** Lines wait in a bounded queue and are dropped when it is full; a write that fails is reported once on stdout. A field named like a credential (`password`, `token`, `cookie`, …) is written as `"[redacted]"`, and a request is recorded by the route it matched (`/s/{code}`), not the path it asked for, so retrieval codes stay out.
 
+## `audit.*` (who did what)
+
+- `retention_days: u16`: how many days an entry is kept. Default `180`, 1 to 3650
+- `record_share_events: bool`: record shares being created, retrieved (including a wrong code), downloaded and removed. Default `true`
+
+A table of events (`audit_events`), not the server's log: who changed a setting, who signed in or failed to, who removed a share. Admins with `audit:read` read it at `/admin/audit-log` and through `GET /api/v1/admin/audit-events` (filters: `action` with `auth.*` style namespaces, `outcome`, `actor`, `target_type` + `target_id`, `from`/`to`; cursor paging), or download it as CSV from `/export`. Reading the export is itself recorded.
+
+**Sign-ins and administrators' changes are always recorded**; only share activity can be switched off. An audit log the audited can turn off answers nothing.
+
+**What is never in it.** A sealed setting (`mail.password` and the like) is written as `"changed"`, a token by its id and never its value, an invite by its id and never its code, and a failed sign-in never carries what was typed: an unknown account has no target at all, so the log cannot be read to learn which addresses were tried. A wrong retrieval code is recorded as a failure with no target and without the code.
+
+**Addresses.** The address and User-Agent follow the same rule as `access_events` (no address when there is no honest one). They are kept for anything an account does and for every sign-in attempt; for an anonymous visitor fetching a share, only while `share.access_log.enabled` is on, so this cannot become a way round that switch.
+
+Retrievals and downloads are written in the background so a download never waits on them, and a failed write is a warning, never a failed request. The sweep deletes entries past `retention_days`; shortening it asks for confirmation with the number of entries it would remove. A share finished by expiry or by running out of retrievals is recorded once, as `share.delete` by the instance itself, when the sweep reclaims its content.
+
 ## `security.*`
 
 - `secret_key: string` (SECRET + FIXED): seals every setting that is stored in the database and has to be read back. 64 hex characters. Empty (the default) = use the key generated on first start and stored at `server.data_dir/secret.key` (mode 0600). Set it yourself (`openssl rand -hex 32`) to keep the key out of the data directory's backups

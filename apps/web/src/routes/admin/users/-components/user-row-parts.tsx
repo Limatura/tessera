@@ -1,6 +1,7 @@
 import {
   IconDots,
   IconGauge,
+  IconHistory,
   IconPlayerPause,
   IconPlayerPlay,
   IconShieldCog,
@@ -8,6 +9,7 @@ import {
   IconTrash,
   IconTrashX,
 } from "@tabler/icons-react";
+import { Link } from "@tanstack/react-router";
 import { Badge } from "@tessera/ui/components/badge";
 import { Button } from "@tessera/ui/components/button";
 import {
@@ -28,6 +30,8 @@ import type { UserAction } from "./user-action-dialog";
  * the menu is not shown.
  */
 export interface RowAbilities {
+  /** The account id to open the audit log filtered to; `null` without `audit:read`. */
+  auditActor: string | null;
   setRole: boolean;
   setQuota: boolean;
   disable: boolean;
@@ -99,9 +103,25 @@ export function UserRowMenu({
   abilities: RowAbilities;
   onAction: (action: RowAction) => void;
 }) {
-  const { setRole, setQuota, disable, enable, resetMfa, removeShares, remove } =
-    abilities;
-  const hasManage = setRole || setQuota || disable || enable || resetMfa;
+  const {
+    auditActor,
+    setRole,
+    setQuota,
+    disable,
+    enable,
+    resetMfa,
+    removeShares,
+    remove,
+  } = abilities;
+  // Everything above the separator: the account's settings, and its history.
+  const hasManage = [
+    setRole,
+    setQuota,
+    disable,
+    enable,
+    resetMfa,
+    auditActor !== null,
+  ].some(Boolean);
   if (!(hasManage || removeShares || remove)) {
     return null;
   }
@@ -150,6 +170,16 @@ export function UserRowMenu({
           <DropdownMenuItem onClick={() => onAction("resetMfa")}>
             <IconShieldOff />
             {m.users_menu_reset_mfa()}
+          </DropdownMenuItem>
+        )}
+        {auditActor && (
+          <DropdownMenuItem
+            render={
+              <Link search={{ actor: auditActor }} to="/admin/audit-log" />
+            }
+          >
+            <IconHistory />
+            {m.audit_view_log()}
           </DropdownMenuItem>
         )}
         {(removeShares || remove) && hasManage && <DropdownMenuSeparator />}

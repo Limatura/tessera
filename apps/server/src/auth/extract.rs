@@ -23,7 +23,7 @@ use axum::{
     extract::{ConnectInfo, FromRequestParts},
     http::{header, request::Parts},
 };
-use tessera_core::{Permission, PermissionSet, SessionId};
+use tessera_core::{ApiTokenId, Permission, PermissionSet, SessionId};
 use time::OffsetDateTime;
 
 use crate::{
@@ -50,7 +50,10 @@ pub enum Credential {
         signed_in_at: OffsetDateTime,
     },
     /// A bearer token, from a script, the CLI or a bot.
-    ApiToken,
+    ApiToken {
+        /// Which token, so the audit log can say which one did it.
+        id: ApiTokenId,
+    },
 }
 
 impl Credential {
@@ -71,7 +74,7 @@ impl Credential {
     pub const fn session_id(self) -> Option<SessionId> {
         match self {
             Self::Session { id, .. } => Some(id),
-            Self::ApiToken => None,
+            Self::ApiToken { .. } => None,
         }
     }
 
@@ -331,7 +334,7 @@ async fn authenticate_token(
         .collect();
     Ok(Some(CurrentUser {
         user,
-        credential: Credential::ApiToken,
+        credential: Credential::ApiToken { id: token.id },
         permissions,
     }))
 }

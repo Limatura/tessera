@@ -37,6 +37,23 @@ Table api_tokens {
   Note: '''Credentials for programs. Only a digest is stored; the value itself stops existing the moment it is handed over.'''
 }
 
+Table audit_events {
+  id text [pk, not null]
+  occurred_at text [not null]
+  action text [not null]
+  outcome text [not null]
+  actor_kind text [not null]
+  actor_user_id text
+  api_token_id text
+  target_type text
+  target_id text
+  ip_address text
+  user_agent text
+  metadata text
+
+  Note: '''Who did what: sign-ins, administrators' changes and what happened to shares, one row each. Not `access_events`: most of these have no share, and an administrator's action is always recorded while the access log is off by default. No foreign keys, on purpose: "who deleted that share" has to outlive the share and the account. `metadata` is JSON written as text and never holds a secret, an invite code or what was typed into a failed sign-in. Kept for `audit.retention_days`.'''
+}
+
 Table auth_flows {
   state text [pk, not null]
   provider text [not null]

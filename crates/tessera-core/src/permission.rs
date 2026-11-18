@@ -75,6 +75,13 @@ pub enum Permission {
     /// addresses, accounts and shares behind every request, which says far more
     /// about other people than the list of knobs does.
     LogsRead,
+    /// Read the audit log: who changed a setting, who signed in, who removed a
+    /// share.
+    ///
+    /// Its own permission for the same reason as [`Permission::LogsRead`]: it
+    /// names people and what they did. Reading it, and exporting it, is itself
+    /// recorded.
+    AuditRead,
 }
 
 impl Permission {
@@ -83,7 +90,7 @@ impl Permission {
     /// Used to seed the administrator role and to answer "what could a role
     /// possibly contain", so it has to stay exhaustive. A variant added without
     /// being added here is a permission that can never be granted.
-    pub const ALL: [Self; 18] = [
+    pub const ALL: [Self; 19] = [
         Self::SharesCreate,
         Self::SharesRead,
         Self::SharesDelete,
@@ -102,6 +109,7 @@ impl Permission {
         Self::SettingsRead,
         Self::SettingsWrite,
         Self::LogsRead,
+        Self::AuditRead,
     ];
 
     /// The spelling stored in a row and sent in a response.
@@ -126,6 +134,7 @@ impl Permission {
             Self::SettingsRead => "settings:read",
             Self::SettingsWrite => "settings:write",
             Self::LogsRead => "logs:read",
+            Self::AuditRead => "audit:read",
         }
     }
 

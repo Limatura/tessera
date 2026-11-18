@@ -261,6 +261,21 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
             .await,
     );
 
+    // The audit log is kept for `audit.retention_days` and no longer, read
+    // each pass so a shorter retention set in the panel applies on the next.
+    report(
+        "audit entries past their retention",
+        state
+            .audit
+            .delete_before(
+                now.saturating_sub(
+                    time::Duration::try_from(state.config().audit.retention())
+                        .unwrap_or_else(|_| time::Duration::days(180)),
+                ),
+            )
+            .await,
+    );
+
     // Kept a week after they were sent or given up on, so an owner can see
     // what went out, and no longer.
     report(
@@ -442,6 +457,22 @@ async fn reap_dead_content(
         // the quota.
         shares.mark_content_removed(share.id).await?;
         reaped = reaped.saturating_add(1);
+        // Once per share: its content is marked removed, so the next pass
+        // does not find it again. The row itself goes later and quietly; this
+        // is the moment the share stopped holding anything.
+        let reason = match share.availability_at(now) {
+            crate::db::repository::share::Availability::Exhausted => "exhausted",
+            crate::db::repository::share::Availability::Disabled => "disabled",
+            _ => "expired",
+        };
+        crate::audit::Event::success(
+            crate::audit::action::SHARE_DELETE,
+            crate::audit::Actor::system(),
+        )
+        .on(crate::audit::Target::Share(share.id))
+        .with(serde_json::json!({ "reason": reason }))
+        .record(state, &crate::audit::Request::none())
+        .await;
     }
     Ok(reaped)
 }

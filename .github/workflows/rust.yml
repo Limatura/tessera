@@ -159,7 +159,7 @@ jobs:
       - uses: ./.github/actions/rust
         with:
           cache-key: checks
-      - uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2 # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
         # Must match the wasm-bindgen version pinned in crates/tessera-crypto.
         with: { tool: "cargo-deny,cargo-machete,wasm-bindgen@0.2.128" }
 
@@ -251,7 +251,7 @@ jobs:
       - uses: ./.github/actions/rust
         with:
           cache-key: features
-      - uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2 # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
         with: { tool: cargo-hack }
 
       # No `--locked`: `--no-dev-deps` rewrites the manifest, which it forbids.
@@ -276,7 +276,7 @@ jobs:
       - uses: ./.github/actions/rust
         with:
           cache-key: test
-      - uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2 # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
         with: { tool: cargo-nextest }
 
       - run: cargo nextest run --locked --workspace --profile ci --all-features
@@ -331,7 +331,7 @@ jobs:
           cache-key: test
           # `test` saves the cache these share.
           save-cache: "false"
-      - uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2 # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
         with: { tool: cargo-nextest }
 
       # These tests are `#[ignore]`d; `--run-ignored all` opts in.
@@ -367,7 +367,7 @@ jobs:
           cache-key: test
           # `test` saves the cache these share.
           save-cache: "false"
-      - uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2 # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
         with: { tool: cargo-nextest }
 
       # Not `services:`: Garage needs a config file.
@@ -690,7 +690,7 @@ jobs:
       - name: actionlint
         run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml
 
-      - uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2 # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
         with: { tool: zizmor }
 
       - name: zizmor
@@ -862,7 +862,7 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Sign in to GHCR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -909,7 +909,7 @@ jobs:
       - uses: ./.github/actions/rust
         with:
           cache-key: server
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v6
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v6
 
       - run: cargo build --locked --bin tessera-server
 

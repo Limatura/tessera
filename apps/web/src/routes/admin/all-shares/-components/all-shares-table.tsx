@@ -12,6 +12,10 @@ import {
 import { formatBytes } from "@tessera/ui/lib/format";
 import { cn } from "@tessera/ui/lib/utils";
 
+import {
+  ShareAuditLink,
+  useCanReadAudit,
+} from "@/components/admin/audit-log-link";
 import { PurgeDate } from "@/components/admin/purge-date";
 import { ShareStatusBadge } from "@/components/admin/share-status-badge";
 import { SelectAllCheckbox } from "@/components/selection-bar";
@@ -45,6 +49,7 @@ export function AllSharesTable({
   onDelete: (share: AdminShare) => void;
 }) {
   const formatDate = useDateTimeFormatter();
+  const canReadAudit = useCanReadAudit();
 
   return (
     <Table>
@@ -65,7 +70,7 @@ export function AllSharesTable({
           </TableHead>
           <TableHead>{m.all_shares_col_created()}</TableHead>
           <TableHead>{m.all_shares_col_status()}</TableHead>
-          {selection && <TableHead className="w-12" />}
+          {(selection || canReadAudit) && <TableHead className="w-20" />}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -118,17 +123,22 @@ export function AllSharesTable({
                   <PurgeDate share={share} />
                 </span>
               </TableCell>
-              {selection && (
+              {(selection || canReadAudit) && (
                 <TableCell>
-                  <Button
-                    aria-label={m.all_shares_delete_aria({ label })}
-                    onClick={() => onDelete(share)}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <IconTrash />
-                  </Button>
+                  <span className="flex items-center justify-end gap-1">
+                    <ShareAuditLink shareId={share.id} />
+                    {selection && (
+                      <Button
+                        aria-label={m.all_shares_delete_aria({ label })}
+                        onClick={() => onDelete(share)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <IconTrash />
+                      </Button>
+                    )}
+                  </span>
                 </TableCell>
               )}
             </TableRow>

@@ -25,6 +25,9 @@ export function consequenceText(consequence: Consequence): string {
     case "login_history": {
       return m.settings_consequence_signins({ count });
     }
+    case "audit_entries": {
+      return m.settings_consequence_audit({ count });
+    }
     default: {
       const unknown: never = consequence.kind;
       return `${count} ${String(unknown)}`;

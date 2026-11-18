@@ -17,6 +17,7 @@ use utoipa::ToSchema;
 
 use crate::{
     api::{AUTH_TAG, extract::ApiJson},
+    audit::{Actor, Event, Request, Target, action},
     auth::{
         cookie,
         extract::{ClientAddress, CurrentUser, SelfServiceUser},
@@ -484,6 +485,7 @@ pub async fn login(
     let throttles = &state.throttles;
     if let Decision::Deny { retry_after } = throttles.check(&throttles.login, &key, &origin.source)
     {
+        record_login_failure(&state, &origin, &headers, None, "throttled").await;
         return Err(Error::TooManyRequests {
             retry_after_secs: retry_after.as_secs(),
         });
@@ -517,8 +519,28 @@ pub async fn login(
     // The state is checked here, not before the hash, and answers the same
     // `401` as a wrong password. Checking earlier returns faster for a
     // suspended account, which reopens the oracle the work above closes.
-    let Some(user) = user.filter(|found| authenticated && found.state.may_sign_in()) else {
+    let Some(user) = user
+        .as_ref()
+        .filter(|found| authenticated && found.state.may_sign_in())
+        .cloned()
+    else {
         throttles.record_failure(&throttles.login, &key, &origin.source);
+        // The account when there is one, so "who has been trying this
+        // account's password" has an answer. Never what was typed when there
+        // is not: the log would become a list of addresses people tried.
+        let reason = match user.as_ref() {
+            None => "unknown_account",
+            Some(found) if authenticated && !found.state.may_sign_in() => "account_disabled",
+            Some(_) => "invalid_credentials",
+        };
+        record_login_failure(
+            &state,
+            &origin,
+            &headers,
+            user.as_ref().map(|found| found.id),
+            reason,
+        )
+        .await;
         return Err(Error::new(ErrorCode::InvalidCredentials));
     };
 
@@ -583,6 +605,10 @@ pub async fn logout(
             .sessions
             .end(id, SessionEnding::SignedOut, OffsetDateTime::now_utc())
             .await?;
+        Event::success(action::AUTH_LOGOUT, Actor::of(&current))
+            .on(Target::User(current.user.id))
+            .record(&state, &Request::new(&origin.source, &headers))
+            .await;
     }
 
     let secure = state
@@ -741,6 +767,40 @@ async fn find_by_identifier(state: &AppState, identifier: &str) -> Result<Option
     Ok(None)
 }
 
+/// Records a refused sign-in.
+///
+/// `account` only when the name given belongs to one: no target otherwise,
+/// and never the name itself. `method` is always `password` here; the other
+/// ways in record their own.
+pub(super) async fn record_login_failure(
+    state: &AppState,
+    origin: &Origin,
+    headers: &HeaderMap,
+    account: Option<UserId>,
+    reason: &str,
+) {
+    record_login_failure_by(state, origin, headers, account, "password", reason).await;
+}
+
+/// [`record_login_failure`], for a way in other than a password.
+pub(super) async fn record_login_failure_by(
+    state: &AppState,
+    origin: &Origin,
+    headers: &HeaderMap,
+    account: Option<UserId>,
+    method: &str,
+    reason: &str,
+) {
+    let mut event = Event::failure(action::AUTH_LOGIN, Actor::anonymous())
+        .with(serde_json::json!({ "method": method, "reason": reason }));
+    if let Some(account) = account {
+        event = event.on(Target::User(account));
+    }
+    event
+        .record(state, &Request::new(&origin.source, headers))
+        .await;
+}
+
 pub(super) async fn start_session(
     state: &AppState,
     user: &User,
@@ -756,6 +816,7 @@ pub(super) async fn start_session(
     let ttl = time::Duration::try_from(state.config().auth.session_ttl())
         .unwrap_or_else(|_| time::Duration::days(30));
 
+    let method = started_by.provider.to_owned();
     let (_, secret) = state
         .sessions
         .create(
@@ -766,6 +827,12 @@ pub(super) async fn start_session(
             now.saturating_add(ttl),
         )
         .await?;
+    // Every way in ends here, so this is where a sign-in is recorded.
+    Event::success(action::AUTH_LOGIN, Actor::user(user.id))
+        .on(Target::User(user.id))
+        .with(serde_json::json!({ "method": method }))
+        .record(state, &Request::new(&origin.source, headers))
+        .await;
 
     // The cookie's `Max-Age` matches the row's expiry, so a browser stops
     // sending a session at the same moment the server stops accepting it.

@@ -249,7 +249,24 @@ pub async fn login_code(
         return Err(Error::new(ErrorCode::MfaChallengeUnusable));
     };
 
-    spend_code_throttled(&state, user_id, &origin, &body.code, now).await?;
+    if let Err(error) = spend_code_throttled(&state, user_id, &origin, &body.code, now).await {
+        // The password was right and the code was not: the account is known,
+        // so it is the target.
+        crate::api::auth::record_login_failure_by(
+            &state,
+            &origin,
+            &headers,
+            Some(user_id),
+            "mfa",
+            if error.code() == ErrorCode::MfaCodeIncorrect {
+                "mfa_code_incorrect"
+            } else {
+                "throttled"
+            },
+        )
+        .await;
+        return Err(error);
+    }
 
     // Deleted only now, so a mistyped code leaves the ticket usable for the
     // next try. Whoever deletes it is the one sign-in that goes ahead.

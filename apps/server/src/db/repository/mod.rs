@@ -8,6 +8,7 @@
 
 pub mod access_event;
 pub mod api_token;
+pub mod audit_event;
 pub mod device_authorization;
 pub mod email_verification;
 pub mod invite;

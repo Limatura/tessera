@@ -20,6 +20,7 @@ use crate::{
         admin::{admitted, require_admin_feature},
         extract::ApiJson,
     },
+    audit::{Actor, Event, Request, Target, action},
     auth::extract::CurrentUser,
     config::Config,
     error::{Error, ErrorCode, Result},
@@ -159,6 +160,8 @@ pub enum ConsequenceKind {
     AccessLogEntries,
     /// Ended sign-ins kept as login history.
     LoginHistory,
+    /// Entries in the audit log.
+    AuditEntries,
 }
 
 impl ConsequenceKind {
@@ -169,6 +172,7 @@ impl ConsequenceKind {
             Self::Shares => "shares",
             Self::AccessLogEntries => "recorded accesses",
             Self::LoginHistory => "past sign-ins",
+            Self::AuditEntries => "audit log entries",
         }
     }
 }
@@ -248,6 +252,22 @@ async fn consequences_of(
             found.push(Consequence::new(
                 "auth.login_history_days",
                 ConsequenceKind::LoginHistory,
+                count,
+                None,
+            ));
+        }
+    }
+
+    // The audit log: shortening it erases who did what.
+    if changed.contains_key("audit.retention_days")
+        && next.audit.retention_days < current.audit.retention_days
+    {
+        let cutoff = now.saturating_sub(duration_of(next.audit.retention()));
+        let count = state.audit.count_before(cutoff).await?;
+        if count > 0 {
+            found.push(Consequence::new(
+                "audit.retention_days",
+                ConsequenceKind::AuditEntries,
                 count,
                 None,
             ));
@@ -562,6 +582,7 @@ fn issuer_of(url: &str) -> String {
 pub async fn update(
     State(state): State<AppState>,
     current: CurrentUser,
+    request: Request,
     ApiJson(body): ApiJson<UpdateSettingsRequest>,
 ) -> Result<Json<SettingsResponse>> {
     require_admin_feature(&state)?;
@@ -581,6 +602,7 @@ pub async fn update(
         );
     }
 
+    let before = effective_values(&state.settings.all().await?);
     let now = OffsetDateTime::now_utc();
     for (key, value) in &body.changes {
         if value.is_null() {
@@ -598,5 +620,34 @@ pub async fn update(
     );
 
     let stored = state.settings.all().await?;
+    let after = effective_values(&stored);
+    for key in body.changes.keys() {
+        // A sealed value is never read back, so the log cannot hold it either:
+        // it says that it changed and nothing else.
+        let metadata = if settings::is_sealed(key) {
+            serde_json::json!({ "key": key, "before": "changed", "after": "changed" })
+        } else {
+            serde_json::json!({
+                "key": key,
+                "before": before.get(key),
+                "after": after.get(key),
+            })
+        };
+        Event::success(action::SETTINGS_UPDATE, Actor::of(&current))
+            .on(Target::Setting(key.clone()))
+            .with(metadata)
+            .record(&state, &request)
+            .await;
+    }
     Ok(Json(describe(&stored)))
+}
+
+/// Every setting's value in force, masked as the listing masks it.
+fn effective_values(
+    stored: &BTreeMap<String, serde_json::Value>,
+) -> BTreeMap<String, serde_json::Value> {
+    settings::describe(stored)
+        .into_iter()
+        .map(|view| (view.key, view.value))
+        .collect()
 }

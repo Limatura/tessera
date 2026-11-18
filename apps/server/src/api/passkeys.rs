@@ -673,6 +673,15 @@ pub async fn sign_in(
     let now = OffsetDateTime::now_utc();
     let Some((user, passkey)) = check_sign_in(&state, &rp, &body.credential, now).await? else {
         throttles.record_failure(&throttles.login, &key, &origin.source);
+        crate::api::auth::record_login_failure_by(
+            &state,
+            &origin,
+            &headers,
+            None,
+            "passkey",
+            "passkey_rejected",
+        )
+        .await;
         return Err(Error::new(ErrorCode::PasskeyRejected));
     };
     throttles.login.reset(&key);
