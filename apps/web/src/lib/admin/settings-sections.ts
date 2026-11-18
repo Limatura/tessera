@@ -21,6 +21,7 @@ const RULES: [match: string, url: string][] = [
   ["auth.hashing.", "/admin/settings/password"],
   ["auth.password.", "/admin/settings/password"],
   ["auth.pwned.", "/admin/settings/password"],
+  ["auth.throttle.speed.", "/admin/settings/features"],
   ["auth.throttle.", "/admin/settings/throttle"],
   ["auth.cookie_secure", "/admin/settings/network"],
   ["server.public_url", "/admin/settings/network"],

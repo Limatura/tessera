@@ -2,6 +2,7 @@ import {
   IconDashboard,
   IconDatabase,
   IconFileText,
+  IconGauge,
   IconKey,
   IconSettings,
   IconShieldLock,
@@ -94,6 +95,12 @@ function adminNavGroups(): AdminNavGroup[] {
           permission: PERMISSIONS.logsRead,
           title: m.nav_logs(),
           url: "/admin/logs",
+        },
+        {
+          icon: <IconGauge />,
+          permission: PERMISSIONS.settingsRead,
+          title: m.nav_speed_test(),
+          url: "/admin/speed",
         },
         {
           icon: <IconSettings />,

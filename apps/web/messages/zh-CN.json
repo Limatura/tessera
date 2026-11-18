@@ -1128,8 +1128,6 @@
   "settings_throttle_form_verification_protects": "发到同一个邮箱的验证邮件。跟重置密码邮件分开计算。",
   "settings_throttle_group_other_title": "其他",
   "settings_throttle_group_other_description": "会消耗带宽或外部服务额度的功能。",
-  "settings_throttle_form_speed_title": "测速",
-  "settings_throttle_form_speed_protects": "同一个 IP 能测几次速。每次都算，不只失败的。",
   "settings_throttle_form_pwned_title": "泄露密码查找",
   "settings_throttle_form_pwned_protects": "输入密码时查找泄露名单的次数。不占用整体限制的额度。",
   "settings_throttle_form_attempts_aria": "{name}：允许次数",
@@ -1743,5 +1741,12 @@
   "settings_speed_form_anonymous_label": "允许未登录的访客",
   "settings_speed_form_anonymous_description": "默认关闭，只有已登录的用户可以测试。",
   "settings_speed_form_max_bytes_label": "单次测试大小",
-  "settings_speed_form_max_bytes_description": "一次测试在每个方向传输的量。默认 25 MB；越大在高速线路上越准，但越耗带宽。"
+  "settings_speed_form_max_bytes_description": "一次测试在每个方向传输的量。默认 25 MB；越大在高速线路上越准，但越耗带宽。",
+  "settings_speed_form_attempts_label": "每个来源可测次数",
+  "settings_speed_form_attempts_description": "同一个 IP 在下方时间内能测几次。每次都算,不只失败的。默认 5 次。",
+  "settings_speed_form_window_label": "重试等待时间",
+  "settings_speed_form_window_description": "用掉的次数多久后恢复,也是被拦下的访客要等多久。默认 3600 秒(一小时)。",
+  "settings_speed_run_test": "运行测试",
+  "nav_speed_test": "网速测试",
+  "speed_go": "开始"
 }

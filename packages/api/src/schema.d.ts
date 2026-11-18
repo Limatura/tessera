@@ -2287,7 +2287,8 @@ export interface paths {
          * Reads a body and discards it.
          * @description # Errors
          *
-         *     As [`download`], and `413` when the body runs past `speed.max_bytes`.
+         *     As [`download`], and `413` when the body runs past what is left of
+         *     `speed.max_bytes` for this test.
          */
         post: operations["speed_upload"];
         delete?: never;
@@ -4785,6 +4786,14 @@ export interface components {
              * @example 26214400
              */
             received_bytes: number;
+            /**
+             * Format: int64
+             * @description How many more bytes this test may send.
+             * @example 0
+             */
+            remaining_bytes: number;
+            /** @description Names this test, for the next part. */
+            run: string;
         };
         /** @description One day of what the instance held. */
         StatsDay: {
@@ -10281,7 +10290,14 @@ export interface operations {
     };
     speed_upload: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description The `run` from an earlier part of the same test. Omit to start a test,
+                 *     which spends one against `auth.throttle.speed`. One that has expired,
+                 *     or belongs to another source, starts a new test the same way.
+                 */
+                run?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

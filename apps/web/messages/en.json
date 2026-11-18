@@ -1128,8 +1128,6 @@
   "settings_throttle_form_verification_protects": "Verification emails sent to one address. Counted separately from reset emails.",
   "settings_throttle_group_other_title": "Other",
   "settings_throttle_group_other_description": "Features that use bandwidth or an outside service.",
-  "settings_throttle_form_speed_title": "Speed tests",
-  "settings_throttle_form_speed_protects": "Speed tests from one IP. Every test counts, not just failures.",
   "settings_throttle_form_pwned_title": "Breached-password lookups",
   "settings_throttle_form_pwned_protects": "Lookups made while someone types a password. Doesn't use the overall allowance.",
   "settings_throttle_form_attempts_aria": "{name}: allowed attempts",
@@ -1742,5 +1740,12 @@
   "settings_speed_form_anonymous_label": "Allow visitors without an account",
   "settings_speed_form_anonymous_description": "Off by default, so only signed-in users can run it.",
   "settings_speed_form_max_bytes_label": "Size of one test",
-  "settings_speed_form_max_bytes_description": "How much one test moves in each direction. 25 MB by default; larger gives steadier results on fast lines but costs more bandwidth."
+  "settings_speed_form_max_bytes_description": "How much one test moves in each direction. 25 MB by default; larger gives steadier results on fast lines but costs more bandwidth.",
+  "settings_speed_form_attempts_label": "Tests per source",
+  "settings_speed_form_attempts_description": "How many tests one IP may run in the window below. Every test counts, not just failures. 5 by default.",
+  "settings_speed_form_window_label": "Retry after",
+  "settings_speed_form_window_description": "How long a spent test takes to come back, and how long a blocked visitor waits. 3600 seconds (one hour) by default.",
+  "settings_speed_run_test": "Run a test",
+  "nav_speed_test": "Speed test",
+  "speed_go": "Go"
 }
