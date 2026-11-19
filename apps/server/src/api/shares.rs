@@ -1512,6 +1512,7 @@ async fn ingest(
     // as well as `Content-Length`; a chunked body reports nothing, and that is
     // the honest answer.
     let expected_bytes = <Body as http_body::Body>::size_hint(&body).exact();
+    let body = crate::bandwidth::limit(state, crate::bandwidth::Direction::Upload, body);
     let mut upload: Option<crate::upload::segments::Writer<'_>> = None;
     // Opened here so it outlives the read loop. The caller holds it until the
     // row is written; the keys go in once the scope and backend are known.

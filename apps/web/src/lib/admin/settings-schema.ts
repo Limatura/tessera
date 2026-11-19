@@ -5,6 +5,11 @@ import {
 } from "@tessera/ui/lib/appearance";
 import { z } from "zod";
 
+import {
+  MIN_BANDWIDTH_BYTES,
+  bytesToMbps,
+  mbpsToBytes,
+} from "@/lib/admin/bandwidth";
 import { LOG_LEVELS } from "@/lib/admin/log-entries";
 import {
   PASSWORD_MAX_CEILING,
@@ -759,3 +764,31 @@ export const logsSettingsSchema = z.object({
 });
 
 export type LogsSettingsValues = z.infer<typeof logsSettingsSchema>;
+
+// Transfer speed: bandwidth.*
+//
+// Edited in Mbit/s and stored in bytes per second; the form converts. 0 is
+// unlimited, anything else must reach the server's 1 KiB/s floor.
+
+function bandwidthMbps() {
+  return z
+    .number()
+    .min(0)
+    .refine((mbps) => mbps === 0 || mbpsToBytes(mbps) >= MIN_BANDWIDTH_BYTES, {
+      error: () =>
+        m.settings_bandwidth_min({ mbps: bytesToMbps(MIN_BANDWIDTH_BYTES) }),
+    });
+}
+
+export const bandwidthSettingsSchema = z.object({
+  // bandwidth.download
+  download: bandwidthMbps(),
+  // bandwidth.download_per_transfer
+  downloadPerTransfer: bandwidthMbps(),
+  // bandwidth.upload
+  upload: bandwidthMbps(),
+  // bandwidth.upload_per_transfer
+  uploadPerTransfer: bandwidthMbps(),
+});
+
+export type BandwidthSettingsValues = z.infer<typeof bandwidthSettingsSchema>;

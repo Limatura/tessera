@@ -465,7 +465,7 @@ pub async fn append(
     let mut pending: Vec<u8> = Vec::new();
     let mut offset = upload.offset_bytes;
     let mut taken = state.uploads.parts_of(upload.id).await?.len();
-    let mut body = body;
+    let mut body = crate::bandwidth::limit(&state, crate::bandwidth::Direction::Upload, body);
 
     while let Some(chunk) = crate::api::shares::next_chunk(&mut body, stall).await? {
         if offset

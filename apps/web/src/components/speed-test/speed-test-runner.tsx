@@ -19,6 +19,7 @@ import {
   windowedMbps,
 } from "@/lib/speed-test";
 import type { RateSample, TransferProgress } from "@/lib/speed-test";
+import { saveLastSpeedTest } from "@/lib/speed-test-last";
 import * as m from "@/paraglide/messages";
 
 import { SpeedGauge } from "./speed-gauge";
@@ -193,6 +194,11 @@ export function SpeedTestRunner() {
         trackProgress
       );
       setResults((prev) => ({ ...prev, uploadMbps: upload.mbps }));
+      saveLastSpeedTest({
+        at: Date.now(),
+        downloadMbps: download.mbps,
+        uploadMbps: upload.mbps,
+      });
       await settleOn(upload.mbps, abort.signal);
       setPhase("done");
     } catch (error) {

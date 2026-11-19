@@ -901,7 +901,11 @@ async fn serve(
     });
     let body = match payload {
         Payload::Headers => Body::empty(),
-        Payload::Content => read_range(state, share, content, range, format).await?,
+        Payload::Content => crate::bandwidth::limit(
+            state,
+            crate::bandwidth::Direction::Download,
+            read_range(state, share, content, range, format).await?,
+        ),
     };
     let mut response = (status, body).into_response();
     let out = response.headers_mut();

@@ -220,6 +220,21 @@ The endpoints are `GET /api/v1/speed/download?bytes=N` and `POST /api/v1/speed/u
 
 **This is a tap**, so all three limits are in place: off by default, signed-in only by default, a cap per test, plus the per-source count in `auth.throttle.speed`. `speed_test` in `/capabilities` tells the front end whether this caller can run one.
 
+## `bandwidth.*` (transfer speed limits, off by default)
+
+All four are **bytes per second**, like every other size here; `0` (the default) is unlimited. A non-zero value must be at least `1024`.
+
+- `upload: u64`: every upload together, server-wide
+- `download: u64`: every download together, server-wide
+- `upload_per_transfer: u64`: each upload on its own
+- `download_per_transfer: u64`: each download on its own
+
+The server-wide caps are shared by everything moving in that direction at once; the per-transfer caps keep one large file from taking all of it. When both are set, a transfer goes no faster than either. They cover share uploads (direct, `curl -T` and resumable), share downloads (single files, archives and text) and the speed test. Signed-in and anonymous callers get the same limits.
+
+Read per chunk, so a change from the panel slows down (or frees up) transfers already running.
+
+The panel enters these in Mbit/s and can suggest half of a speed test result as a starting value. Note that the speed test is limited too, so run it with the limits cleared to measure the line.
+
 ## `logs.*` (the copy of the log the panel reads)
 
 - `retention_days: u16`: how many days of files to keep, today's included. Default `3`, 1 to 90

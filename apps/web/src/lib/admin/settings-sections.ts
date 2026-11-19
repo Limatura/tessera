@@ -39,6 +39,7 @@ const RULES: [match: string, url: string][] = [
   ["mail.", "/admin/settings/mail"],
   ["scan.", "/admin/settings/scan"],
   ["logs.", "/admin/settings/logs"],
+  ["bandwidth.", "/admin/settings/bandwidth"],
   ["features.accounts", "/admin/settings/features"],
   ["features.admin", "/admin/settings/features"],
   ["speed.", "/admin/settings/features"],
