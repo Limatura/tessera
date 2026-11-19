@@ -208,7 +208,8 @@ pub async fn download(
         }
     });
 
-    let mut response = body.into_response();
+    let mut response = crate::bandwidth::limit(&state, crate::bandwidth::Direction::Download, body)
+        .into_response();
     let out = response.headers_mut();
     out.insert(
         header::CONTENT_TYPE,
@@ -270,7 +271,8 @@ pub async fn upload(
     // Read to the end, counting. Nothing is kept: a speed test that stored
     // anything would be an upload endpoint with no quota.
     let mut received = 0_u64;
-    let mut stream = body.into_data_stream();
+    let mut stream = crate::bandwidth::limit(&state, crate::bandwidth::Direction::Upload, body)
+        .into_data_stream();
     while let Some(chunk) = tokio_stream::StreamExt::next(&mut stream).await {
         let chunk = chunk.map_err(|error| {
             Error::new(ErrorCode::BodyIncomplete).with_message(error.to_string())

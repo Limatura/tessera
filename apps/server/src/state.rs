@@ -153,6 +153,8 @@ pub struct AppState {
     /// Upload tests in progress, so the parts of one test count as one. See
     /// [`Runs`](crate::api::speed::Runs).
     pub speed_runs: Arc<crate::api::speed::Runs>,
+    /// The server-wide clocks for `bandwidth.*`. See [`crate::bandwidth`].
+    pub bandwidth: Arc<crate::bandwidth::Limits>,
     /// The stored backends, and the key that opens them.
     ///
     /// Holds the sealer, so the one place that can read a credential is the one
@@ -447,6 +449,7 @@ impl AppState {
             proxies: Arc::new(ArcSwap::from_pointee(config.server.proxy_trust())),
             throttles: Arc::new(Throttles::from_config(&config.auth.throttle)),
             speed_runs: Arc::default(),
+            bandwidth: Arc::default(),
             config: Arc::new(ArcSwap::from(config)),
             db,
             storage_backends,

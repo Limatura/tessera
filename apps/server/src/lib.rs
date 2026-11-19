@@ -24,6 +24,7 @@ pub mod api;
 pub mod assets;
 pub mod audit;
 pub mod auth;
+pub mod bandwidth;
 pub mod cli;
 pub mod config;
 pub mod db;

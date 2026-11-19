@@ -51,6 +51,10 @@ export function settingsNavGroups(): SettingsNavGroup[] {
       items: [
         { title: m.nav_settings_throttle(), url: "/admin/settings/throttle" },
         { title: m.nav_settings_network(), url: "/admin/settings/network" },
+        {
+          title: m.nav_settings_bandwidth(),
+          url: "/admin/settings/bandwidth",
+        },
         { title: m.nav_settings_scan(), url: "/admin/settings/scan" },
       ],
       title: m.settings_nav_group_security(),
