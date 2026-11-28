@@ -21,28 +21,28 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.90.5",
+    "@tanstack/react-query": "^5.108.4",
     "@tessera/api": "workspace:*",
     "@tessera/auth": "workspace:*",
     "@tessera/ui": "workspace:*",
     "@tessera/upload": "workspace:*",
     "lucide-react": "catalog:",
-    "openapi-fetch": "^0.15.0",
+    "openapi-fetch": "^0.17.0",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1",
-    "@tailwindcss/vite": "^4.3.3",
+    "@playwright/test": "^1.65.1",
+    "@tailwindcss/vite": "^4.3.5",
     "@tessera/config": "workspace:*",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@wxt-dev/i18n": "^0.2.4",
+    "@wxt-dev/i18n": "^0.2.9",
     "@wxt-dev/module-react": "^1.1.5",
     "tailwindcss": "catalog:",
     "typescript": "^5.9.3",
     "vite-plus": "catalog:",
-    "web-ext": "^10.5.0",
-    "wxt": "^0.21.3"
+    "web-ext": "^10.8.0",
+    "wxt": "^0.21.5"
   }
 }
