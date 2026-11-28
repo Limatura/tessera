@@ -1,5 +1,21 @@
 # web
 
+## 1.0.0
+
+### Major Changes
+
+- [#169](https://github.com/Limatura/tessera/pull/169) [`e3f5d5b`](https://github.com/Limatura/tessera/commit/e3f5d5bd312c2fe297fb2c573cf09c7e04ecd79b) Thanks [@sao-coding](https://github.com/sao-coding)! - Tessera 1.0. Anonymous and signed-in sharing, end-to-end encryption, the `tess` command-line client, the browser extension, webhooks and the admin panel are the feature set 1.0 stands for. From here on, a change that breaks the HTTP API (`openapi.json`), a configuration key or an upgrade from the previous version ships only in a new major version. Back up the database before upgrading; downgrades are not supported.
+
+### Minor Changes
+
+- [#169](https://github.com/Limatura/tessera/pull/169) [`e3f5d5b`](https://github.com/Limatura/tessera/commit/e3f5d5bd312c2fe297fb2c573cf09c7e04ecd79b) Thanks [@sao-coding](https://github.com/sao-coding)! - The admin panel has a Logs page for the server log: filter by level, time range and text, follow new lines as they arrive, and open an entry to see all of its fields. The log's retention and minimum level are set under Settings, Logs. It needs the `logs:read` permission, which the owner and admin roles have.
+
+- [#187](https://github.com/Limatura/tessera/pull/187) [`fe29379`](https://github.com/Limatura/tessera/commit/fe29379e553e76d0d4d71a4e9e70fb123322a6a6) Thanks [@sao-coding](https://github.com/sao-coding)! - Bandwidth limits. `bandwidth.upload` / `bandwidth.download` cap every transfer in that direction together, and `bandwidth.upload_per_transfer` / `bandwidth.download_per_transfer` cap each one on its own, in bytes per second (`0`, the default, is unlimited). They cover share uploads (direct, `curl -T` and resumable), share downloads and the speed test, and a change applies to transfers already running. Single-file downloads that are redirected to a signed object-store URL go straight from the store and are not limited. A per-transfer cap is per connection. The new Transfer speed settings page edits them in Mbit/s and suggests half of the last speed test result from this browser as a starting value.
+
+### Patch Changes
+
+- [#179](https://github.com/Limatura/tessera/pull/179) [`80abdac`](https://github.com/Limatura/tessera/commit/80abdac3aec7498a7f3b75fb7d48971dd578f7aa) Thanks [@sao-coding](https://github.com/sao-coding)! - An audit log: who signed in or failed to, who changed which setting, account, role, invite or API token, and what happened to shares (created, retrieved, downloaded, removed). Admins with the new `audit:read` permission (owner and admin roles) read it at `/admin/audit-log`, filtered by category, outcome, account, target and time, and can export it as CSV; the export is itself recorded. The users and all-shares pages link to the log filtered to one account or share. Entries are kept for `audit.retention_days` (180); share activity can be switched off with `audit.record_share_events`, sign-ins and admin changes cannot. Secrets, invite codes, typed sign-in names and wrong retrieval codes are never recorded, and an anonymous visitor's address is only kept while `share.access_log.enabled` is on.
+
 ## 0.3.2
 
 ### Patch Changes
