@@ -1,5 +1,11 @@
 # extension
 
+## 1.0.0
+
+### Major Changes
+
+- [#169](https://github.com/Limatura/tessera/pull/169) [`e3f5d5b`](https://github.com/Limatura/tessera/commit/e3f5d5bd312c2fe297fb2c573cf09c7e04ecd79b) Thanks [@sao-coding](https://github.com/sao-coding)! - Tessera 1.0. Anonymous and signed-in sharing, end-to-end encryption, the `tess` command-line client, the browser extension, webhooks and the admin panel are the feature set 1.0 stands for. From here on, a change that breaks the HTTP API (`openapi.json`), a configuration key or an upgrade from the previous version ships only in a new major version. Back up the database before upgrading; downgrades are not supported.
+
 ## 0.3.2
 
 No changes in this release.
