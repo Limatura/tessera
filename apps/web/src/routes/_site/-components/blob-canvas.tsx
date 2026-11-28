@@ -76,13 +76,13 @@ export function BlobCanvas({
     let width = 0;
     let height = 0;
 
-    // Match the canvas's backing resolution to its displayed size and device pixel ratio
+    // Match the canvas's backing resolution to its layout size and device pixel
+    // ratio. clientWidth/Height ignore transforms: the result overlay mounts
+    // this inside a circle at scale(0), where getBoundingClientRect reads 0.
     const resize = () => {
-      const rect = canvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const { width: rectWidth, height: rectHeight } = rect;
-      width = rectWidth;
-      height = rectHeight;
+      width = canvas.clientWidth;
+      height = canvas.clientHeight;
       canvas.width = width * dpr;
       canvas.height = height * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -102,6 +102,7 @@ export function BlobCanvas({
         specs.map((s) => [s.colorVar, style.getPropertyValue(s.colorVar)])
       );
       toColor = toColorProp ? resolveColorValue(toColorProp, style) : "";
+      fillCache.clear();
     };
     resolveColors();
 
@@ -112,6 +113,10 @@ export function BlobCanvas({
 
     // This frame's fill: the blob's own colour at 0%, shifting toward toColor
     // as progress rises, and toColor alone at 100%.
+    // Cached per (colour, ratio): assigning a new color-mix() string to
+    // fillStyle makes the browser re-parse it, which is costly on mobile when
+    // done for every blob on every frame.
+    const fillCache = new Map<string, string>();
     const fillStyleFor = (blob: RuntimeBlob) => {
       const from = fromColors.get(blob.colorVar) ?? "";
       if (!toColor) {
@@ -124,7 +129,15 @@ export function BlobCanvas({
       if (ratio >= 100) {
         return toColor;
       }
-      return `color-mix(in oklch, ${from} ${100 - ratio}%, ${toColor} ${ratio}%)`;
+      const key = `${blob.colorVar}|${ratio}`;
+      let fill = fillCache.get(key);
+      if (fill === undefined) {
+        ctx.fillStyle = `color-mix(in oklch, ${from} ${100 - ratio}%, ${toColor} ${ratio}%)`;
+        // Read back the parsed colour so later frames assign a cheap value.
+        fill = String(ctx.fillStyle);
+        fillCache.set(key, fill);
+      }
+      return fill;
     };
 
     let frame = 0;
