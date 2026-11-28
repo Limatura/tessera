@@ -4,7 +4,7 @@
 //!
 //! A transfer asks for a piece, and gets it only when the clock says that piece
 //! is due; otherwise it sleeps until then and asks again. On the way out,
-//! [`Paced`] wraps the response body, so the wait delays the next write to the
+//! `Paced` wraps the response body, so the wait delays the next write to the
 //! socket. On the way in, [`Throttle`] is awaited by the handler between
 //! reads, so the wait delays the next read and TCP's own flow control tells the
 //! sender to slow down. No bytes are buffered beyond the piece in hand either
@@ -22,7 +22,7 @@
 //! piece waits for whichever of the two is later.
 //!
 //! A pace is a single "next free moment" (GCRA), not a bucket refilled on a
-//! timer. A piece is due once that moment is no more than [`BURST`] away;
+//! timer. A piece is due once that moment is no more than `BURST` away;
 //! booking it moves the moment on by what it costs. A piece that is not due
 //! books nothing, so the moment is never far in the future: a transfer that
 //! goes away leaves at most one piece behind, and a limit that is raised or
@@ -33,7 +33,7 @@
 //!
 //! So a change from the panel reaches a transfer already under way, which is
 //! the transfer an operator is changing it for. A waiting transfer sleeps no
-//! longer than the clock is ahead, which is at most a piece plus [`BURST`].
+//! longer than the clock is ahead, which is at most a piece plus `BURST`.
 
 use std::{
     pin::Pin,
