@@ -271,13 +271,14 @@ pub async fn upload(
     // Read to the end, counting. Nothing is kept: a speed test that stored
     // anything would be an upload endpoint with no quota.
     let mut received = 0_u64;
-    let mut stream = crate::bandwidth::limit(&state, crate::bandwidth::Direction::Upload, body)
-        .into_data_stream();
+    let mut stream = body.into_data_stream();
+    let mut throttle = crate::bandwidth::Throttle::new(&state, crate::bandwidth::Direction::Upload);
     while let Some(chunk) = tokio_stream::StreamExt::next(&mut stream).await {
         let chunk = chunk.map_err(|error| {
             Error::new(ErrorCode::BodyIncomplete).with_message(error.to_string())
         })?;
         received = received.saturating_add(to_u64(chunk.len()));
+        throttle.pass(chunk.len()).await;
         if received > limit {
             // The run stays spent: a part that overran has used its allowance.
             return Err(Error::new(ErrorCode::PayloadTooLarge).with_detail("limit_bytes", limit));

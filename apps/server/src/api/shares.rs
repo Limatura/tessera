@@ -1512,7 +1512,6 @@ async fn ingest(
     // as well as `Content-Length`; a chunked body reports nothing, and that is
     // the honest answer.
     let expected_bytes = <Body as http_body::Body>::size_hint(&body).exact();
-    let body = crate::bandwidth::limit(state, crate::bandwidth::Direction::Upload, body);
     let mut upload: Option<crate::upload::segments::Writer<'_>> = None;
     // Opened here so it outlives the read loop. The caller holds it until the
     // row is written; the keys go in once the scope and backend are known.
@@ -2233,12 +2232,15 @@ async fn ingest_into<'a>(
     let mut backend_key: Option<String> = None;
 
     let stall = state.config().server.upload_stall();
+    let mut throttle = crate::bandwidth::Throttle::new(state, crate::bandwidth::Direction::Upload);
 
     while let Some(frame) = next_frame(&mut body, stall).await? {
         let Ok(chunk) = frame.into_data() else {
             // Trailers carry no content; a body that is only trailers is empty.
             continue;
         };
+        // Outside `next_frame`'s timer: our own turn is not the client's silence.
+        throttle.pass(chunk.len()).await;
         size_bytes = size_bytes.saturating_add(u64::try_from(chunk.len()).unwrap_or(u64::MAX));
         if size_bytes > limit {
             return Err(Error::new(ErrorCode::PayloadTooLarge).with_detail("limit_bytes", limit));

@@ -5,14 +5,14 @@ import { Button } from "@tessera/ui/components/button";
 import { FieldGroup } from "@tessera/ui/components/field";
 import { Input } from "@tessera/ui/components/input";
 import { Gauge, Info } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Controller } from "react-hook-form";
 import type {
   ControllerFieldState,
   ControllerRenderProps,
 } from "react-hook-form";
 
-import { readSetting } from "@/hooks/admin/use-settings";
+import { readSetting, useSettings } from "@/hooks/admin/use-settings";
 import { useSettingsForm } from "@/hooks/admin/use-settings-form";
 import type { SettingsKeyMap } from "@/hooks/admin/use-settings-form";
 import { bytesToMbps, mbpsToBytes, suggestedMbps } from "@/lib/admin/bandwidth";
@@ -79,7 +79,12 @@ function BandwidthSettingsFields({
   });
   // Read once: a test run on another tab shows up on the next visit.
   const lastTest = useMemo(() => loadLastSpeedTest(), []);
-  const limited = Object.values(defaultValues).some((value) => value > 0);
+  // From the live settings, not the mount-time defaults: saving or clearing
+  // the limits changes the notice at once.
+  const { data: settings } = useSettings();
+  const limited = Object.values(
+    settings ? initialValues(settings) : defaultValues
+  ).some((value) => value > 0);
 
   const handleApplySuggestion = (test: LastSpeedTest) => {
     const options = { shouldDirty: true, shouldValidate: true };
@@ -240,6 +245,10 @@ function MbpsField({
   description: string;
 }) {
   const { value } = field;
+  // What was typed, kept as text: "0." and "0.0" are steps towards 0.05, and
+  // turning them into numbers on every keystroke eats the point.
+  const [typed, setTyped] = useState(() => formatMbps(value));
+  const shown = parseMbps(typed) === value ? typed : formatMbps(value);
   return (
     <SettingRow
       description={description}
@@ -253,15 +262,14 @@ function MbpsField({
           aria-invalid={fieldState.invalid}
           className="pr-16 tabular-nums"
           id={id}
-          min={0}
+          inputMode="decimal"
           onChange={(event) => {
-            const next = event.target.valueAsNumber;
-            field.onChange(Number.isNaN(next) ? 0 : next);
+            setTyped(event.target.value);
+            field.onChange(parseMbps(event.target.value));
           }}
           placeholder={m.settings_bandwidth_unlimited()}
-          step="any"
-          type="number"
-          value={value === 0 ? "" : value}
+          type="text"
+          value={shown}
         />
         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-sm">
           {m.settings_bandwidth_unit()}
@@ -269,4 +277,14 @@ function MbpsField({
       </div>
     </SettingRow>
   );
+}
+
+/** Empty is unlimited; text that is not a number is NaN, which the schema refuses. */
+function parseMbps(text: string): number {
+  const trimmed = text.trim();
+  return trimmed === "" ? 0 : Number(trimmed);
+}
+
+function formatMbps(mbps: number): string {
+  return mbps === 0 ? "" : String(mbps);
 }

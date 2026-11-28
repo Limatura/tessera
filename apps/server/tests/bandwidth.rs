@@ -13,7 +13,8 @@ use axum::{
 };
 use common::{Auth, TestApp, expect_status};
 
-/// 32 KiB at 16 KiB/s: about two seconds, less the 100 ms burst.
+/// 32 KiB at 16 KiB/s: about two seconds, less the 100 ms burst and the last
+/// 4 KiB piece, which goes when it starts rather than when it ends.
 const BYTES: usize = 32 * 1024;
 const RATE: u64 = 16 * 1024;
 
@@ -74,7 +75,7 @@ async fn unlimited_is_the_default() {
 async fn the_server_wide_download_cap_slows_a_download() {
     let app = speed_test_with(|config| config.bandwidth.download = RATE).await;
     let took = timed_download(&app).await;
-    assert!(took >= Duration::from_millis(1700), "took {took:?}");
+    assert!(took >= Duration::from_millis(1500), "took {took:?}");
     // The other direction is not touched.
     assert!(timed_upload(&app).await < Duration::from_secs(1));
 }
@@ -83,6 +84,6 @@ async fn the_server_wide_download_cap_slows_a_download() {
 async fn the_per_transfer_upload_cap_slows_an_upload() {
     let app = speed_test_with(|config| config.bandwidth.upload_per_transfer = RATE).await;
     let took = timed_upload(&app).await;
-    assert!(took >= Duration::from_millis(1700), "took {took:?}");
+    assert!(took >= Duration::from_millis(1500), "took {took:?}");
     assert!(timed_download(&app).await < Duration::from_secs(1));
 }

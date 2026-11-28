@@ -229,9 +229,11 @@ All four are **bytes per second**, like every other size here; `0` (the default)
 - `upload_per_transfer: u64`: each upload on its own
 - `download_per_transfer: u64`: each download on its own
 
-The server-wide caps are shared by everything moving in that direction at once; the per-transfer caps keep one large file from taking all of it. When both are set, a transfer goes no faster than either. They cover share uploads (direct, `curl -T` and resumable), share downloads (single files, archives and text) and the speed test. Signed-in and anonymous callers get the same limits.
+The server-wide caps are shared by everything moving in that direction at once; the per-transfer caps keep one large file from taking all of it. "Transfer" means one **connection**, one HTTP request: a download manager that opens 16 connections to one file gets 16 times `download_per_transfer`, so set the server-wide cap too if that matters. When both are set, a transfer goes no faster than either. They cover share uploads (direct, `curl -T` and resumable), share downloads (single files, archives and text) and the speed test. Signed-in and anonymous callers get the same limits.
 
-Read per chunk, so a change from the panel slows down (or frees up) transfers already running.
+**Downloads that never pass through the server are not limited.** On a store that can sign links (S3-style), a single-file share can send the browser to a presigned object-store URL and the bytes come straight from the store, so `bandwidth.download` and `download_per_transfer` do not apply to them. Archives, text, split files and anything served by this server are limited.
+
+Read per chunk, so a change from the panel slows down (or frees up) transfers already running. A transfer waiting its turn asks again within about a second, so a raised or cleared limit is felt by everyone queued behind it at that point. Time spent waiting for a turn does not count towards `server.upload_stall_secs`, and `PATCH /uploads/{id}` is not held to `server.request_timeout_secs` either: a chunk takes as long as the cap makes it.
 
 The panel enters these in Mbit/s and can suggest half of a speed test result as a starting value. Note that the speed test is limited too, so run it with the limits cleared to measure the line.
 

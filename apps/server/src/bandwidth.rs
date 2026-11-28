@@ -2,12 +2,18 @@
 //!
 //! # How a body is slowed down
 //!
-//! [`Paced`] wraps a body and, before handing on each piece, books the time
-//! that piece costs at the configured rate. When the booking lands in the
-//! future it waits until then. On the way out that delays the next write to the
-//! socket; on the way in it delays the next read, and TCP's own flow control
-//! tells the sender to slow down. No bytes are buffered beyond the piece in
-//! hand either way.
+//! A transfer asks for a piece, and gets it only when the clock says that piece
+//! is due; otherwise it sleeps until then and asks again. On the way out,
+//! [`Paced`] wraps the response body, so the wait delays the next write to the
+//! socket. On the way in, [`Throttle`] is awaited by the handler between
+//! reads, so the wait delays the next read and TCP's own flow control tells the
+//! sender to slow down. No bytes are buffered beyond the piece in hand either
+//! way.
+//!
+//! Uploads use [`Throttle`] rather than a wrapped body so the wait happens
+//! outside `server.upload_stall_secs`. That timer asks whether the client is
+//! still sending; time spent waiting for our own turn is not the client's
+//! silence, and under a low shared cap with many uploads it can be long.
 //!
 //! # Two clocks
 //!
@@ -15,16 +21,19 @@
 //! server-wide cap, and each body has its own, for the per-transfer cap. A
 //! piece waits for whichever of the two is later.
 //!
-//! A pace is a single "next free moment" (virtual scheduling, as in GCRA), not
-//! a bucket refilled on a timer: booking a piece moves the moment on by what it
-//! costs, and a transfer that comes back from idle may run ahead of it by at
-//! most [`BURST`]. One lock taken briefly per piece, and nothing running in the
-//! background.
+//! A pace is a single "next free moment" (GCRA), not a bucket refilled on a
+//! timer. A piece is due once that moment is no more than [`BURST`] away;
+//! booking it moves the moment on by what it costs. A piece that is not due
+//! books nothing, so the moment is never far in the future: a transfer that
+//! goes away leaves at most one piece behind, and a limit that is raised or
+//! cleared is felt by every waiting transfer as soon as it asks again. One
+//! lock taken briefly per piece, and nothing running in the background.
 //!
 //! # Why the rate is read per piece
 //!
 //! So a change from the panel reaches a transfer already under way, which is
-//! the transfer an operator is changing it for.
+//! the transfer an operator is changing it for. A waiting transfer sleeps no
+//! longer than the clock is ahead, which is at most a piece plus [`BURST`].
 
 use std::{
     pin::Pin,
@@ -70,19 +79,26 @@ impl Default for Pace {
 }
 
 impl Pace {
-    /// Books `bytes` at `rate` bytes per second and says when they may go.
+    /// Books `bytes` at `rate` bytes per second if they are due.
     ///
     /// A rate of zero is unlimited and books nothing.
-    pub fn reserve(&self, bytes: usize, rate: u64, now: Instant) -> Instant {
+    ///
+    /// # Errors
+    ///
+    /// Returns when to ask again if they are not due yet.
+    pub fn try_book(&self, bytes: usize, rate: u64, now: Instant) -> Result<(), Instant> {
         if rate == 0 || bytes == 0 {
-            return now;
+            return Ok(());
         }
-        let cost = cost_of(bytes, rate);
         let mut next = self.next.lock();
         let start = next.map_or(now, |at| at.max(now));
-        let booked = start + cost;
-        *next = Some(booked);
-        booked.checked_sub(BURST).map_or(now, |at| at.max(now))
+        if let Some(wait) = start.checked_duration_since(now)
+            && wait > BURST
+        {
+            return Err(start - BURST);
+        }
+        *next = Some(start + cost_of(bytes, rate));
+        Ok(())
     }
 }
 
@@ -134,56 +150,110 @@ fn piece_size(shared: u64, own: u64) -> usize {
         .clamp(1024, MAX_PIECE)
 }
 
-/// Slows `body` to the limits for `direction`.
+/// One transfer's place in the queue: its own clock, and the shared one.
+struct Gate {
+    state: AppState,
+    direction: Direction,
+    /// The per-transfer clock.
+    own: Pace,
+    /// The per-transfer clock is booked for the piece being waited on, so it is
+    /// not booked a second time when the shared one makes the piece wait.
+    own_booked: bool,
+}
+
+impl Gate {
+    fn new(state: &AppState, direction: Direction) -> Self {
+        Self {
+            state: state.clone(),
+            direction,
+            own: Pace::default(),
+            own_booked: false,
+        }
+    }
+
+    /// How much to ask for at once, from the rates in force now.
+    fn piece(&self, available: usize) -> usize {
+        let (shared, own) = rates(&self.state, self.direction);
+        piece_size(shared, own).min(available)
+    }
+
+    /// `None` when `len` bytes may go now; otherwise when to ask again.
+    ///
+    /// The rates are read on every ask, so a change applies to a transfer that
+    /// is already waiting.
+    fn ask(&mut self, len: usize, now: Instant) -> Option<Instant> {
+        let (shared, own) = rates(&self.state, self.direction);
+        if !self.own_booked {
+            if let Err(at) = self.own.try_book(len, own, now) {
+                return Some(at);
+            }
+            self.own_booked = true;
+        }
+        if let Err(at) = self
+            .state
+            .bandwidth
+            .pace(self.direction)
+            .try_book(len, shared, now)
+        {
+            return Some(at);
+        }
+        self.own_booked = false;
+        None
+    }
+}
+
+/// Holds an upload to its limits, between reads.
+///
+/// Await [`Throttle::pass`] with the size of each piece read, outside any
+/// stall timer, before reading the next.
+pub struct Throttle(Gate);
+
+impl std::fmt::Debug for Throttle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Throttle").finish_non_exhaustive()
+    }
+}
+
+impl Throttle {
+    /// A fresh per-transfer clock, with the shared one for `direction`.
+    #[must_use]
+    pub fn new(state: &AppState, direction: Direction) -> Self {
+        Self(Gate::new(state, direction))
+    }
+
+    /// Returns once `bytes` more may go.
+    pub async fn pass(&mut self, mut bytes: usize) {
+        while bytes > 0 {
+            let piece = self.0.piece(bytes);
+            while let Some(at) = self.0.ask(piece, Instant::now()) {
+                tokio::time::sleep_until(at).await;
+            }
+            bytes -= piece;
+        }
+    }
+}
+
+/// Slows `body` to the limits for `direction`, for a response.
 ///
 /// Always wraps, even with no limit set, so a limit set while the transfer is
 /// running still reaches it. Unlimited costs a config read per frame.
 pub fn limit(state: &AppState, direction: Direction, body: Body) -> Body {
     Body::new(Paced {
         inner: body,
-        state: state.clone(),
-        direction,
-        own: Pace::default(),
+        gate: Gate::new(state, direction),
         rest: Bytes::new(),
-        held: None,
+        sleep: None,
     })
 }
 
 /// A body handed on no faster than its limits.
 struct Paced {
     inner: Body,
-    state: AppState,
-    direction: Direction,
-    /// The per-transfer clock.
-    own: Pace,
-    /// What is left of the last frame, not yet booked.
+    gate: Gate,
+    /// What is left of the last frame, not yet handed on.
     rest: Bytes,
-    /// A booked piece, and the wait before it may go.
-    held: Option<(Bytes, Pin<Box<Sleep>>)>,
-}
-
-impl Paced {
-    /// Takes the next piece of `rest` and books it. Returns it if it may go now.
-    fn book(&mut self) -> Option<Bytes> {
-        let (shared, own) = rates(&self.state, self.direction);
-        let size = piece_size(shared, own).min(self.rest.len());
-        let piece = self.rest.split_to(size);
-        if shared == 0 && own == 0 {
-            return Some(piece);
-        }
-        let now = Instant::now();
-        let at = self
-            .state
-            .bandwidth
-            .pace(self.direction)
-            .reserve(piece.len(), shared, now)
-            .max(self.own.reserve(piece.len(), own, now));
-        if at <= now {
-            return Some(piece);
-        }
-        self.held = Some((piece, Box::pin(tokio::time::sleep_until(at))));
-        None
-    }
+    /// The wait before the next piece is asked for again.
+    sleep: Option<Pin<Box<Sleep>>>,
 }
 
 impl HttpBody for Paced {
@@ -196,19 +266,24 @@ impl HttpBody for Paced {
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         let me = &mut *self;
         loop {
-            if let Some((_, sleep)) = &mut me.held {
+            if let Some(sleep) = &mut me.sleep {
                 if sleep.as_mut().poll(cx).is_pending() {
                     return Poll::Pending;
                 }
-                if let Some((piece, _)) = me.held.take() {
-                    return Poll::Ready(Some(Ok(Frame::data(piece))));
-                }
+                me.sleep = None;
             }
             if !me.rest.is_empty() {
-                if let Some(piece) = me.book() {
-                    return Poll::Ready(Some(Ok(Frame::data(piece))));
+                let piece = me.gate.piece(me.rest.len());
+                match me.gate.ask(piece, Instant::now()) {
+                    None => {
+                        let piece = me.rest.split_to(piece);
+                        return Poll::Ready(Some(Ok(Frame::data(piece))));
+                    }
+                    Some(at) => {
+                        me.sleep = Some(Box::pin(tokio::time::sleep_until(at)));
+                        continue;
+                    }
                 }
-                continue;
             }
             match Pin::new(&mut me.inner).poll_frame(cx) {
                 Poll::Ready(Some(Ok(frame))) => match frame.into_data() {
@@ -224,12 +299,11 @@ impl HttpBody for Paced {
     }
 
     fn is_end_stream(&self) -> bool {
-        self.held.is_none() && self.rest.is_empty() && self.inner.is_end_stream()
+        self.rest.is_empty() && self.inner.is_end_stream()
     }
 
     fn size_hint(&self) -> http_body::SizeHint {
-        let pending = self.rest.len() + self.held.as_ref().map_or(0, |(piece, _)| piece.len());
-        let pending = u64::try_from(pending).unwrap_or(u64::MAX);
+        let pending = u64::try_from(self.rest.len()).unwrap_or(u64::MAX);
         let inner = self.inner.size_hint();
         let mut hint = http_body::SizeHint::new();
         hint.set_lower(inner.lower().saturating_add(pending));
@@ -248,24 +322,40 @@ mod tests {
     fn unlimited_books_nothing() {
         let pace = Pace::default();
         let now = Instant::now();
-        assert_eq!(pace.reserve(1 << 20, 0, now), now);
-        assert_eq!(pace.reserve(1 << 20, 0, now), now);
+        assert_eq!(pace.try_book(1 << 20, 0, now), Ok(()));
+        assert_eq!(pace.try_book(1 << 20, 0, now), Ok(()));
     }
 
     #[test]
     fn a_rate_spaces_pieces_out_after_the_burst() {
         let pace = Pace::default();
         let now = Instant::now();
-        // 1000 B/s: 100 bytes cost 100 ms, which the burst covers.
-        assert_eq!(pace.reserve(100, 1000, now), now);
-        // The next 100 are booked at 200 ms, minus the burst.
+        // 1000 B/s: each 100 bytes cost 100 ms. The first two are due at once,
+        // the second because it starts within the burst of now.
+        assert_eq!(pace.try_book(100, 1000, now), Ok(()));
+        assert_eq!(pace.try_book(100, 1000, now), Ok(()));
+        // The third would start at 200 ms: due when 100 ms have passed.
+        let due = now + Duration::from_millis(100);
+        assert_eq!(pace.try_book(100, 1000, now), Err(due));
+        assert_eq!(pace.try_book(100, 1000, due), Ok(()));
+    }
+
+    #[test]
+    fn a_piece_that_is_not_due_books_nothing() {
+        let pace = Pace::default();
+        let now = Instant::now();
+        pace.try_book(1000, 1000, now).unwrap();
+        // A hundred waiting transfers leave the clock where it was, so a rate
+        // raised now is felt by all of them when they ask again.
+        for _ in 0..100 {
+            assert!(pace.try_book(1000, 1000, now).is_err());
+        }
+        let later = now + Duration::from_millis(900);
+        assert_eq!(pace.try_book(1000, 1000, later), Ok(()));
+        // 1 second booked, then one more: the clock is 2 s from the start.
         assert_eq!(
-            pace.reserve(100, 1000, now),
-            now + Duration::from_millis(100)
-        );
-        assert_eq!(
-            pace.reserve(1000, 1000, now),
-            now + Duration::from_millis(1100)
+            pace.try_book(1000, 1000, later),
+            Err(now + Duration::from_millis(1900))
         );
     }
 
@@ -273,12 +363,14 @@ mod tests {
     fn idle_time_is_not_saved_up() {
         let pace = Pace::default();
         let start = Instant::now();
-        pace.reserve(1000, 1000, start);
-        // Ten seconds idle, then a second's worth: only the burst is free.
+        pace.try_book(1000, 1000, start).unwrap();
+        // Ten seconds idle, then two seconds' worth: only the burst is free.
         let later = start + Duration::from_secs(10);
+        pace.try_book(1000, 1000, later).unwrap();
+        pace.try_book(1000, 1000, later).unwrap_err();
         assert_eq!(
-            pace.reserve(1000, 1000, later),
-            later + Duration::from_millis(900)
+            pace.try_book(1000, 1000, later),
+            Err(later + Duration::from_millis(900))
         );
     }
 

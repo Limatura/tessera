@@ -12,8 +12,13 @@ export const MIN_BANDWIDTH_BYTES = 1024;
 /** The share of a measured speed suggested as a limit. */
 export const SUGGESTED_SHARE = 0.5;
 
+/**
+ * Six decimals is 0.125 B/s, finer than a whole byte, so a value set in config
+ * comes back from `mbpsToBytes` as the same number of bytes and saving does not
+ * change it.
+ */
 export function bytesToMbps(bytes: number): number {
-  return Math.round((bytes / BYTES_PER_MBIT) * 100) / 100;
+  return Math.round((bytes / BYTES_PER_MBIT) * 1_000_000) / 1_000_000;
 }
 
 export function mbpsToBytes(mbps: number): number {
