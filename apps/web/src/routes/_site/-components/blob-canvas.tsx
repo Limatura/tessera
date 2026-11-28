@@ -94,6 +94,11 @@ export function BlobCanvas({
 
     // Re-read each blob's CSS colour variable when the theme switches (the html
     // class changes), so colours follow the theme without remounting.
+    // Declared before resolveColors, which clears it on its first call.
+    // Cached per (colour, ratio): assigning a new color-mix() string to
+    // fillStyle makes the browser re-parse it, which is costly on mobile when
+    // done for every blob on every frame.
+    const fillCache = new Map<string, string>();
     let fromColors = new Map<string, string>();
     let toColor = "";
     const resolveColors = () => {
@@ -113,10 +118,6 @@ export function BlobCanvas({
 
     // This frame's fill: the blob's own colour at 0%, shifting toward toColor
     // as progress rises, and toColor alone at 100%.
-    // Cached per (colour, ratio): assigning a new color-mix() string to
-    // fillStyle makes the browser re-parse it, which is costly on mobile when
-    // done for every blob on every frame.
-    const fillCache = new Map<string, string>();
     const fillStyleFor = (blob: RuntimeBlob) => {
       const from = fromColors.get(blob.colorVar) ?? "";
       if (!toColor) {

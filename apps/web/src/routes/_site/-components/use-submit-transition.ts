@@ -96,7 +96,6 @@ export function useSubmitTransition() {
     const remeasure = () => {
       const el = originElRef.current;
       if (el?.isConnected) {
-        originElRef.current = el;
         setOrigin(getExpandOrigin(el));
       }
     };
