@@ -12,7 +12,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@tessera/ui/components/tabs";
-import type { FileEntry } from "@tessera/upload";
+import type { FileEntry, UploadResultData } from "@tessera/upload";
 import { AnimatePresence, motion } from "motion/react";
 import { Suspense, lazy, useRef, useState } from "react";
 
@@ -44,6 +44,7 @@ import {
   EXPAND_TRANSITION,
   useSubmitTransition,
 } from "./use-submit-transition";
+import type { Origin } from "./use-submit-transition";
 
 // The code tab carries CodeMirror (~200KB gzip), but the home page opens on
 // "files" and most people never switch, so it is a separate chunk fetched on
@@ -261,47 +262,18 @@ export function UploadPanel({ shared, onSharedDone }: UploadPanelProps) {
         <RecentShares />
       </div>
 
-      <AnimatePresence>
-        {origin && (
-          <motion.div
-            animate={{
-              clipPath: expanded
-                ? `circle(${origin.radius}px at ${origin.x}px ${origin.y}px)`
-                : `circle(0px at ${origin.x}px ${origin.y}px)`,
-            }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-melt text-melt-foreground"
-            // Promote this to its own layer up front instead of when the animation starts
-            // (promotion itself drops a frame)
-            style={{ willChange: "clip-path" }}
-            exit={{
-              clipPath: `circle(0px at ${origin.x}px ${origin.y}px)`,
-            }}
-            initial={{
-              clipPath: `circle(0px at ${origin.x}px ${origin.y}px)`,
-            }}
-            onAnimationComplete={collapsed}
-            transition={expanded ? EXPAND_TRANSITION : COLLAPSE_TRANSITION}
-          >
-            <BlobBackground
-              className="pointer-events-none absolute inset-0 overflow-hidden"
-              vignette={false}
-            />
-            {result && (
-              <UploadResult
-                onReset={() => {
-                  if (shared?.kind === "file") {
-                    onSharedDone?.();
-                  }
-                  reset();
-                }}
-                origin={origin}
-                result={result}
-                visible={expanded}
-              />
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ResultOverlay
+        collapsed={collapsed}
+        expanded={expanded}
+        onReset={() => {
+          if (shared?.kind === "file") {
+            onSharedDone?.();
+          }
+          reset();
+        }}
+        origin={origin}
+        result={result}
+      />
     </>
   );
 }
@@ -319,5 +291,87 @@ function CodeUploadFormSkeleton() {
         <Skeleton className="h-9 w-32" />
       </div>
     </div>
+  );
+}
+
+interface ResultOverlayProps {
+  origin: Origin | null;
+  expanded: boolean;
+  result: UploadResultData | null;
+  collapsed: () => void;
+  onReset: () => void;
+}
+
+/** The circular reveal that covers the page with the upload result. */
+function ResultOverlay({
+  origin,
+  expanded,
+  result,
+  collapsed,
+  onReset,
+}: ResultOverlayProps) {
+  return (
+    <AnimatePresence>
+      {origin && (
+        // The overlay is two layers so the expensive part never repaints:
+        // the colour and its animated canvas sit on a circle grown with
+        // `transform: scale`, which the compositor animates without
+        // repainting, unlike an animated clip-path over a full-screen,
+        // constantly redrawing canvas (that dropped frames on phones). Only
+        // the static result content keeps a clip-path, so it still appears
+        // under the circle's edge rather than over the page.
+        <div className="pointer-events-none fixed inset-0 z-50">
+          <motion.div
+            animate={{ scale: expanded ? 1 : 0 }}
+            className="absolute overflow-hidden rounded-full bg-melt"
+            exit={{ scale: 0 }}
+            initial={{ scale: 0 }}
+            onAnimationComplete={collapsed}
+            style={{
+              height: origin.radius * 2,
+              left: origin.x - origin.radius,
+              top: origin.y - origin.radius,
+              width: origin.radius * 2,
+              willChange: "transform",
+            }}
+            transition={expanded ? EXPAND_TRANSITION : COLLAPSE_TRANSITION}
+          >
+            {/* Counter-offset so the canvas covers the viewport, not the circle's box */}
+            <BlobBackground
+              className="pointer-events-none absolute h-dvh w-dvw overflow-hidden"
+              style={{
+                left: origin.radius - origin.x,
+                top: origin.radius - origin.y,
+              }}
+              vignette={false}
+            />
+          </motion.div>
+          <motion.div
+            animate={{
+              clipPath: expanded
+                ? `circle(${origin.radius}px at ${origin.x}px ${origin.y}px)`
+                : `circle(0px at ${origin.x}px ${origin.y}px)`,
+            }}
+            className="pointer-events-auto absolute inset-0 flex items-center justify-center text-melt-foreground"
+            exit={{
+              clipPath: `circle(0px at ${origin.x}px ${origin.y}px)`,
+            }}
+            initial={{
+              clipPath: `circle(0px at ${origin.x}px ${origin.y}px)`,
+            }}
+            transition={expanded ? EXPAND_TRANSITION : COLLAPSE_TRANSITION}
+          >
+            {result && (
+              <UploadResult
+                onReset={onReset}
+                origin={origin}
+                result={result}
+                visible={expanded}
+              />
+            )}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }

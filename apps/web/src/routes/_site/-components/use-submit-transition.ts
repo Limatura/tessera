@@ -1,6 +1,6 @@
 import { toast } from "@tessera/ui/components/toast";
 import type { UploadResultData } from "@tessera/upload";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
@@ -82,6 +82,26 @@ export function useSubmitTransition() {
   // Set by reset: onAnimationComplete also fires when the overlay mounts at
   // circle(0) during upload and after the expand, and neither may clear state.
   const collapsingRef = useRef(false);
+  // The button the circle grows from, kept so a resize can re-measure it.
+  const originElRef = useRef<HTMLElement | null>(null);
+  const hasOrigin = origin !== null;
+
+  // The radius only covers the viewport it was measured in: widening the
+  // window (rotating a phone, resizing a desktop) mid-reveal would leave the
+  // page showing past the circle's edge, so re-measure while it is up.
+  useEffect(() => {
+    if (!hasOrigin) {
+      return;
+    }
+    const remeasure = () => {
+      const el = originElRef.current;
+      if (el?.isConnected) {
+        setOrigin(getExpandOrigin(el));
+      }
+    };
+    window.addEventListener("resize", remeasure);
+    return () => window.removeEventListener("resize", remeasure);
+  }, [hasOrigin]);
 
   // Takes the clicked button (where the circle starts) and the upload function.
   // Ignored while a submit is already in flight (status !== "idle").
@@ -92,12 +112,15 @@ export function useSubmitTransition() {
     if (status !== "idle" || !el) {
       return;
     }
+    originElRef.current = el;
     setOrigin(getExpandOrigin(el));
     setStatus("uploading");
     setProgress(0);
 
     try {
-      const data = await run(setProgress);
+      // XHR progress fires dozens of times a second with fractional values;
+      // only whole-percent changes re-render the panel.
+      const data = await run((percent) => setProgress(Math.floor(percent)));
       setResult(data);
       setStatus("done");
       setTimeout(() => setExpanded(true), 250);

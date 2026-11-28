@@ -36,12 +36,14 @@ const AMBIENT_SPECS: BlobSpec[] = [
 
 interface BlobBackgroundProps {
   className?: string;
+  style?: React.CSSProperties;
   /** Fades the edges toward `--color-background`. Disable when embedded in a panel with its own solid background. */
   vignette?: boolean;
 }
 
 export function BlobBackground({
   className,
+  style,
   vignette = true,
 }: BlobBackgroundProps) {
   return (
@@ -51,6 +53,7 @@ export function BlobBackground({
         className ??
         "pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-background"
       }
+      style={style}
     >
       <BlobCanvas className="h-full w-full" specs={AMBIENT_SPECS} />
       {vignette && (
