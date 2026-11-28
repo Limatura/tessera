@@ -19,6 +19,7 @@ import {
   windowedMbps,
 } from "@/lib/speed-test";
 import type { RateSample, TransferProgress } from "@/lib/speed-test";
+import { saveLastSpeedTest } from "@/lib/speed-test-last";
 import * as m from "@/paraglide/messages";
 
 import { SpeedGauge } from "./speed-gauge";
@@ -52,7 +53,16 @@ const SMOOTHING = 0.15;
 const SETTLE_MS = 1200;
 
 /** Runs one speed test and shows it live; the site page and the admin page both host it. */
-export function SpeedTestRunner() {
+export function SpeedTestRunner({
+  remember = true,
+}: {
+  /**
+   * Whether to keep the result for the bandwidth settings to suggest from. Off
+   * while limits are set, since a test the server held back would suggest half
+   * of the limit, and again half of that on the next run.
+   */
+  remember?: boolean;
+}) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [results, setResults] = useState<Results>({});
   const [live, setLive] = useState<TransferProgress | null>(null);
@@ -193,6 +203,13 @@ export function SpeedTestRunner() {
         trackProgress
       );
       setResults((prev) => ({ ...prev, uploadMbps: upload.mbps }));
+      if (remember) {
+        saveLastSpeedTest({
+          at: Date.now(),
+          downloadMbps: download.mbps,
+          uploadMbps: upload.mbps,
+        });
+      }
       await settleOn(upload.mbps, abort.signal);
       setPhase("done");
     } catch (error) {

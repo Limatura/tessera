@@ -466,8 +466,11 @@ pub async fn append(
     let mut offset = upload.offset_bytes;
     let mut taken = state.uploads.parts_of(upload.id).await?.len();
     let mut body = body;
+    let mut throttle = crate::bandwidth::Throttle::new(&state, crate::bandwidth::Direction::Upload);
 
     while let Some(chunk) = crate::api::shares::next_chunk(&mut body, stall).await? {
+        // Outside the stall timer: our own turn is not the client's silence.
+        throttle.pass(chunk.len()).await;
         if offset
             .saturating_add(u64::try_from(pending.len()).unwrap_or(u64::MAX))
             .saturating_add(u64::try_from(chunk.len()).unwrap_or(u64::MAX))

@@ -63,6 +63,13 @@ fn carries_an_upload(method: &Method, path: &str) -> bool {
             .strip_prefix('/')
             .is_some_and(|rest| !rest.contains('/'));
     }
+    // The resumable upload's chunks: `PATCH /uploads/{id}`. It answers after
+    // reading the whole chunk, and has its own stall timer.
+    if method == Method::PATCH {
+        return path
+            .strip_prefix("/api/v1/uploads/")
+            .is_some_and(|id| !id.is_empty() && !id.contains('/'));
+    }
     if method != Method::POST {
         return false;
     }
@@ -111,10 +118,21 @@ mod tests {
         }
     }
 
+    /// A chunk of a resumable upload takes as long as the line does; under a
+    /// per-transfer cap a 64 MiB chunk outlasts the request budget every time.
+    #[test]
+    fn a_resumable_chunk_is_an_upload() {
+        assert!(carries_an_upload(&Method::PATCH, "/api/v1/uploads/abc123"));
+        assert!(!carries_an_upload(&Method::PATCH, "/api/v1/uploads/abc/x"));
+        assert!(!carries_an_upload(&Method::PATCH, "/api/v1/uploads/"));
+        assert!(!carries_an_upload(&Method::PATCH, "/api/v1/admin/settings"));
+        assert!(!carries_an_upload(&Method::HEAD, "/api/v1/uploads/abc123"));
+    }
+
     /// Listing shares is not uploading one, whatever the path says.
     #[test]
     fn only_post_is_an_upload() {
-        for method in [Method::GET, Method::DELETE, Method::PATCH, Method::HEAD] {
+        for method in [Method::GET, Method::DELETE, Method::HEAD] {
             assert!(!carries_an_upload(&method, "/api/v1/shares"), "{method}");
         }
     }

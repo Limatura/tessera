@@ -118,6 +118,9 @@ pub struct Config {
     /// Measuring the line to this instance. See [`SpeedConfig`].
     #[serde(default)]
     pub speed: SpeedConfig,
+    /// How fast transfers may go. See [`BandwidthConfig`].
+    #[serde(default)]
+    pub bandwidth: BandwidthConfig,
     /// The copy of the log kept on disk for the panel. See [`LogsConfig`].
     #[serde(default)]
     pub logs: LogsConfig,
@@ -329,6 +332,63 @@ impl SpeedConfig {
                 field: "speed.max_bytes",
                 reason: "must be at least one byte".to_owned(),
             });
+        }
+        Ok(())
+    }
+}
+
+/// How fast files may move through this instance, in bytes per second.
+///
+/// Zero, the default, is unlimited. The server-wide caps are shared by every
+/// transfer in that direction at once; the per-transfer caps apply to each one
+/// on its own, so one large file cannot take the whole server-wide budget. Both
+/// apply when both are set.
+///
+/// Bytes and not bits, like every other size in this file. The panel converts
+/// for an operator who thinks in the megabits a speed test reports.
+///
+/// Covers share uploads (resumable ones included), share downloads and the
+/// speed test. Read per chunk, so a change applies to transfers already under
+/// way.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct BandwidthConfig {
+    /// Every upload together. `0` is unlimited.
+    pub upload: u64,
+    /// Every download together. `0` is unlimited.
+    pub download: u64,
+    /// Each upload on its own. `0` is unlimited.
+    pub upload_per_transfer: u64,
+    /// Each download on its own. `0` is unlimited.
+    pub download_per_transfer: u64,
+}
+
+impl BandwidthConfig {
+    /// The slowest limit accepted, 1 KiB/s.
+    ///
+    /// Below it, a single chunk takes long enough to look like a stalled upload
+    /// and be cut off by `server.upload_stall_secs`.
+    pub const MIN_BYTES_PER_SEC: u64 = 1024;
+
+    fn validate(self) -> Result<(), ConfigError> {
+        for (field, value) in [
+            ("bandwidth.upload", self.upload),
+            ("bandwidth.download", self.download),
+            ("bandwidth.upload_per_transfer", self.upload_per_transfer),
+            (
+                "bandwidth.download_per_transfer",
+                self.download_per_transfer,
+            ),
+        ] {
+            if value != 0 && value < Self::MIN_BYTES_PER_SEC {
+                return Err(ConfigError::Invalid {
+                    field,
+                    reason: format!(
+                        "must be 0 (unlimited) or at least {} bytes per second",
+                        Self::MIN_BYTES_PER_SEC
+                    ),
+                });
+            }
         }
         Ok(())
     }
@@ -2289,6 +2349,7 @@ impl Config {
         self.scan.validate()?;
         self.site.validate()?;
         self.speed.validate()?;
+        self.bandwidth.validate()?;
         self.logs.validate()?;
         self.audit.validate()?;
         self.mail.validate()
@@ -2666,6 +2727,16 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+
+    #[test]
+    fn a_bandwidth_limit_is_unlimited_or_at_least_a_kib_per_second() {
+        let mut config = Config::default();
+        assert!(config.validate().is_ok());
+        config.bandwidth.download_per_transfer = 1023;
+        assert!(config.validate().is_err());
+        config.bandwidth.download_per_transfer = 1024;
+        assert!(config.validate().is_ok());
+    }
 
     /// Almost no caller asks for a lifetime, so the default is what almost
     /// every share gets. It must not be the ceiling.
